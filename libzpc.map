@@ -1,0 +1,60 @@
+ZPC_1.0 {
+global:
+	zpc_error_string;
+
+	zpc_aes_key_alloc;
+	zpc_aes_key_set_size;
+	zpc_aes_key_set_type;
+	zpc_aes_key_set_flags;
+	zpc_aes_key_set_mkvp;
+	zpc_aes_key_set_apqns;
+	zpc_aes_key_import_clear;
+	zpc_aes_key_import;
+	zpc_aes_key_export;
+	zpc_aes_key_generate;
+	zpc_aes_key_reencipher;
+	zpc_aes_key_free;
+
+	zpc_aes_ecb_alloc;
+	zpc_aes_ecb_set_key;
+	zpc_aes_ecb_encrypt;
+	zpc_aes_ecb_decrypt;
+	zpc_aes_ecb_free;
+
+	zpc_aes_cbc_alloc;
+	zpc_aes_cbc_set_key;
+	zpc_aes_cbc_set_iv;
+	zpc_aes_cbc_encrypt;
+	zpc_aes_cbc_decrypt;
+	zpc_aes_cbc_free;
+
+	zpc_aes_xts_alloc;
+	zpc_aes_xts_set_key;
+	zpc_aes_xts_set_iv;
+	zpc_aes_xts_encrypt;
+	zpc_aes_xts_decrypt;
+	zpc_aes_xts_free;
+
+	zpc_aes_cmac_alloc;
+	zpc_aes_cmac_set_key;
+	zpc_aes_cmac_sign;
+	zpc_aes_cmac_verify;
+	zpc_aes_cmac_free;
+
+	zpc_aes_ccm_alloc;
+	zpc_aes_ccm_set_key;
+	zpc_aes_ccm_set_iv;
+	zpc_aes_ccm_encrypt;
+	zpc_aes_ccm_decrypt;
+	zpc_aes_ccm_free;
+
+	zpc_aes_gcm_alloc;
+	zpc_aes_gcm_set_key;
+	zpc_aes_gcm_set_iv;
+	zpc_aes_gcm_encrypt;
+	zpc_aes_gcm_decrypt;
+	zpc_aes_gcm_free;
+
+local:
+	*;
+};
