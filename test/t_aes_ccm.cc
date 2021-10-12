@@ -709,18 +709,18 @@ static void __run_json(const char *json)
 	b = json_object_object_get_ex(jfile, "testGroups", &jtestgroups);
 	ASSERT_TRUE(b);
 
-	for (i = 0; i < json_object_array_length(jtestgroups); i++) {
+	for (i = 0; i < (size_t)json_object_array_length(jtestgroups); i++) {
 		jtmp = json_object_array_get_idx(jtestgroups, i);
 		ASSERT_NE(jtmp, nullptr);
 
-		jkeysize = json_object_object_get(jtmp, "keySize");
-		ASSERT_NE(jkeysize, nullptr);
-		jivsize = json_object_object_get(jtmp, "ivSize");
-		ASSERT_NE(jivsize, nullptr);
-		jtagsize = json_object_object_get(jtmp, "tagSize");
-		ASSERT_NE(jtagsize, nullptr);
-		jtests = json_object_object_get(jtmp, "tests");
-		ASSERT_NE(jtests, nullptr);
+		b = json_object_object_get_ex(jtmp, "keySize", &jkeysize);
+		ASSERT_TRUE(b);
+		b = json_object_object_get_ex(jtmp, "ivSize", &jivsize);
+		ASSERT_TRUE(b);
+		b = json_object_object_get_ex(jtmp, "tagSize", &jtagsize);
+		ASSERT_TRUE(b);
+		b = json_object_object_get_ex(jtmp, "tests", &jtests);
+		ASSERT_TRUE(b);
 
 		keysize = json_object_get_int(jkeysize);
 		ivsize = json_object_get_int(jivsize);
@@ -729,26 +729,26 @@ static void __run_json(const char *json)
 		rc = zpc_aes_key_set_size(aes_key, keysize);
 		EXPECT_EQ(rc, 0);
 
-		for (j = 0; j < json_object_array_length(jtests); j++) {
+		for (j = 0; j < (size_t)json_object_array_length(jtests); j++) {
 			jtmp = json_object_array_get_idx(jtests, j);
 			ASSERT_NE(jtmp, nullptr);
 
-			jkey = json_object_object_get(jtmp, "key");
-			ASSERT_NE(jkey, nullptr);
-			jiv = json_object_object_get(jtmp, "iv");
-			ASSERT_NE(jiv, nullptr);
-			jtag = json_object_object_get(jtmp, "tag");
-			ASSERT_NE(jtag, nullptr);
-			jaad = json_object_object_get(jtmp, "aad");
-			ASSERT_NE(jaad, nullptr);
-			jmsg = json_object_object_get(jtmp, "msg");
-			ASSERT_NE(jmsg, nullptr);
-			jct = json_object_object_get(jtmp, "ct");
-			ASSERT_NE(jct, nullptr);
-			jflags = json_object_object_get(jtmp, "flags");
-			ASSERT_NE(jflags, nullptr);
-			jresult = json_object_object_get(jtmp, "result");
-			ASSERT_NE(jresult, nullptr);
+			b = json_object_object_get_ex(jtmp, "key", &jkey);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "iv", &jiv);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "tag", &jtag);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "aad", &jaad);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "msg", &jmsg);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "ct", &jct);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "flags", &jflags);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "result", &jresult);
+			ASSERT_TRUE(b);
 
 			str = json_object_get_string(jkey);
 			ASSERT_NE(str, nullptr);
@@ -779,7 +779,7 @@ static void __run_json(const char *json)
 			else
 				valid = 0;
 
-			for (k = 0; k < json_object_array_length(jflags); k++) {
+			for (k = 0; k < (size_t)json_object_array_length(jflags); k++) {
 				jtmp = json_object_array_get_idx(jflags, k);
 				ASSERT_NE(jtmp, nullptr);
 				str = json_object_get_string(jtmp);

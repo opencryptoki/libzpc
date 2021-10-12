@@ -26,9 +26,11 @@
 #include "pkey.h"
 #include "utils.h"
 
+#include "debug.h"
+
 #define pr_verbose(verbose, fmt...)	do {				\
-						if (verbose)		\
-							warnx(fmt);	\
+						if (verbose)					\
+							DEBUG(fmt);					\
 					} while (0)
 
 /*
@@ -110,7 +112,7 @@ int load_ep11_library(struct ep11_lib *ep11, bool verbose)
 	}
 	if (ep11->lib_ep11 == NULL) {
 		pr_verbose(verbose, "%s", dlerror());
-		warnx("The command requires the IBM Z Enterprise PKCS #11 "
+		DEBUG("The command requires the IBM Z Enterprise PKCS #11 "
 		      "(EP11) Support Program (EP11 host library).\n"
 		      "For the supported environments and downloads, see:\n%s",
 		      EP11_WEB_PAGE);
@@ -146,7 +148,7 @@ int load_ep11_library(struct ep11_lib *ep11, bool verbose)
 	    ep11->dll_xcpa_cmdblock == NULL ||
 	    ep11->dll_xcpa_internal_rv == NULL) {
 		pr_verbose(verbose, "%s", dlerror());
-		warnx("The command requires the IBM Z Enterprise PKCS #11 "
+		DEBUG("The command requires the IBM Z Enterprise PKCS #11 "
 		      "(EP11) Support Program (EP11 host library).\n"
 		      "For the supported environments and downloads, see:\n%s",
 		      EP11_WEB_PAGE);
@@ -317,7 +319,7 @@ static int ep11_adm_reencrypt(struct ep11_lib *ep11, target_t target,
 			   "rc = 0x%lx", rv);
 		switch (rv) {
 		case CKR_IBM_WKID_MISMATCH:
-			warnx("The EP11 secure key is currently encrypted "
+			DEBUG("The EP11 secure key is currently encrypted "
 			      "under a different master that does not match "
 			      "the master key in the CURRENT master key "
 			      "register of APQN %02X.%04X", card, domain);
@@ -376,7 +378,7 @@ int reencipher_ep11_key(struct ep11_lib *ep11, target_t target,
 	}
 
 	if ((dinf.flags & CK_IBM_DOM_COMMITTED_NWK) == 0) {
-		warnx("The NEW master key register of APQN %02X.%04X is not "
+		DEBUG("The NEW master key register of APQN %02X.%04X is not "
 		      "in COMMITTED state", card, domain);
 		return -ENODEV;
 	}

@@ -1,6 +1,3 @@
-zpc_aes_key_reencipher uses zkey as a library to reencipher secure keys:
+zpc_aes_key_reencipher used modified zkey code
+from s390-tools-2.18 as a library to reencipher secure keys:
 https://github.com/ibm-s390-linux/s390-tools/tree/master/zkey
-
-modifications (based on s390-tools-2.18):
-- added protected-key related stuff to pkey.h
-- silenced __util_assert function if debug == 0

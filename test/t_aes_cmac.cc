@@ -565,16 +565,16 @@ static void __run_json(const char *json)
 	b = json_object_object_get_ex(jfile, "testGroups", &jtestgroups);
 	ASSERT_TRUE(b);
 
-	for (i = 0; i < json_object_array_length(jtestgroups); i++) {
+	for (i = 0; i < (size_t)json_object_array_length(jtestgroups); i++) {
 		jtmp = json_object_array_get_idx(jtestgroups, i);
 		ASSERT_NE(jtmp, nullptr);
 
-		jkeysize = json_object_object_get(jtmp, "keySize");
-		ASSERT_NE(jkeysize, nullptr);
-		jtagsize = json_object_object_get(jtmp, "tagSize");
-		ASSERT_NE(jtagsize, nullptr);
-		jtests = json_object_object_get(jtmp, "tests");
-		ASSERT_NE(jtests, nullptr);
+		b = json_object_object_get_ex(jtmp, "keySize", &jkeysize);
+		ASSERT_TRUE(b);
+		b = json_object_object_get_ex(jtmp, "tagSize", &jtagsize);
+		ASSERT_TRUE(b);
+		b = json_object_object_get_ex(jtmp, "tests", &jtests);
+		ASSERT_TRUE(b);
 
 		keysize = json_object_get_int(jkeysize);
 		tagsize = json_object_get_int(jtagsize);
@@ -587,18 +587,18 @@ static void __run_json(const char *json)
 			EXPECT_EQ(rc, 0);
 		}
 
-		for (j = 0; j < json_object_array_length(jtests); j++) {
+		for (j = 0; j < (size_t)json_object_array_length(jtests); j++) {
 			jtmp = json_object_array_get_idx(jtests, j);
 			ASSERT_NE(jtmp, nullptr);
 
-			jkey = json_object_object_get(jtmp, "key");
-			ASSERT_NE(jkey, nullptr);
-			jtag = json_object_object_get(jtmp, "tag");
-			ASSERT_NE(jtag, nullptr);
-			jmsg = json_object_object_get(jtmp, "msg");
-			ASSERT_NE(jmsg, nullptr);
-			jresult = json_object_object_get(jtmp, "result");
-			ASSERT_NE(jresult, nullptr);
+			b = json_object_object_get_ex(jtmp, "key", &jkey);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "tag", &jtag);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "msg", &jmsg);
+			ASSERT_TRUE(b);
+			b = json_object_object_get_ex(jtmp, "result", &jresult);
+			ASSERT_TRUE(b);
 
 			str = json_object_get_string(jkey);
 			ASSERT_NE(str, nullptr);

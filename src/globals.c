@@ -99,6 +99,12 @@ pthread_mutex_t ccalock;
 struct ep11_lib ep11;
 pthread_mutex_t ep11lock;
 
+#if !defined(__linux__) && !defined(__s390x__)
+static const int init = 0;
+#else
+static const int init = 1;
+#endif
+
 __attribute__((constructor))
 static void zpc_init(void)
 {
@@ -112,6 +118,9 @@ static void zpc_init(void)
 	int aes_ccm_kmac = 0, aes_ccm_kma = 0;
 	int aes_xts_km = 0, aes_xts_pcc = 0;
 	char *env;
+
+	if (init != 1)
+		return;
 
 	/* Init debuggind. */
 	rc = pthread_mutex_init(&debuglock, NULL);
@@ -133,7 +142,7 @@ static void zpc_init(void)
 		goto ret;
 	rc = pthread_mutex_lock(&ccalock);
 	assert(rc == 0);
-	if (load_cca_library(&cca, false) != 0)
+	if (load_cca_library(&cca, true) != 0)
 		DEBUG("loading CCA library failed");
 	else
 		DEBUG("loaded CCA library: ver %u, rel %u, mod %u",
@@ -147,7 +156,7 @@ static void zpc_init(void)
 		goto ret;
 	rc = pthread_mutex_lock(&ep11lock);
 	assert(rc == 0);
-	if (load_ep11_library(&ep11, false) != 0)
+	if (load_ep11_library(&ep11, true) != 0)
 		DEBUG("loading EP11 library failed");
 	else
 		DEBUG("loaded EP11 library: %u.%u", ep11.version.major,
@@ -327,6 +336,11 @@ static void zpc_fini(void)
 {
 	int rc;
 
+	UNUSED(rc);
+
+	if (init != 1)
+		return;
+
 	if (pkeyfd >= 0) {
 		close(pkeyfd);
 		pkeyfd = -1;
@@ -335,7 +349,8 @@ static void zpc_fini(void)
 	/* Unload EP11 library. */
 	rc = pthread_mutex_lock(&ep11lock);
 	assert(rc == 0);
-	dlclose(ep11.lib_ep11);
+	if (ep11.lib_ep11 != NULL)
+		dlclose(ep11.lib_ep11);
 	rc = pthread_mutex_unlock(&ep11lock);
 	assert(rc == 0);
 	rc = pthread_mutex_destroy(&ep11lock);
@@ -344,7 +359,8 @@ static void zpc_fini(void)
 	/* Unload CCA library. */
 	rc = pthread_mutex_lock(&ccalock);
 	assert(rc == 0);
-	dlclose(cca.lib_csulcca);
+	if (cca.lib_csulcca != NULL)
+		dlclose(cca.lib_csulcca);
 	rc = pthread_mutex_unlock(&ccalock);
 	assert(rc == 0);
 	rc = pthread_mutex_destroy(&ccalock);

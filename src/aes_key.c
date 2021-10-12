@@ -724,18 +724,19 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 {
 	struct aes_key reenc;
 	unsigned int seckeylen;
-	int rc, rv;
+	target_t target;
+	int rv, rc = ZPC_ERROR_APQNSNOTSET;
 	size_t i;
 
 	UNUSED(rv);
 
 	if (pkeyfd < 0) {
-		return ZPC_ERROR_DEVPKEY;
+		rc = ZPC_ERROR_DEVPKEY;
 		DEBUG("return %d (%s)", rc, zpc_error_string(rc));
 		return rc;
 	}
 	if (aes_key == NULL) {
-		return ZPC_ERROR_ARG1NULL;
+		rc = ZPC_ERROR_ARG1NULL;
 		DEBUG("return %d (%s)", rc, zpc_error_string(rc));
 		return rc;
 	}
@@ -778,14 +779,14 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 		assert(rv == 0);
 		for (i = 0; i < aes_key->napqns; i++) {
 			rc = select_cca_adapter(&cca, aes_key->apqns[i].card,
-			    aes_key->apqns[i].domain, debug ? true : false);
+			    aes_key->apqns[i].domain, true);
 			if (rc)
 				continue;
 			rc = key_token_change(&cca, reenc.sec, seckeylen,
 			    method ==
 			    ZPC_AES_KEY_REENCIPHER_OLD_TO_CURRENT ?
 			    METHOD_OLD_TO_CURRENT : METHOD_CURRENT_TO_NEW,
-			    debug ? true : false);
+			    true);
 			if (rc == 0)
 				break;
 		}
@@ -793,8 +794,6 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 		assert(rv == 0);
 		break;
 	case ZPC_AES_KEY_TYPE_EP11:
-		target_t target;
-
 		if (method != ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW) {
 			rc = ZPC_ERROR_NOTSUP;
 			goto ret;
@@ -805,13 +804,13 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 		for (i = 0; i < aes_key->napqns; i++) {
 			rc = get_ep11_target_for_apqn(&ep11,
 			    aes_key->apqns[i].card, aes_key->apqns[i].domain,
-			    &target, false);
+			    &target, true);
 			if (rc)
 				continue;
 
 			rc = reencipher_ep11_key(&ep11, target,
 			    aes_key->apqns[i].card, aes_key->apqns[i].domain,
-			    reenc.sec, aes_key->cur.seclen, false);
+			    reenc.sec, aes_key->cur.seclen, true);
 			free_ep11_target_for_apqn(&ep11, target);
 			if (rc == 0)
 				break;
@@ -828,7 +827,7 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 
 	memcpy(&aes_key->old, &aes_key->cur, sizeof(aes_key->old));
 	memcpy(&aes_key->cur, &reenc, sizeof(aes_key->cur));
-
+	rc = 0;
 ret:
 	rv = pthread_mutex_unlock(&aes_key->lock);
 	assert(rv == 0);
@@ -922,7 +921,7 @@ int
 aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 {
 	struct pkey_kblob2pkey2 io;
-	struct aes_key *key;
+	struct aes_key *key = NULL;
 	int rc;
 
 	assert(sec == AES_KEY_SEC_OLD || sec == AES_KEY_SEC_CUR);
@@ -931,6 +930,7 @@ aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 		key = &aes_key->cur;
 	else if (sec == AES_KEY_SEC_OLD)
 		key = &aes_key->old;
+	assert(key != NULL);
 
 	memset(&io, 0, sizeof(io));
 	io.key = key->sec;

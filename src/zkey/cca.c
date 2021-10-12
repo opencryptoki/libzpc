@@ -26,9 +26,11 @@
 #include "pkey.h"
 #include "utils.h"
 
+#include "debug.h"
+
 #define pr_verbose(verbose, fmt...)	do {				\
-						if (verbose)		\
-							warnx(fmt);	\
+						if (verbose)					\
+							DEBUG(fmt);					\
 					} while (0)
 
 /*
@@ -52,15 +54,15 @@ static void print_CCA_error(int return_code, int reason_code)
 	case 8:
 		switch (reason_code) {
 		case 48:
-			warnx("The secure key has a CCA master key "
+			DEBUG("The secure key has a CCA master key "
 			      "verification pattern that is not valid");
 			break;
 		case 90:
-			warnx("The operation has been rejected due to access "
+			DEBUG("The operation has been rejected due to access "
 			      "control checking");
 			break;
 		case 2143:
-			warnx("The operation has been rejected due to key "
+			DEBUG("The operation has been rejected due to key "
 			      "export restrictions of the secure key");
 			break;
 		}
@@ -68,7 +70,7 @@ static void print_CCA_error(int return_code, int reason_code)
 	case 12:
 		switch (reason_code) {
 		case 764:
-			warnx("The CCA master key is not loaded and "
+			DEBUG("The CCA master key is not loaded and "
 			      "therefore a secure key cannot be enciphered");
 			break;
 		}
@@ -113,7 +115,7 @@ static int get_cca_version(struct cca_lib *cca, bool verbose)
 
 	if (sscanf((char *)version_data, "%u.%u.%uz%s", &cca->version.ver,
 		   &cca->version.rel, &cca->version.mod, date) != 4) {
-		warnx("CCA library version is invalid: %s", version_data);
+		DEBUG("CCA library version is invalid: %s", version_data);
 		return -EINVAL;
 	}
 
@@ -138,7 +140,7 @@ int load_cca_library(struct cca_lib *cca, bool verbose)
 	cca->lib_csulcca = dlopen(CCA_LIBRARY_NAME, RTLD_GLOBAL | RTLD_NOW);
 	if (cca->lib_csulcca == NULL) {
 		pr_verbose(verbose, "%s", dlerror());
-		warnx("The command requires the IBM CCA Host Libraries and "
+		DEBUG("The command requires the IBM CCA Host Libraries and "
 		      "Tools.\nFor the supported environments and downloads, "
 		      "see:\n%s", CCA_WEB_PAGE);
 		return  -ELIBACC;
@@ -181,7 +183,7 @@ int load_cca_library(struct cca_lib *cca, bool verbose)
 	    cca->dll_CSNBKTR2 == NULL ||
 	    cca->dll_CSNBRKA == NULL) {
 		pr_verbose(verbose, "%s", dlerror());
-		warnx("The command requires the IBM CCA Host Libraries and "
+		DEBUG("The command requires the IBM CCA Host Libraries and "
 		      "Tools.\nFor the supported environments and downloads, "
 		      "see:\n%s", CCA_WEB_PAGE);
 		dlclose(cca->lib_csulcca);
@@ -252,7 +254,7 @@ int key_token_change(struct cca_lib *cca,
 
 		pr_verbose(verbose, "key_token_length: %lu", key_token_length);
 	} else {
-		warnx("Invalid key type specified");
+		DEBUG("Invalid key type specified");
 		return -EINVAL;
 	}
 
@@ -290,7 +292,7 @@ int key_token_change(struct cca_lib *cca,
 			pr_verbose(verbose, "key_token_length: %lu",
 				   key_token_length);
 		} else {
-			warnx("Invalid key type specified");
+			DEBUG("Invalid key type specified");
 			return -EINVAL;
 		}
 

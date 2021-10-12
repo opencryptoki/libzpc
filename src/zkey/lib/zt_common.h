@@ -12,6 +12,8 @@
 #ifndef LIB_ZT_COMMON_H
 #define LIB_ZT_COMMON_H
 
+#include "misc.h"
+
 #define STRINGIFY_1(x)			#x
 #define STRINGIFY(x)			STRINGIFY_1(x)
 
@@ -29,13 +31,6 @@
 
 
 #ifndef __ASSEMBLER__
-
-#ifdef UNUSED
-#elif defined(__GNUC__)
-# define UNUSED(x) UNUSED_ ## x __attribute__((unused))
-#else
-# define UNUSED(x) x
-#endif
 
 #ifdef STATIC_ASSERT
 #elif defined(__GNUC__) && ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ >= 5)
@@ -55,7 +50,6 @@
 #define TOOLS_DATADIR	STRINGIFY (S390_TOOLS_DATADIR)
 
 #define __noreturn __attribute__((noreturn))
-#define __packed __attribute__((packed))
 #define __aligned(x) __attribute__((aligned(x)))
 #define __may_alias __attribute__((may_alias))
 #define __section(x) __attribute__((__section__(#x)))
@@ -90,13 +84,9 @@
 		_x > _y ? _x : _y;		\
 	})
 
-typedef unsigned long long	u64;
 typedef signed long long	s64;
-typedef unsigned int		u32;
 typedef signed int		s32;
-typedef unsigned short int	u16;
 typedef signed short int	s16;
-typedef unsigned char		u8;
 typedef signed char		s8;
 
 #endif /* __ASSEMBLER__ */

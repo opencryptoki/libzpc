@@ -74,8 +74,8 @@ find_library(JSON_C
     NAMES json-c
 )
 
-add_compile_definitions(
-    _GNU_SOURCE
+add_definitions(
+    -D_GNU_SOURCE
 )
 
 set(ZPC_LIBS
@@ -107,6 +107,7 @@ include(GNUInstallDirs)
 install(
     TARGETS zpc
     LIBRARY DESTINATION       ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION       ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/zpc/
 )
 

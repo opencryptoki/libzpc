@@ -18,18 +18,20 @@
 # include <sys/syscall.h>
 # include <string.h>
 
+# include "misc.h"
+
 # define __FILENAME__ \
 	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 # define DEBUG(...)													\
 do {																\
 	if (debug) {													\
-		int rc;														\
+		int __rc;													\
 																	\
-		UNUSED(rc);													\
+		UNUSED(__rc);												\
 																	\
-		rc = pthread_mutex_lock(&debuglock);						\
-		assert(rc == 0);											\
+		__rc = pthread_mutex_lock(&debuglock);						\
+		assert(__rc == 0);											\
 																	\
 		fprintf(stderr, "libzpc %d.%d.%d: pid %llu: tid %llu: %s: %s:%d: ",	\
 				ZPC_VERSION_MAJOR, ZPC_VERSION_MINOR, ZPC_VERSION_PATCH,	\
@@ -39,8 +41,8 @@ do {																\
 		fprintf(stderr, __VA_ARGS__);								\
 		fprintf(stderr, "\n");										\
 																	\
-		rc = pthread_mutex_unlock(&debuglock);						\
-		assert(rc == 0);											\
+		__rc = pthread_mutex_unlock(&debuglock);					\
+		assert(__rc == 0);											\
 	}																\
 } while (0)
 

@@ -4,8 +4,8 @@ dist:     bionic
 language: cpp
 sudo:     required
 env:      |
-          CFLAGS="-O3 -std=c99 -pedantic -Wextra -Wextra -Werror"
-          CXXFLAGS="-O3 -std=c++11 -pedantic -Wextra -Wextra -Werror"
+          CFLAGS="-O3 -Wextra -Wextra -Werror"
+          CXXFLAGS="-O3 -Wextra -Wextra -Werror"
 compiler:
         - gcc
         - clang
@@ -16,5 +16,5 @@ before_install:
 
 script:
         - mkdir build && cd build
-        - cmake -DENABLE_TEST=ON ..
+        - cmake -DBUILD_TEST=ON ..
         - make

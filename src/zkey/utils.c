@@ -26,9 +26,11 @@
 
 #include "utils.h"
 
+#include "debug.h"
+
 #define pr_verbose(verbose, fmt...)	do {				\
-						if (verbose)		\
-							warnx(fmt);	\
+						if (verbose)					\
+							DEBUG(fmt);					\
 					} while (0)
 
 /**
