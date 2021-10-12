@@ -74,7 +74,7 @@ find_library(JSON_C
     NAMES json-c
 )
 
-add_compile_definitions(
+add_definitions(
     _GNU_SOURCE
 )
 
