@@ -58,3 +58,5 @@ memcmp_consttime:
 .cfi_endproc
 .size	memcmp_consttime, .-memcmp_consttime
 .size   memcmp_consttime,.-memcmp_consttime
+
+.section        .note.GNU-stack,"",@progbits
