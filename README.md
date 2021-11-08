@@ -1,7 +1,7 @@
 Introduction {#index}
 ===
 
-The IBM Z Protected-key Crypto library `libzpc` is an open-source library targeting the 64-bit Linux on IBM Z (s390x) platform. It provides interfaces for cryptographic primitives. The underlying implementations make use of z/Architecture's extensive performance-boosting hardware support and its *protected-key* feature which ensures that key material is never present in main memory at any time.
+The IBM Z Protected-key Crypto library `libzpc` is an open-source library targeting the 64-bit Linux on IBM Z and IBM LinuxOne platforms. It provides interfaces for cryptographic primitives. The underlying implementations make use of z/Architecture's extensive performance-boosting hardware support and its *protected-key* feature which ensures that key material is never present in main memory at any time.
 
 The `libzpc` source is hosted on [GitHub](https://github.com/opencryptoki/libzpc).
 
@@ -29,6 +29,7 @@ Building
 ---
 
 Basic prerequisites for building the library only:
+- 64-bit Linux on IBM Z platform (s390x)
 - Linux kernel >= 5.7
 - C99 compiler (clang, gcc)
 - libpthread
@@ -109,7 +110,7 @@ Here are instructions on [how to set an AES master key](https://www.ibm.com/supp
 Programming
 ---
 
-Applications include the `<zpc/...>` header files corresponding to the APIs required and link with `-lzp`.
+Applications include the `<zpc/...>` header files corresponding to the APIs required and link with `-lzpc`.
 
 With the exeption of `zpc_error_string`, all `libzpc` function return either no value or an integer which is either zero (in case of success) of a non-zero error code (in case of failure).
 

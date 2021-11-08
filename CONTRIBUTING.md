@@ -19,7 +19,7 @@ Ideally, detailed steps on how to reproduce the issue would be included.
 Code contributions
 ---
 
-All code contributions are reviewed by the `libzpc` maintainers who reverve the right to accept or reject a pull request.
+All code contributions are reviewed by the `libzpc` maintainers who reserve the right to accept or reject a pull request.
 
 Please state clearly if your pull request changes the `libzpc` API or ABI, and if so, whether the changes are backward compatible.
 
