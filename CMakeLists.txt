@@ -113,7 +113,7 @@ install(
 
 install(
     FILES       ${CMAKE_BINARY_DIR}/libzpc.pc
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )
 
 option(BUILD_TEST OFF)
