@@ -1,6 +1,10 @@
 Changelog {#changes}
 ===
 
+**Version 1.0.1**
+
+- Updated spec file for rpm build
+
 **Version 1.0**
 
 - Implements an error API : `zpc/error.h`.
