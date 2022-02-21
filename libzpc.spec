@@ -1,9 +1,9 @@
 Name:		libzpc
-Version:	1.0.0
+Version:	1.0.1
 Release:	1%{?dist}
 Summary:	Open Source library for the IBM Z Protected-key crypto feature
 
-License:	MIT License
+License:	MIT
 Url:		https://github.com/opencryptoki/libzpc
 Source0:	%{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
@@ -47,7 +47,7 @@ The %{name}-static package contains the static library of %{name}.
 
 
 %prep
-%setup -q -n %{name}
+%autosetup %{name}-%{version}
 
 # The following options can be passed to cmake:
 #   -DCMAKE_INSTALL_PREFIX=<path> : 
@@ -74,16 +74,24 @@ The %{name}-static package contains the static library of %{name}.
 %files
 %doc README.md CHANGES.md
 %license LICENSE
-%{_libdir}/%{name}.so
+%{_libdir}/%{name}.so.%{soversion}*
 
 
 %files devel
 %{_includedir}/zpc/
 %{_libdir}/pkgconfig/%{name}.pc
-%{_libdir}/%{name}.so.%{soversion}*
+%{_libdir}/%{name}.so
+
+
+%files static
+%{_libdir}/%{name}.a
 
 
 %changelog
+* Wed Jun 22 2022 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.0.1
+- Updated spec file for rpm build and changed location
+  of pkgconfig file to libdir.
+
 * Mon Feb 21 2022 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.0.0
 - Initial version based on libzpc provided by Patrick Steuer,
   <steuer@linux.vnet.ibm.com>
