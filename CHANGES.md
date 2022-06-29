@@ -1,7 +1,7 @@
 Changelog {#changes}
 ===
 
-**Version 1.0.1**
+**Version 1.0.1***
 
 - Updated spec file for rpm build
 
