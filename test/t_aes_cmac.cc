@@ -28,6 +28,8 @@ TEST(aes_cmac, alloc)
 
 	TESTLIB_ENV_AES_KEY_CHECK();
 
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
 	rc = zpc_aes_cmac_alloc(NULL);
 	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
 
@@ -51,6 +53,8 @@ TEST(aes_cmac, free)
 
 	TESTLIB_ENV_AES_KEY_CHECK();
 
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
 	zpc_aes_cmac_free(NULL);
 
 	aes_cmac = NULL;
@@ -73,11 +77,18 @@ TEST(aes_cmac, set_key)
 	int rc, size, type;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -130,11 +141,18 @@ TEST(aes_cmac, sign)
 	int rc, size, type;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -179,11 +197,18 @@ TEST(aes_cmac, verifyzpc_aes_cmac_verify)
 	int rc, size, type;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -227,11 +252,18 @@ TEST(aes_cmac, pc)
 	int rc, size, type;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
 
 	rc = zpc_aes_key_alloc(&aes_key1);
 	EXPECT_EQ(rc, 0);
@@ -348,6 +380,10 @@ TEST(aes_cmac, stream_inplace_kat1)
 {
 	TESTLIB_ENV_AES_KEY_CHECK();
 
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size_t keylen, msglen, taglen;
 	unsigned char mac[16];
 	const char *mkvp, *apqns[257];
@@ -360,17 +396,19 @@ TEST(aes_cmac, stream_inplace_kat1)
 	const char *msgstr = "c59d0d6981cca1be1d5519fc7881e6d230f39f6c12a9e827";
 	const char *tagstr = "a1b96272ae7f9aef567271795f21d1d3";
 
+	type = testlib_env_aes_key_type();
+	flags = testlib_env_aes_key_flags();
+	mkvp = testlib_env_aes_key_mkvp();
+	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
 	u8 *msg = testlib_hexstr2buf(msgstr, &msglen);
 	ASSERT_NE(msg, nullptr);
 	u8 *tag = testlib_hexstr2buf(tagstr, &taglen);
 	ASSERT_NE(tag, nullptr);
-
-	type = testlib_env_aes_key_type();
-	flags = testlib_env_aes_key_flags();
-	mkvp = testlib_env_aes_key_mkvp();
-	(void)testlib_env_aes_key_apqns(apqns);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -434,6 +472,10 @@ TEST(aes_cmac, stream_inplace_kat2)
 {
 	TESTLIB_ENV_AES_KEY_CHECK();
 
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size_t keylen, msglen, taglen;
 	unsigned char mac[16];
 	const char *mkvp, *apqns[257];
@@ -446,17 +488,19 @@ TEST(aes_cmac, stream_inplace_kat2)
 	const char *msgstr = "c59d0d6981cca1be1d5519fc7881e6d230f39f6c12a9e827";
 	const char *tagstr = "a1b96272ae7f9aef567271795f21d1d3";
 
+	type = testlib_env_aes_key_type();
+	flags = testlib_env_aes_key_flags();
+	mkvp = testlib_env_aes_key_mkvp();
+	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
 	u8 *msg = testlib_hexstr2buf(msgstr, &msglen);
 	ASSERT_NE(msg, nullptr);
 	u8 *tag = testlib_hexstr2buf(tagstr, &taglen);
 	ASSERT_NE(tag, nullptr);
-
-	type = testlib_env_aes_key_type();
-	flags = testlib_env_aes_key_flags();
-	mkvp = testlib_env_aes_key_mkvp();
-	(void)testlib_env_aes_key_apqns(apqns);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -517,6 +561,11 @@ TEST(aes_cmac, stream_inplace_kat2)
 TEST(aes_cmac, wycheproof_kat)
 {
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	__run_json("wycheproof/src/wycheproof/testvectors/aes_cmac_test.json");
 }
 
@@ -541,6 +590,8 @@ static void __run_json(const char *json)
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -662,6 +713,11 @@ TEST(aes_cmac, rederive_protected_key1)
 	int rc, size;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 
 	rc = zpc_aes_key_alloc(&aes_key1);
@@ -725,6 +781,10 @@ TEST(aes_cmac, rederive_protected_key2)
 {
 	TESTLIB_ENV_AES_KEY_CHECK();
 
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size_t keylen, msglen, taglen;
 	unsigned char mac[16];
 	const char *mkvp, *apqns[257];
@@ -737,17 +797,19 @@ TEST(aes_cmac, rederive_protected_key2)
 	const char *msgstr = "c59d0d6981cca1be1d5519fc7881e6d230f39f6c12a9e827";
 	const char *tagstr = "a1b96272ae7f9aef567271795f21d1d3";
 
+	type = testlib_env_aes_key_type();
+	flags = testlib_env_aes_key_flags();
+	mkvp = testlib_env_aes_key_mkvp();
+	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
 	u8 *msg = testlib_hexstr2buf(msgstr, &msglen);
 	ASSERT_NE(msg, nullptr);
 	u8 *tag = testlib_hexstr2buf(tagstr, &taglen);
 	ASSERT_NE(tag, nullptr);
-
-	type = testlib_env_aes_key_type();
-	flags = testlib_env_aes_key_flags();
-	mkvp = testlib_env_aes_key_mkvp();
-	(void)testlib_env_aes_key_apqns(apqns);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -831,6 +893,10 @@ TEST(aes_cmac, reencipher)
 {
 	TESTLIB_ENV_AES_KEY_CHECK();
 
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size_t keylen, msglen, taglen;
 	unsigned char mac[16];
 	const char *mkvp, *apqns[257];
@@ -843,17 +909,21 @@ TEST(aes_cmac, reencipher)
 	const char *msgstr = "c59d0d6981cca1be1d5519fc7881e6d230f39f6c12a9e827";
 	const char *tagstr = "a1b96272ae7f9aef567271795f21d1d3";
 
+	type = testlib_env_aes_key_type();
+	flags = testlib_env_aes_key_flags();
+	mkvp = testlib_env_aes_key_mkvp();
+	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
+
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
 	u8 *msg = testlib_hexstr2buf(msgstr, &msglen);
 	ASSERT_NE(msg, nullptr);
 	u8 *tag = testlib_hexstr2buf(tagstr, &taglen);
 	ASSERT_NE(tag, nullptr);
-
-	type = testlib_env_aes_key_type();
-	flags = testlib_env_aes_key_flags();
-	mkvp = testlib_env_aes_key_mkvp();
-	(void)testlib_env_aes_key_apqns(apqns);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -1000,6 +1070,10 @@ TEST(aes_cmac, threads)
 {
 	TESTLIB_ENV_AES_KEY_CHECK();
 
+	TESTLIB_AES_CMAC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size_t keylen;
 	const char *mkvp, *apqns[257];
 	struct zpc_aes_key *aes_key;
@@ -1009,12 +1083,16 @@ TEST(aes_cmac, threads)
 
 	const char *keystr = "648a44468d67bb6744b235ee7a3fcd6ed4bdc29ec5b5fa1a";
 
-	u8 *key = testlib_hexstr2buf(keystr, &keylen);
-
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
+
+	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);

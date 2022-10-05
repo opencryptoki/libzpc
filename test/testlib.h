@@ -57,6 +57,249 @@ do {		                                                                          
             GTEST_SKIP_("ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables unset.");       \
 } while (0)
 
+# define TESTLIB_AES_ECB_HW_CAPS_CHECK()                                       \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_ecb *ctx;                                               \
+                                                                               \
+        rc = zpc_aes_ecb_alloc(&ctx);                                          \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (AES-ECB): opening /dev/pkey failed."); \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-ECB): no hw capabilities for AES-ECB."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-ECB): cannot allocate AES ctx object."); \
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_ecb_free(&ctx);                                            \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_CBC_HW_CAPS_CHECK()                                       \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_cbc *ctx;                                               \
+                                                                               \
+        rc = zpc_aes_cbc_alloc(&ctx);                                          \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (AES-CBC): opening /dev/pkey failed."); \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-CBC): no hw capabilities for AES-CBC."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-CBC): cannot allocate AES ctx object."); \
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_cbc_free(&ctx);                                            \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_CMAC_HW_CAPS_CHECK()                                      \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_cmac *ctx;                                              \
+                                                                               \
+        rc = zpc_aes_cmac_alloc(&ctx);                                         \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (AES-CMAC): opening /dev/pkey failed.");\
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-CMAC): no hw capabilities for AES-CMAC."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-CMAC): cannot allocate AES ctx object."); \
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_cmac_free(&ctx);                                           \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_CCM_HW_CAPS_CHECK()                                       \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_ccm *ctx;                                               \
+                                                                               \
+        rc = zpc_aes_ccm_alloc(&ctx);                                          \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (AES-CCM): opening /dev/pkey failed."); \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-CCM): no hw capabilities for AES-CCM."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-CCM): cannot allocate AES ctx object."); \
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_ccm_free(&ctx);                                            \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_GCM_HW_CAPS_CHECK()                                       \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_gcm *ctx;                                               \
+                                                                               \
+        rc = zpc_aes_gcm_alloc(&ctx);                                          \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (AES-GCM): opening /dev/pkey failed."); \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-GCM): no hw capabilities for AES-GCM."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-GCM): cannot allocate AES ctx object."); \
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_gcm_free(&ctx);                                            \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_XTS_HW_CAPS_CHECK()                                       \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_xts *ctx;                                               \
+                                                                               \
+        rc = zpc_aes_xts_alloc(&ctx);                                          \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (AES-XTS): opening /dev/pkey failed."); \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-XTS): no hw capabilities for AES-XTS."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-XTS): cannot allocate AES ctx object."); \
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_xts_free(&ctx);                                            \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_XTS_KEY_SIZE_CHECK(size)                                  \
+do {                                                                           \
+        if (size != 128 && size != 256) {                                      \
+            GTEST_SKIP_("Key size check (AES-XTS): only 128 and 256 bits supported by CPACF."); \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_SW_CAPS_CHECK(type)                                       \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_key *aes_key;                                           \
+                                                                               \
+        rc = zpc_aes_key_alloc(&aes_key);                                      \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("SW_CAPS check (AES): Cannot allocate key object.");   \
+                                                                               \
+        rc = zpc_aes_key_set_type(aes_key, type);                              \
+        if ((type == ZPC_AES_KEY_TYPE_CCA_DATA ||                              \
+             type == ZPC_AES_KEY_TYPE_CCA_CIPHER) &&                           \
+            rc == ZPC_ERROR_CCA_HOST_LIB_NOT_AVAILABLE) {                      \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("SW_CAPS check (AES): CCA host lib not available or too old."); \
+        }                                                                      \
+        if (type == ZPC_AES_KEY_TYPE_EP11 &&                                   \
+            rc == ZPC_ERROR_EP11_HOST_LIB_NOT_AVAILABLE) {                     \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("SW_CAPS check (AES): EP11 host lib not available or too old."); \
+        }                                                                      \
+        if (rc != 0) {                                                         \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("SW_CAPS check (AES): Unexpected error when setting key type."); \
+        }                                                                      \
+        zpc_aes_key_free(&aes_key);                                            \
+} while (0)
+
+# define TESTLIB_AES_KERNEL_CAPS_CHECK()                                       \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_key *aes_key;                                           \
+                                                                               \
+        rc = zpc_aes_key_alloc(&aes_key);                                      \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("KERNEL_CAPS check (AES): Cannot allocate key object."); \
+                                                                               \
+        rc = zpc_aes_key_set_mkvp(aes_key, NULL); /* cannot fail */            \
+        rc = zpc_aes_key_set_size(aes_key, 128); /* cannot fail */             \
+        rc = zpc_aes_key_generate(aes_key);                                    \
+        if (rc == ZPC_ERROR_IOCTLGENPROTK) {                                   \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENPROTK not supported by kernel."); \
+        }                                                                      \
+        if (rc == ZPC_ERROR_IOCTLGENSECK2) {                                   \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENSECK2 not supported by kernel."); \
+        }                                                                      \
+        if (rc != 0) {                                                         \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("KERNEL_CAPS check (AES): Unexpected error when generating test key."); \
+        }                                                                      \
+                                                                               \
+        zpc_aes_key_free(&aes_key);                                            \
+} while (0)
+
+# define TESTLIB_AES_NEW_MK_CHECK(type,mkvp,apqns)                             \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_key *aes_key;                                           \
+                                                                               \
+        rc = zpc_aes_key_alloc(&aes_key);                                      \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("NEW_MK check (AES): Cannot allocate key object.");    \
+                                                                               \
+        rc = zpc_aes_key_set_type(aes_key, type);                              \
+        if ((type == ZPC_AES_KEY_TYPE_CCA_DATA ||                              \
+             type == ZPC_AES_KEY_TYPE_CCA_CIPHER) &&                           \
+            rc == ZPC_ERROR_CCA_HOST_LIB_NOT_AVAILABLE) {                      \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("NEW_MK check (AES): CCA host lib not available or too old."); \
+        }                                                                      \
+        if (type == ZPC_AES_KEY_TYPE_EP11 &&                                   \
+            rc == ZPC_ERROR_EP11_HOST_LIB_NOT_AVAILABLE) {                     \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("NEW_MK check (AES): EP11 host lib not available or too old."); \
+        }                                                                      \
+        if (mkvp != NULL) {                                                    \
+            rc = zpc_aes_key_set_mkvp(aes_key, mkvp);                          \
+            if (rc != 0) {                                                     \
+                zpc_aes_key_free(&aes_key);                                    \
+                GTEST_SKIP_("NEW_MK check (AES): error setting mkvp.");        \
+            }                                                                  \
+        } else {                                                               \
+            rc = zpc_aes_key_set_apqns(aes_key, apqns);                        \
+            if (rc != 0) {                                                     \
+                zpc_aes_key_free(&aes_key);                                    \
+                GTEST_SKIP_("NEW_MK check (AES): error setting apqns.");       \
+            }                                                                  \
+        }                                                                      \
+        rc = zpc_aes_key_set_size(aes_key, 128); /* cannot fail */             \
+        rc = zpc_aes_key_generate(aes_key);                                    \
+        if (rc != 0) {                                                         \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("NEW_MK check (AES): unexpected error when generating test key."); \
+        }                                                                      \
+        rc = zpc_aes_key_reencipher(aes_key, ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW); \
+        if (rc != 0) {                                                         \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("NEW_MK check (AES): new MK not set for this APQN/MKVP."); \
+        }                                                                      \
+        zpc_aes_key_free(&aes_key);                                            \
+} while (0)
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
