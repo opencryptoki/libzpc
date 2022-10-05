@@ -16,6 +16,19 @@
 
 #include "lib/zt_common.h"
 
+/* CCA library constants */
+#define CCA_PRIVATE_KEY_NAME_SIZE       64
+#define CCA_KEY_TOKEN_SIZE              3500
+#define CCA_TRANSPORT_KEY_SIZE          1024
+#define CCA_EC_KEY_VALUE_STRUCT_SIZE    207
+#define CCA_KEYWORD_SIZE                8
+#define CCA_RULE_ARRAY_SIZE             256
+#define CCA_KEY_ID_SIZE                 64
+#define CCA_EC_HEADER_SIZE              8
+
+#define CCA_EC_CURVE_TYPE_PRIME         0
+#define CCA_EC_CURVE_TYPE_EDWARDS       2
+
 #define METHOD_OLD_TO_CURRENT	"RTCMK   "
 #define METHOD_CURRENT_TO_NEW	"RTNMK   "
 
@@ -119,6 +132,75 @@ typedef void (*t_CSNBRKA)(long *return_code,
 			  long *opt_parameter2_length,
 			  unsigned char *opt_parameter2);
 
+typedef void (*t_CSNDPKB) (long *return_code,
+		long *reason_code,
+		long *exit_data_length,
+		unsigned char *exit_data,
+		long *rule_array_count,
+		unsigned char *rule_array,
+		long *kvs_len,
+		unsigned char *kvs,
+		long *key_name_len,
+		unsigned char *key_name,
+		long *rlen1,
+		unsigned char *r1,
+		long *rlen2,
+		unsigned char *r2,
+		long *rlen3,
+		unsigned char *r3,
+		long *rlen4,
+		unsigned char *r4,
+		long *rlen5,
+		unsigned char *r5,
+		long *skel_token_len,
+		unsigned char *skel_token);
+
+typedef void (*t_CSNDPKG) (long *return_code,
+		long *reason_code,
+		long *exit_data_length,
+		unsigned char *exit_data,
+		long *rule_array_count,
+		unsigned char *rule_array,
+		long *regen_data_len,
+		unsigned char *regen_data,
+		long *skel_token_len,
+		unsigned char *kel_token,
+		unsigned char *trans_key,
+		long *ecc_token_len,
+		unsigned char *sec_key);
+
+typedef void (*t_CSNDPKX) (long *return_code,
+		long *reason_code,
+		long *exit_data_length,
+		unsigned char *exit_data,
+		long *rule_array_count,
+		unsigned char *rule_array,
+		long *ecc_token_len,
+		unsigned char *ecc_token,
+		long *ecc_pub_token_len,
+		unsigned char *ecc_pub_token);
+
+typedef void (*t_CSNDPKI) (long *return_code,
+		long *reason_code,
+		long *exit_data_length,
+		unsigned char *exit_data,
+		long *rule_array_count,
+		unsigned char *rule_array,
+		long *key_token_length,
+		unsigned char *key_token,
+		unsigned char *transport_key_identifier,
+		long *target_key_token_length,
+		unsigned char *target_key_token);
+
+typedef void (*t_CSNDKTC) (long *return_code,
+		long *reason_code,
+		long *exit_data_length,
+		unsigned char *exit_data,
+		long *rule_array_count,
+		unsigned char *rule_array,
+		long *key_identifier_length,
+		unsigned char *key_identifier);
+
 struct cca_version {
 	unsigned int ver;
 	unsigned int rel;
@@ -136,8 +218,26 @@ struct cca_lib {
 	t_CSNBKTB2 dll_CSNBKTB2;
 	t_CSNBKTR2 dll_CSNBKTR2;
 	t_CSNBRKA dll_CSNBRKA;
+	t_CSNDPKB dll_CSNDPKB;
+	t_CSNDPKG dll_CSNDPKG;
+	t_CSNDPKX dll_CSNDPKX;
+	t_CSNDPKI dll_CSNDPKI;
+	t_CSNDKTC dll_CSNDKTC;
 	struct cca_version version;
 };
+
+/*
+ * Refer to CCA Programmer's Guide, PKA Key Token Build
+ * Key value structure elements, ECC keys
+ */
+typedef struct {
+	u8 curve_type; /* 00 = prime, 02 = edwards */
+	u8 reserved;
+	u16 p_bitlen;
+	u16 d_length;
+	u16 q_length;
+	// followed by d || q
+}__attribute__((packed)) ECC_PAIR;
 
 int load_cca_library(struct cca_lib *cca, bool verbose);
 
@@ -165,5 +265,20 @@ int convert_aes_data_to_cipher_key(struct cca_lib *cca,
 
 int restrict_key_export(struct cca_lib *cca, u8 *secure_key,
 			unsigned int secure_key_size, bool verbose);
+
+int ec_key_generate_cca(struct cca_lib *cca, int curve, unsigned int flags,
+			unsigned char *secure_key, unsigned int *seclen,
+			unsigned char *public_key, unsigned int *publen,
+			bool verbose);
+
+int ec_key_extract_public_cca(struct cca_lib *cca, unsigned char *ecc_token,
+			unsigned int ecc_token_len, unsigned char *ecc_pub_token,
+			unsigned int *p_ecc_pub_token_len, bool verbose);
+
+int ec_key_clr2sec_cca(struct cca_lib *cca, int curve, unsigned int flags,
+			unsigned char *secure_key, unsigned int *seclen,
+			const unsigned char *pubkey, unsigned int publen,
+			const unsigned char *privkey, unsigned int privlen,
+			bool verbose);
 
 #endif

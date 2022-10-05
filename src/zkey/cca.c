@@ -41,6 +41,19 @@
 #define CCA_DOMAIN_ENVAR	"CSU_DEFAULT_DOMAIN"
 #define CCA_ADAPTER_ENVAR	"CSU_DEFAULT_ADAPTER"
 
+extern const uint16_t curve2bitlen[];
+
+#define CCA_CURVE_TYPE_PRIME              0
+#define CCA_CURVE_TYPE_EDWARDS            2
+
+const uint8_t curve2ccatype[] = {
+	CCA_CURVE_TYPE_PRIME,
+	CCA_CURVE_TYPE_PRIME,
+	CCA_CURVE_TYPE_PRIME,
+	CCA_CURVE_TYPE_EDWARDS,
+	CCA_CURVE_TYPE_EDWARDS
+};
+
 /**
  * Prints CCA return and reason code information for certain known CCA
  * error situations.
@@ -96,6 +109,17 @@ static int get_cca_version(struct cca_lib *cca, bool verbose)
 	char date[20];
 
 	util_assert(cca != NULL, "Internal error: cca is NULL");
+
+	if (cca->lib_csulcca == NULL) {
+		pr_verbose(verbose, "CCA host library not available.");
+		return -ELIBACC;
+	}
+
+	if (cca->dll_CSUACFV == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSUACFV not "
+				"available but required for getting the CCA library version.");
+		return -ELIBACC;
+	}
 
 	memset(version_data, 0, sizeof(version_data));
 	version_data_length = sizeof(version_data);
@@ -173,6 +197,21 @@ int load_cca_library(struct cca_lib *cca, bool verbose)
 	/* Get the Restrict Key Attribute function */
 	cca->dll_CSNBRKA = (t_CSNBRKA)dlsym(cca->lib_csulcca, "CSNBRKA");
 
+	/* Get the PKA Key Token Build function */
+	cca->dll_CSNDPKB = (t_CSNDPKB)dlsym(cca->lib_csulcca, "CSNDPKB");
+
+	/* Get the PKA Key Generate function */
+	cca->dll_CSNDPKG = (t_CSNDPKG)dlsym(cca->lib_csulcca, "CSNDPKG");
+
+	/* Get the PKA Public Key Extract function */
+	cca->dll_CSNDPKX = (t_CSNDPKX)dlsym(cca->lib_csulcca, "CSNDPKX");
+
+	/* Get the PKA Key Import function */
+	cca->dll_CSNDPKI = (t_CSNDPKI)dlsym(cca->lib_csulcca, "CSNDPKI");
+
+	/* Get the PKA Key Token Change function (for ECC keys) */
+	cca->dll_CSNDKTC = (t_CSNDKTC)dlsym(cca->lib_csulcca, "CSNDKTC");
+
 	if (cca->dll_CSUACFV == NULL ||
 	    cca->dll_CSNBKTC == NULL ||
 	    cca->dll_CSNBKTC2 == NULL ||
@@ -181,13 +220,16 @@ int load_cca_library(struct cca_lib *cca, bool verbose)
 	    cca->dll_CSUACRD == NULL ||
 	    cca->dll_CSNBKTB2 == NULL ||
 	    cca->dll_CSNBKTR2 == NULL ||
-	    cca->dll_CSNBRKA == NULL) {
+	    cca->dll_CSNBRKA == NULL ||
+	    cca->dll_CSNDPKB == NULL ||
+	    cca->dll_CSNDPKG == NULL ||
+	    cca->dll_CSNDPKX == NULL ||
+	    cca->dll_CSNDPKI == NULL ||
+	    cca->dll_CSNDKTC == NULL) {
 		pr_verbose(verbose, "%s", dlerror());
 		DEBUG("The command requires the IBM CCA Host Libraries and "
 		      "Tools.\nFor the supported environments and downloads, "
 		      "see:\n%s", CCA_WEB_PAGE);
-		dlclose(cca->lib_csulcca);
-		cca->lib_csulcca = NULL;
 		return -ELIBACC;
 	}
 
@@ -228,10 +270,18 @@ int key_token_change(struct cca_lib *cca,
 	util_assert(method != NULL, "Internal error: method is NULL");
 
 	memcpy(rule_array, method, 8);
-	memcpy(rule_array + 8, "AES     ", 8);
-	rule_array_count = 2;
+	rule_array_count = 1;
 
 	if (is_cca_aes_data_key(secure_key, secure_key_size)) {
+
+		if (cca->dll_CSNBKTC == NULL) {
+			pr_verbose(verbose, "CCA host lib function CSNBKTC not "
+					"available but required for AES data key token change.");
+			return -ELIBACC;
+		}
+
+		memcpy(rule_array + 8, "AES     ", 8);
+		rule_array_count++;
 		cca->dll_CSNBKTC(&return_code, &reason_code,
 				 &exit_data_len, exit_data,
 				 &rule_array_count, rule_array,
@@ -240,7 +290,17 @@ int key_token_change(struct cca_lib *cca,
 		pr_verbose(verbose, "CSNBKTC (Key Token Change) with '%s' "
 			   "returned: return_code: %ld, reason_code: %ld",
 			   method, return_code, reason_code);
+
 	} else if (is_cca_aes_cipher_key(secure_key, secure_key_size)) {
+
+		if (cca->dll_CSNBKTC2 == NULL) {
+			pr_verbose(verbose, "CCA host lib function CSNBKTC2 not "
+					"available but required for AES cipher key token change.");
+			return -ELIBACC;
+		}
+
+		memcpy(rule_array + 8, "AES     ", 8);
+		rule_array_count++;
 		key_token_length = cipherkey->length;
 		cca->dll_CSNBKTC2(&return_code, &reason_code,
 				  &exit_data_len, exit_data,
@@ -251,6 +311,29 @@ int key_token_change(struct cca_lib *cca,
 		pr_verbose(verbose, "CSNBKTC2 (Key Token Change2) with '%s' "
 			   "returned: return_code: %ld, reason_code: %ld",
 			   method, return_code, reason_code);
+
+		pr_verbose(verbose, "key_token_length: %lu", key_token_length);
+
+	} else if (is_cca_ec_key(secure_key, secure_key_size)) {
+
+		if (cca->dll_CSNDKTC == NULL) {
+			pr_verbose(verbose, "CCA host lib function CSNDKTC not "
+					"available but required for ECC key token change.");
+			return -ELIBACC;
+		}
+
+		memcpy(rule_array + 8, "ECC     ", 8);
+		rule_array_count++;
+		key_token_length = secure_key_size;
+		cca->dll_CSNDKTC(&return_code, &reason_code,
+				&exit_data_len, exit_data,
+				&rule_array_count, rule_array,
+				&key_token_length,
+				secure_key);
+
+		pr_verbose(verbose, "CSNDKTC (PKA Key Token Change) with '%s' "
+			"returned: return_code: %ld, reason_code: %ld",
+			method, return_code, reason_code);
 
 		pr_verbose(verbose, "key_token_length: %lu", key_token_length);
 	} else {
@@ -325,6 +408,12 @@ static int get_number_of_cca_adapters(struct cca_lib *cca,
 	util_assert(cca != NULL, "Internal error: cca is NULL");
 	util_assert(adapters != NULL, "Internal error: adapters is NULL");
 
+	if (cca->dll_CSUACFQ == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSUACFQ not "
+				"available but required for getting number of CCA adapters.");
+		return -ELIBACC;
+	}
+
 	memset(rule_array, 0, sizeof(rule_array));
 	memcpy(rule_array, "STATCRD2", 8);
 	rule_array_count = 1;
@@ -376,6 +465,12 @@ static int allocate_cca_adapter(struct cca_lib *cca, unsigned int adapter,
 
 	util_assert(cca != NULL, "Internal error: cca is NULL");
 
+	if (cca->dll_CSUACRA == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSUACRA not "
+				"available but required for allocate CCA adapter.");
+		return -ELIBACC;
+	}
+
 	if (adapter > 0)
 		memcpy(rule_array, "DEVICE  ", 8);
 	else
@@ -426,6 +521,12 @@ static int deallocate_cca_adapter(struct cca_lib *cca, unsigned int adapter,
 
 	util_assert(cca != NULL, "Internal error: cca is NULL");
 
+	if (cca->dll_CSUACRD == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSUACRD not "
+				"available but required for deallocate CCA adapter.");
+		return -ELIBACC;
+	}
+
 	if (adapter > 0)
 		memcpy(rule_array, "DEVICE  ", 8);
 	else
@@ -470,6 +571,12 @@ static int get_cca_adapter_serialnr(struct cca_lib *cca, char serialnr[9],
 	long return_code, reason_code;
 
 	util_assert(cca != NULL, "Internal error: cca is NULL");
+
+	if (cca->dll_CSUACFQ == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSUACFQ not "
+				"available but required for get adapter serialnr.");
+		return -ELIBACC;
+	}
 
 	memset(rule_array, 0, sizeof(rule_array));
 	memcpy(rule_array, "STATCRD2", 8);
@@ -585,5 +692,274 @@ int select_cca_adapter(struct cca_lib *cca, unsigned int card,
 		return -ENODEV;
 
 	pr_verbose(verbose, "Selected adapter %u (CRP%02d)", adapter, adapter);
+	return 0;
+}
+
+/**
+ * Setup rule array for key token build:
+ *   defaults:
+ *     - XPRTCPAC : make the secure key CPACF exportable
+ *     - KEY-MGMT : digital signature generate (prime curves)
+ *     - SIG-ONLY : digital signature generate (edwards curves)
+ *   via flags:
+ *     - AES1ECOK : allow export using an AES key of similar strength
+ */
+void setup_rule_array(int curve, unsigned int flags, uint8_t *rule_array_buf,
+					long *rule_array_count)
+{
+	memcpy(rule_array_buf, "ECC-PAIR", CCA_KEYWORD_SIZE);
+	*rule_array_count = 1;
+	memcpy(rule_array_buf + *rule_array_count * CCA_KEYWORD_SIZE, "XPRTCPAC", CCA_KEYWORD_SIZE);
+	(*rule_array_count)++;
+
+	switch (curve2ccatype[curve]) {
+	case CCA_EC_CURVE_TYPE_PRIME:
+		memcpy(rule_array_buf + *rule_array_count * CCA_KEYWORD_SIZE, "KEY-MGMT", CCA_KEYWORD_SIZE);
+		break;
+	case CCA_EC_CURVE_TYPE_EDWARDS:
+		memcpy(rule_array_buf + *rule_array_count * CCA_KEYWORD_SIZE, "SIG-ONLY", CCA_KEYWORD_SIZE);
+		break;
+	}
+	(*rule_array_count)++;
+
+	/* Add user-defined flags: the only flag that is currently recognized here,
+	 * is PKEY_KEYGEN_XPRT_AES : Allow export using an AES key. */
+	if ((flags & PKEY_KEYGEN_XPRT_AES) == PKEY_KEYGEN_XPRT_AES) {
+		memcpy(rule_array_buf + *rule_array_count * CCA_KEYWORD_SIZE, "AES1ECOK", CCA_KEYWORD_SIZE);
+		(*rule_array_count)++;
+	}
+}
+
+/**
+ * Setup key value structure for key token build.
+ */
+void setup_key_value_struct(uint8_t *kvs_buf, long *kvs_len, int curve,
+						const unsigned char *pubkey, unsigned int publen,
+						const unsigned char *privkey, unsigned int privlen)
+{
+	ECC_PAIR ecc_pair;
+
+	ecc_pair.curve_type = curve2ccatype[curve];
+	ecc_pair.reserved = 0x00;
+	ecc_pair.p_bitlen = curve2bitlen[curve];
+	ecc_pair.d_length = privlen;
+	ecc_pair.q_length = publen;
+
+	memcpy(kvs_buf, &ecc_pair, sizeof(ECC_PAIR));
+
+	if (privlen > 0)
+		memcpy(kvs_buf + sizeof(ECC_PAIR), privkey, privlen);
+
+	*kvs_len = sizeof(ECC_PAIR) + privlen;
+
+	if (publen > 0) {
+		if (curve2ccatype[curve] == CCA_EC_CURVE_TYPE_PRIME) {
+			memset(kvs_buf + sizeof(ECC_PAIR) + privlen, 0x04, 1);
+			memcpy(kvs_buf + sizeof(ECC_PAIR) + privlen + 1, pubkey, publen);
+			ecc_pair.q_length = publen + 1;
+			*kvs_len = *kvs_len + 1 + publen;
+		} else {
+			/* Edwards curves do not have a compression indication in the kvs struct */
+			memcpy(kvs_buf + sizeof(ECC_PAIR) + privlen, pubkey, publen);
+			*kvs_len = *kvs_len + publen;
+		}
+	}
+}
+
+int ec_key_generate_cca(struct cca_lib *cca, int curve, unsigned int flags,
+				unsigned char *secure_key, unsigned int *seclen,
+				unsigned char *public_key, unsigned int *publen,
+				bool verbose)
+{
+	unsigned char kvs_buf[CCA_EC_KEY_VALUE_STRUCT_SIZE] = { 0 };
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+	unsigned char skel_token[CCA_KEY_TOKEN_SIZE] = { 0 };
+	unsigned char trans_key[CCA_TRANSPORT_KEY_SIZE] = { 0 };
+	unsigned char ecc_token[CCA_KEY_TOKEN_SIZE] = { 0 };
+	unsigned char exit_data[4] = { 0 };
+	unsigned char buf[132] = { 0 };
+	long skel_token_len = sizeof(skel_token);
+	long ecc_token_len = sizeof(ecc_token);
+	long regen_data_len = 0, kvs_len = 0, exit_data_len = 0;
+	long return_code = 0, reason_code = 0, key_name_len = 0;
+	long rlen1 = 0, rlen2 = 0, rlen3 = 0, rlen4 = 0, rlen5 = 0;
+	long rule_array_count = 0;
+	unsigned int buflen = sizeof(buf);
+	int rc;
+
+	if (cca->dll_CSNDPKB == NULL || cca->dll_CSNDPKG == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSNDPKB and/or CSNDPKG not "
+				"available but required for EC key generate.");
+		return -ELIBACC;
+	}
+
+	*seclen = 0;
+	*publen = 0;
+
+	/* Create skeleton token */
+	setup_rule_array(curve, flags, rule_array, &rule_array_count);
+	setup_key_value_struct(kvs_buf, &kvs_len, curve, NULL, 0, NULL, 0);
+
+	cca->dll_CSNDPKB(&return_code, &reason_code, &exit_data_len, exit_data,
+			&rule_array_count, rule_array, &kvs_len, kvs_buf,
+			&key_name_len, NULL, &rlen1, NULL, &rlen2, NULL, &rlen3, NULL,
+			&rlen4, NULL, &rlen5, NULL, &skel_token_len, skel_token);
+
+	pr_verbose(verbose, "CSNDPKB (PKA Key Token Build) "
+			"returned: return_code: %ld, reason_code: %ld", return_code,
+			reason_code);
+
+	if (return_code != 0) {
+		print_CCA_error(return_code, reason_code);
+		return -EIO;
+	}
+
+	/* Generate secure key token */
+	memcpy(rule_array, "MASTER  ", CCA_KEYWORD_SIZE);
+	rule_array_count = 1;
+	cca->dll_CSNDPKG(&return_code, &reason_code, &exit_data_len, exit_data,
+			&rule_array_count, rule_array, &regen_data_len, NULL,
+			&skel_token_len, skel_token, trans_key, &ecc_token_len,
+			(unsigned char *)&ecc_token);
+
+	pr_verbose(verbose, "CSNDPKG (PKA Key Generate) "
+			"returned: return_code: %ld, reason_code: %ld", return_code,
+			reason_code);
+
+	if (return_code != 0) {
+		print_CCA_error(return_code, reason_code);
+		return -EIO;
+	}
+
+	memcpy(secure_key, ecc_token, ecc_token_len);
+	*seclen = ecc_token_len;
+
+	/* Extract public key from secure key token */
+	rc = ec_key_extract_public_cca(cca, ecc_token, ecc_token_len,
+				(unsigned char *)&buf, &buflen, verbose);
+	if (rc == 0 && buflen > 0) {
+		memcpy(public_key, buf, buflen);
+		*publen = buflen;
+	}
+
+	return 0;
+}
+
+/**
+ * Extract the public key out if the given secure key blob. A public key can
+ * only be obtained, if it is already contained in the token. The host lib
+ * does not re-calculate the public key from the given private key.
+ */
+int ec_key_extract_public_cca(struct cca_lib *cca, unsigned char *ecc_token,
+				unsigned int ecc_token_len, unsigned char *ecc_pub_token,
+				unsigned int *p_ecc_pub_token_len, bool verbose)
+{
+	unsigned char rule_array_buf[CCA_RULE_ARRAY_SIZE] = { 0 };
+	unsigned char buf[CCA_EC_KEY_VALUE_STRUCT_SIZE] = { 0 };
+	unsigned char exit_data[4];
+	long return_code = 0, reason_code = 0, exit_data_len = 0;
+	long rule_array_count = 0;
+	long buflen = sizeof(buf);
+	struct eccpubtoken *pubtok;
+
+	if (cca->dll_CSNDPKX == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSNDPKX not "
+				"available but required for public key extract.");
+		return -ELIBACC;
+	}
+
+	/* Extract the public key from secure key token */
+	cca->dll_CSNDPKX(&return_code, &reason_code, &exit_data_len, exit_data,
+			&rule_array_count, rule_array_buf, (long *)&ecc_token_len, ecc_token,
+			&buflen, (unsigned char *)&buf);
+
+	pr_verbose(verbose, "CSNDPKX (PKA Public Key Extract) "
+			"returned: return_code: %ld, reason_code: %ld", return_code,
+			reason_code);
+
+	if (return_code != 0) {
+		print_CCA_error(return_code, reason_code);
+		return -EIO;
+	}
+
+	/* Copy result: public token comes after the CCA header */
+	pubtok = (struct eccpubtoken *)&buf[CCA_EC_HEADER_SIZE];
+	if (pubtok->curve_type == CCA_EC_CURVE_TYPE_PRIME) {
+		/* Remove indication for uncompressed key 0x04 */
+		memcpy(ecc_pub_token, pubtok->q + 1, pubtok->q_len - 1);
+		*p_ecc_pub_token_len = pubtok->q_len - 1;
+	} else {
+		memcpy(ecc_pub_token, pubtok->q, pubtok->q_len);
+		*p_ecc_pub_token_len = pubtok->q_len;
+	}
+
+	return 0;
+}
+
+int ec_key_clr2sec_cca(struct cca_lib *cca, int curve, unsigned int flags,
+				unsigned char *secure_key, unsigned int *seclen,
+				const unsigned char *pubkey, unsigned int publen,
+				const unsigned char *privkey, unsigned int privlen,
+				bool verbose)
+{
+	unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
+	unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+	unsigned char kvs_buf[CCA_EC_KEY_VALUE_STRUCT_SIZE] = { 0, };
+	unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+	unsigned char *exit_data = NULL, *param2 = NULL;
+	long return_code = 0, reason_code = 0, rule_array_count = 0;
+	long exit_data_len = 0, kvs_len = 0, private_key_name_length = 0;
+	long key_token_length = CCA_KEY_TOKEN_SIZE;
+	long param1 = 0, target_key_token_length = 0;
+
+	if (cca->dll_CSNDPKB == NULL || cca->dll_CSNDPKI == NULL) {
+		pr_verbose(verbose, "CCA host lib function CSNDPKB and/or CSNDPKI not "
+				"available but required for clear key import.");
+		return -ELIBACC;
+	}
+
+	setup_key_value_struct(kvs_buf, &kvs_len, curve, pubkey, publen, privkey, privlen);
+	setup_rule_array(curve, flags, rule_array, &rule_array_count);
+
+	cca->dll_CSNDPKB(&return_code, &reason_code, &exit_data_len, exit_data,
+			&rule_array_count, rule_array, &kvs_len, kvs_buf,
+			&private_key_name_length, private_key_name,
+			&param1, param2, &param1, param2, &param1, param2, &param1, param2,
+			&param1, param2, &key_token_length, key_token);
+
+	pr_verbose(verbose, "CSNDPKB (PKA Key Token Build) "
+			"returned: return_code: %ld, reason_code: %ld", return_code,
+			reason_code);
+
+	if (return_code != 0) {
+		print_CCA_error(return_code, reason_code);
+		return -EIO;
+	}
+
+	/* Now import the PKA key token */
+	memcpy(rule_array, "ECC     ", CCA_KEYWORD_SIZE);
+	rule_array_count = 1;
+
+	key_token_length = CCA_KEY_TOKEN_SIZE;
+	target_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+	cca->dll_CSNDPKI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+			rule_array, &key_token_length, key_token, transport_key_identifier,
+			&target_key_token_length, target_key_token);
+
+	pr_verbose(verbose, "CSNDPKI (PKA Key Import) "
+			"returned: return_code: %ld, reason_code: %ld", return_code,
+			reason_code);
+
+	if (return_code != 0) {
+		print_CCA_error(return_code, reason_code);
+		return -EIO;
+	}
+
+	memcpy(secure_key, target_key_token, target_key_token_length);
+	*seclen = target_key_token_length;
+
 	return 0;
 }
