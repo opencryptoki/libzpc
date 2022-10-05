@@ -89,6 +89,7 @@ stfle(u64 flist[], u8 nmemb)
 int pkeyfd = -1;
 
 struct hwcaps hwcaps;
+struct swcaps swcaps;
 
 int debug;
 pthread_mutex_t debuglock;
@@ -111,12 +112,14 @@ static void zpc_init(void)
 	unsigned long hwcap, facility_list_nmemb;
 	u64 status_word[2], *facility_list = NULL, tmp;
 	int rc, err = -1;
-	int aes_ecb_km;
-	int aes_cbc_kmc;
-	int aes_gcm_kma;
+	int aes_ecb_km = 0;
+	int aes_cbc_kmc = 0;
+	int aes_gcm_kma = 0;
 	int aes_cmac_kmac = 0, aes_cmac_pcc = 0;
 	int aes_ccm_kmac = 0, aes_ccm_kma = 0;
 	int aes_xts_km = 0, aes_xts_pcc = 0;
+	int ecc_kdsa = 0;
+	int aes_cca = 0, aes_ep11 = 0, ecdsa_cca = 0, ecdsa_ep11 = 0;
 	char *env;
 
 	if (init != 1)
@@ -142,11 +145,15 @@ static void zpc_init(void)
 		goto ret;
 	rc = pthread_mutex_lock(&ccalock);
 	assert(rc == 0);
-	if (load_cca_library(&cca, true) != 0)
+	if (load_cca_library(&cca, true) != 0) {
 		DEBUG("loading CCA library failed");
-	else
+	} else {
 		DEBUG("loaded CCA library: ver %u, rel %u, mod %u",
 	            cca.version.ver, cca.version.rel, cca.version.mod);
+		aes_cca = 1;
+		if (cca.version.ver >= 7)
+			ecdsa_cca = 1;
+	}
 	rc = pthread_mutex_unlock(&ccalock);
 	assert(rc == 0);
 
@@ -156,11 +163,15 @@ static void zpc_init(void)
 		goto ret;
 	rc = pthread_mutex_lock(&ep11lock);
 	assert(rc == 0);
-	if (load_ep11_library(&ep11, true) != 0)
+	if (load_ep11_library(&ep11, true) != 0) {
 		DEBUG("loading EP11 library failed");
-	else
+	} else {
 		DEBUG("loaded EP11 library: %u.%u", ep11.version.major,
 	            ep11.version.minor);
+		aes_ep11 = 1;
+		if (ep11.version.major >= 3)
+			ecdsa_ep11 = 1;
+	}
 	rc = pthread_mutex_unlock(&ep11lock);
 	assert(rc == 0);
 
@@ -293,6 +304,31 @@ static void zpc_init(void)
 		}
 	}
 
+	/* Check MSA9. */
+	if (facility_list_nmemb >= OFF64(MSA9) + 1
+	    && (facility_list[OFF64(MSA9)] & MASK64(MSA9))) {
+		DEBUG("detected message-security-assist extension 9");
+
+		memset(status_word, 0, sizeof(status_word));
+		cpacf_kdsa(CPACF_KDSA_QUERY, &status_word, NULL, 0);
+		DEBUG("status word kdsa: 0x%016llx:0x%016llx", status_word[0],
+		    status_word[1]);
+
+		if ((status_word[OFF64(CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P256)]
+		    & MASK64(CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P256))
+		    && (status_word[OFF64(CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P384)]
+		    & MASK64(CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P384))
+		    && (status_word[OFF64(CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P521)]
+		    & MASK64(CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P521))
+		    && (status_word[OFF64(CPACF_KDSA_ENCRYPTED_EDDSA_SIGN_ED25519)]
+		    & MASK64(CPACF_KDSA_ENCRYPTED_EDDSA_SIGN_ED25519))
+		    && (status_word[OFF64(CPACF_KDSA_ENCRYPTED_EDDSA_SIGN_ED448)]
+		    & MASK64(CPACF_KDSA_ENCRYPTED_EDDSA_SIGN_ED448))) {
+			ecc_kdsa = 1;
+		}
+	}
+
+	/* Hardware capabilities via CPACF */
 	if (aes_ecb_km == 1) {
 		hwcaps.aes_ecb = 1;
 		DEBUG("detected aes-ecb instruction set extensions");
@@ -316,6 +352,32 @@ static void zpc_init(void)
 	if (aes_gcm_kma == 1) {
 		hwcaps.aes_gcm = 1;
 		DEBUG("detected aes-gcm instruction set extensions");
+	}
+	if (ecc_kdsa == 1) {
+		hwcaps.ecc_kdsa = 1;
+		DEBUG("detected ecc-kdsa instruction set extensions");
+	}
+
+	/* Software capabilities via host libs */
+	if (aes_cca == 1) {
+		swcaps.aes_cca = 1;
+		DEBUG("detected aes via cca host lib software capability");
+	}
+	if (aes_ep11 == 1) {
+		swcaps.aes_ep11 = 1;
+		DEBUG("detected aes via ep11 host lib software capability");
+	}
+	if (ecdsa_cca == 1) {
+		swcaps.ecdsa_cca = 1;
+		DEBUG("detected ecdsa via cca host lib software capability");
+	} else {
+		DEBUG("ecdsa via cca host lib software capability not available");
+	}
+	if (ecdsa_ep11 == 1) {
+		swcaps.ecdsa_ep11 = 1;
+		DEBUG("detected ecdsa via ep11 host lib software capability");
+	} else {
+		DEBUG("ecdsa via ep11 host lib software capability not available");
 	}
 
 	err = 0;
