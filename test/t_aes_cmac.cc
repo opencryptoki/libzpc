@@ -380,9 +380,9 @@ TEST(aes_cmac, stream_inplace_kat1)
 	rc = zpc_aes_key_set_type(aes_key, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -466,9 +466,9 @@ TEST(aes_cmac, stream_inplace_kat2)
 	rc = zpc_aes_key_set_type(aes_key, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -550,9 +550,9 @@ static void __run_json(const char *json)
 	rc = zpc_aes_key_set_type(aes_key, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -757,9 +757,9 @@ TEST(aes_cmac, rederive_protected_key2)
 	rc = zpc_aes_key_set_type(aes_key, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -863,9 +863,9 @@ TEST(aes_cmac, reencipher)
 	rc = zpc_aes_key_set_type(aes_key, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -1022,9 +1022,9 @@ TEST(aes_cmac, threads)
 	rc = zpc_aes_key_set_type(aes_key, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key, apqns);
 		EXPECT_EQ(rc, 0);
 	}

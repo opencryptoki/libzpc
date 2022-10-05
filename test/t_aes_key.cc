@@ -504,22 +504,21 @@ TEST(aes_key, export)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_generate(aes_key);
 	EXPECT_EQ(rc, 0);
-	
+
 	buflen = 0;
 	rc = zpc_aes_key_export(aes_key, buf, &buflen);
 	EXPECT_EQ(rc, ZPC_ERROR_SMALLOUTBUF);
-	
+
 	rc = zpc_aes_key_export(aes_key, NULL, &buflen);
 	EXPECT_EQ(rc, 0);
 	EXPECT_GT(buflen, 0UL);
-	
+
 	rc = zpc_aes_key_export(aes_key, buf, &buflen);
 	EXPECT_EQ(rc, 0);
 
 	zpc_aes_key_free(&aes_key);
 	EXPECT_EQ(aes_key, nullptr);
 }
-
 
 TEST(aes_key, import)
 {

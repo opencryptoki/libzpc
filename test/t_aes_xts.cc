@@ -573,9 +573,9 @@ TEST(aes_xts, stream_inplace_kat1)
 	rc = zpc_aes_key_set_type(aes_key1, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key1, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -589,9 +589,9 @@ TEST(aes_xts, stream_inplace_kat1)
 	rc = zpc_aes_key_set_type(aes_key2, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key2, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -714,9 +714,9 @@ TEST(aes_xts, stream_inplace_kat2)
 	rc = zpc_aes_key_set_type(aes_key1, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key1, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -730,9 +730,9 @@ TEST(aes_xts, stream_inplace_kat2)
 	rc = zpc_aes_key_set_type(aes_key2, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key2, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -745,7 +745,7 @@ TEST(aes_xts, stream_inplace_kat2)
 
 	rc = zpc_aes_xts_set_key(aes_xts, aes_key1, aes_key2);
 	EXPECT_EQ(rc, 0);
-   
+
 	/* Encrypt */
 	memcpy(buf, msg, msglen);
 
@@ -817,9 +817,9 @@ static void __run_json(const char *json)
 	rc = zpc_aes_key_set_type(aes_key1, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key1, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -829,9 +829,9 @@ static void __run_json(const char *json)
 	rc = zpc_aes_key_set_type(aes_key2, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key2, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -1059,9 +1059,9 @@ TEST(aes_xts, rederive_protected_key2)
 	rc = zpc_aes_key_set_type(aes_key1, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key1, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -1077,9 +1077,9 @@ TEST(aes_xts, rederive_protected_key2)
 	rc = zpc_aes_key_set_type(aes_key2, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key2, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -1204,9 +1204,9 @@ TEST(aes_xts, reencipher)
 	rc = zpc_aes_key_set_type(aes_key1, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key1, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -1222,9 +1222,9 @@ TEST(aes_xts, reencipher)
 	rc = zpc_aes_key_set_type(aes_key2, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key2, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -1421,9 +1421,9 @@ TEST(aes_xts, threads)
 	rc = zpc_aes_key_set_type(aes_key1, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key1, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key1, apqns);
 		EXPECT_EQ(rc, 0);
 	}
@@ -1439,9 +1439,9 @@ TEST(aes_xts, threads)
 	rc = zpc_aes_key_set_type(aes_key2, type);
 	EXPECT_EQ(rc, 0);
 	if (mkvp != NULL) {
-		  rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
-		  EXPECT_EQ(rc, 0);
-	 } else {
+		rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
 		rc = zpc_aes_key_set_apqns(aes_key2, apqns);
 		EXPECT_EQ(rc, 0);
 	}
