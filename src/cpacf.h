@@ -251,4 +251,181 @@ cpacf_kma(unsigned long fc, void *param, u8 * out, const u8 * aad,
 	return cc;
 }
 
+/* KDSA */
+
+/* Function codes */
+#define CPACF_KDSA_QUERY                              0
+#define CPACF_KDSA_ECDSA_VERIFY_ECP256                1
+#define CPACF_KDSA_ECDSA_VERIFY_ECP384                2
+#define CPACF_KDSA_ECDSA_VERIFY_ECP521                3
+#define CPACF_KDSA_EDDSA_VERIFY_ED25519              32
+#define CPACF_KDSA_EDDSA_VERIFY_ED448                36
+#define CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P256         17
+#define CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P384         18
+#define CPACF_KDSA_ENCRYPTED_ECDSA_SIGN_P521         19
+#define CPACF_KDSA_ENCRYPTED_EDDSA_SIGN_ED25519      48
+#define CPACF_KDSA_ENCRYPTED_EDDSA_SIGN_ED448        52
+
+/* Parameter blocks */
+typedef struct cpacf_ecp256_sign_param {
+	unsigned char sig_r[32];
+	unsigned char sig_s[32];
+	unsigned char hash[32];
+	unsigned char prot[32];
+	unsigned char rand[32];
+	unsigned char wkvp[32];
+	unsigned short c;
+} cpacf_ecp256_sign_param_t;
+
+typedef struct cpacf_ecp256_verify_param {
+	unsigned char sig_r[32];
+	unsigned char sig_s[32];
+	unsigned char hash[32];
+	unsigned char pub_x[32];
+	unsigned char pub_y[32];
+} cpacf_ecp256_verify_param_t;
+
+typedef struct cpacf_ecp384_sign_param {
+	unsigned char sig_r[48];
+	unsigned char sig_s[48];
+	unsigned char hash[48];
+	unsigned char prot[48];
+	unsigned char rand[48];
+	unsigned char wkvp[32];
+	unsigned short c;
+} cpacf_ecp384_sign_param_t;
+
+typedef struct cpacf_ecp384_verify_param {
+	unsigned char sig_r[48];
+	unsigned char sig_s[48];
+	unsigned char hash[48];
+	unsigned char pub_x[48];
+	unsigned char pub_y[48];
+} cpacf_ecp384_verify_param_t;
+
+typedef struct cpacf_ecp521_sign_param {
+	unsigned char sig_r[80];
+	unsigned char sig_s[80];
+	unsigned char hash[80];
+	unsigned char prot[80];
+	unsigned char rand[80];
+	unsigned char wkvp[32];
+	unsigned short c;
+} cpacf_ecp521_sign_param_t;
+
+typedef struct cpacf_ecp521_verify_param {
+	unsigned char sig_r[80];
+	unsigned char sig_s[80];
+	unsigned char hash[80];
+	unsigned char pub_x[80];
+	unsigned char pub_y[80];
+} cpacf_ecp521_verify_param_t;
+
+typedef struct cpacf_ed25519_sign_param {
+	unsigned char sig_r[32];
+	unsigned char sig_s[32];
+	unsigned char prot[32];
+	unsigned char wkvp[32];
+	unsigned char res[16];
+	unsigned short c;
+} cpacf_ed25519_sign_param_t;
+
+typedef struct cpacf_ed25519_verify_param {
+	unsigned char sig_r[32];
+	unsigned char sig_s[32];
+	unsigned char pub[32];
+} cpacf_ed25519_verify_param_t;
+
+typedef struct cpacf_ed448_sign_param {
+	unsigned char sig_r[64];
+	unsigned char sig_s[64];
+	unsigned char prot[64];
+	unsigned char wkvp[32];
+	unsigned char res[16];
+	unsigned short c;
+} cpacf_ed448_sign_param_t;
+
+typedef struct cpacf_ed448_verify_param {
+	unsigned char sig_r[64];
+	unsigned char sig_s[64];
+	unsigned char pub[64];
+} cpacf_ed448_verify_param_t;
+
+/**
+ * cpacf_kdsa:
+ * @func: the function code passed to KDSA; see s390_kdsa_functions
+ * @param: address of parameter block; see POP for details on each func
+ * @src: address of source memory area
+ * @srclen: length of src operand in bytes
+ *
+ * Executes the KDSA (COMPUTE DIGITAL SIGNATURE AUTHENTICATION) operation of
+ * the CPU.
+ *
+ * Returns 0 on success. Fails in case of sign if the random number was not
+ * invertible. Fails in case of verify if the signature is invalid or the
+ * public key is not on the curve.
+ */
+static inline int
+cpacf_kdsa(unsigned long func, void *param,
+			const unsigned char *src, unsigned long srclen)
+{
+    register unsigned long r0 __asm__("0") = (unsigned long)func;
+    register unsigned long r1 __asm__("1") = (unsigned long)param;
+    register unsigned long r2 __asm__("2") = (unsigned long)src;
+    register unsigned long r3 __asm__("3") = (unsigned long)srclen;
+    unsigned long rc = 1;
+
+    __asm__ volatile(
+        "0: .insn   rre,%[__opc] << 16,0,%[__src]\n"
+        "   brc 1,0b\n" /* handle partial completion */
+        "   brc 7,1f\n"
+        "   lghi    %[__rc],0\n"
+        "1:\n"
+        : [__src] "+a" (r2), [__srclen] "+d" (r3), [__rc] "+d" (rc)
+        : [__fc] "d" (r0), [__param] "a" (r1), [__opc] "i" (0xb93a)
+        : "cc", "memory");
+
+    return (int)rc;
+}
+
+static inline void s390_flip_endian_32(void *dest, const void *src)
+{
+	__asm__ volatile(
+		"	lrvg    %%r0,0(%[__src])\n"
+		"	lrvg    %%r1,8(%[__src])\n"
+		"	lrvg    %%r4,16(%[__src])\n"
+		"	lrvg    %%r5,24(%[__src])\n"
+		"	stg %%r0,24(%[__dest])\n"
+		"	stg %%r1,16(%[__dest])\n"
+		"	stg %%r4,8(%[__dest])\n"
+		"	stg %%r5,0(%[__dest])\n"
+		:
+		: [__dest] "a" (dest), [__src] "a" (src)
+		: "memory", "%r0", "%r1", "%r4", "%r5");
+}
+
+static inline void s390_flip_endian_64(void *dest, const void *src)
+{
+	__asm__ volatile(
+		"	lrvg    %%r0,0(%[__src])\n"
+		"	lrvg    %%r1,8(%[__src])\n"
+		"	lrvg    %%r4,16(%[__src])\n"
+		"	lrvg    %%r5,24(%[__src])\n"
+		"	lrvg    %%r6,32(%[__src])\n"
+		"	lrvg    %%r7,40(%[__src])\n"
+		"	lrvg    %%r8,48(%[__src])\n"
+		"	lrvg    %%r9,56(%[__src])\n"
+		"	stg %%r0,56(%[__dest])\n"
+		"	stg %%r1,48(%[__dest])\n"
+		"	stg %%r4,40(%[__dest])\n"
+		"	stg %%r5,32(%[__dest])\n"
+		"	stg %%r6,24(%[__dest])\n"
+		"	stg %%r7,16(%[__dest])\n"
+		"	stg %%r8,8(%[__dest])\n"
+		"	stg %%r9,0(%[__dest])\n"
+		:
+		: [__dest] "a" (dest), [__src] "a" (src)
+		: "memory", "%r0", "%r1", "%r4", "%r5",
+			"%r6", "%r7", "%r8", "%r9");
+}
 #endif
