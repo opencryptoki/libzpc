@@ -23,6 +23,9 @@ extern "C" {
 
 # include <stddef.h>
 
+/*
+ * These constants match with kernel's pkey.h, enum pkey_key_type.
+ */
 # define ZPC_AES_KEY_TYPE_CCA_DATA     1
 # define ZPC_AES_KEY_TYPE_CCA_CIPHER   2
 # define ZPC_AES_KEY_TYPE_EP11         3
