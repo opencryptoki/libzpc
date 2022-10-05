@@ -21,6 +21,14 @@ struct hwcaps {
 	int aes_cbc;
 	int aes_xts;
 	int aes_cmac;
+	int ecc_kdsa;
+};
+
+struct swcaps {
+	int aes_cca;
+	int aes_ep11;
+	int ecdsa_cca;
+	int ecdsa_ep11;
 };
 
 /*
@@ -31,6 +39,7 @@ struct hwcaps {
 extern int pkeyfd;
 
 extern struct hwcaps hwcaps;
+extern struct swcaps swcaps;
 
 extern int debug;
 extern pthread_mutex_t debuglock;
