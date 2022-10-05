@@ -178,8 +178,10 @@ TEST(aes_key, set_mkvp)
 	rc = zpc_aes_key_set_flags(aes_key, flags);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
-	EXPECT_EQ(rc, ZPC_ERROR_KEYTYPENOTSET);
-
+	if (mkvp != NULL)
+		EXPECT_EQ(rc, ZPC_ERROR_KEYTYPENOTSET);
+	else
+		EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_set_type(aes_key, type);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
