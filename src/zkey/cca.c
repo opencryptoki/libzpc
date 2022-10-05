@@ -134,7 +134,7 @@ static int get_cca_version(struct cca_lib *cca, bool verbose)
  */
 int load_cca_library(struct cca_lib *cca, bool verbose)
 {
-	util_assert(cca != NULL, "Internal error: caa is NULL");
+	util_assert(cca != NULL, "Internal error: cca is NULL");
 
 	/* Load the CCA library */
 	cca->lib_csulcca = dlopen(CCA_LIBRARY_NAME, RTLD_GLOBAL | RTLD_NOW);

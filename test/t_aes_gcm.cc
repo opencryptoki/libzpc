@@ -918,7 +918,7 @@ TEST(aes_gcm, rederive_protected_key1)
 	rc = zpc_aes_gcm_set_key(aes_gcm3, NULL);   /* Unset key. */
 	EXPECT_EQ(rc, 0);
 
-	/* Random protected keys cannot rbe re-derived. */
+	/* Random protected keys cannot be re-derived. */
 
 	rc = zpc_aes_key_set_mkvp(aes_key1, NULL);   /* Unset apqns. */
 	EXPECT_EQ(rc, 0);
