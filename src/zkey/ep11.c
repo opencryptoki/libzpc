@@ -40,6 +40,9 @@
 #define EP11_LIBRARY_VERSION	3
 #define EP11_WEB_PAGE		"http://www.ibm.com/security/cryptocards"
 
+extern const size_t curve2publen[];
+extern const uint16_t curve2bitlen[];
+
 /**
  * Returns the major and minor version of the of the used EP11 host library.
  *
@@ -53,6 +56,15 @@ static int get_ep11_version(struct ep11_lib *ep11, bool verbose)
 	unsigned int host_version;
 	CK_ULONG version_len = sizeof(host_version);
 	CK_RV rc;
+
+	if (ep11->lib_ep11 == NULL)
+		return -ELIBACC;
+
+	if (ep11->dll_m_get_xcp_info == NULL) {
+		pr_verbose(verbose, "EP11 host lib function m_get_xcp_info not "
+			"available but required for getting the EP11 library version.");
+		return -ELIBACC;
+	}
 
 	rc = ep11->dll_m_get_xcp_info(&host_version, &version_len,
 				      CK_IBM_XCPHQ_VERSION, 0, 0);
@@ -95,7 +107,7 @@ int load_ep11_library(struct ep11_lib *ep11, bool verbose)
 {
 	char lib_name[256];
 	int libver;
-	int rc;
+	int all_entry_points_loaded = 1, rc;
 
 	util_assert(ep11 != NULL, "Internal error: ep11 is NULL");
 
@@ -140,18 +152,32 @@ int load_ep11_library(struct ep11_lib *ep11, bool verbose)
 		ep11->dll_xcpa_internal_rv =
 				(xcpa_internal_rv_t)dlsym(ep11->lib_ep11,
 							  "ep11a_internal_rv");
+	ep11->dll_m_UnwrapKey = (m_UnwrapKey_t)dlsym(ep11->lib_ep11, "m_UnwrapKey");
+	ep11->dll_m_EncryptSingle = (m_EncryptSingle_t)dlsym(ep11->lib_ep11, "m_EncryptSingle");
+	ep11->dll_m_GenerateKeyPair = (m_GenerateKeyPair_t)dlsym(ep11->lib_ep11, "m_GenerateKeyPair");
+	ep11->dll_m_GenerateKey = (m_GenerateKey_t)dlsym(ep11->lib_ep11, "m_GenerateKey");
+	ep11->dll_m_GetAttributeValue = (m_GetAttributeValue_t)dlsym(ep11->lib_ep11, "m_GetAttributeValue");
 
 	/* dll_m_add_module and dll_m_rm_module may be NULL for V1 EP11 lib */
 	if (ep11->dll_m_init == NULL ||
 	    ep11->dll_m_get_xcp_info == NULL ||
 	    ep11->dll_m_admin == NULL ||
 	    ep11->dll_xcpa_cmdblock == NULL ||
-	    ep11->dll_xcpa_internal_rv == NULL) {
+	    ep11->dll_xcpa_internal_rv == NULL ||
+	    ep11->dll_m_UnwrapKey == NULL ||
+	    ep11->dll_m_EncryptSingle == NULL ||
+	    ep11->dll_m_GenerateKeyPair == NULL ||
+	    ep11->dll_m_GenerateKey == NULL ||
+	    ep11->dll_m_GetAttributeValue == NULL) {
 		pr_verbose(verbose, "%s", dlerror());
 		DEBUG("The command requires the IBM Z Enterprise PKCS #11 "
 		      "(EP11) Support Program (EP11 host library).\n"
 		      "For the supported environments and downloads, see:\n%s",
 		      EP11_WEB_PAGE);
+		all_entry_points_loaded = 0;
+	}
+
+	if (ep11->dll_m_init == NULL) {
 		dlclose(ep11->lib_ep11);
 		ep11->lib_ep11 = NULL;
 		return -ELIBACC;
@@ -167,7 +193,13 @@ int load_ep11_library(struct ep11_lib *ep11, bool verbose)
 		return -ELIBACC;
 	}
 
-	pr_verbose(verbose, "EP11 library '%s' has been loaded successfully",
+	if (all_entry_points_loaded)
+		pr_verbose(verbose, "EP11 library '%s' has been loaded successfully, "
+				"all expected entry points available.",
+			   lib_name);
+	else
+		pr_verbose(verbose, "EP11 library '%s' has been loaded successfully, "
+				"but some entry points are missing.",
 			   lib_name);
 
 	return get_ep11_version(ep11, verbose);
@@ -278,6 +310,12 @@ static int ep11_adm_reencrypt(struct ep11_lib *ep11, target_t target,
 	CK_RV rv;
 	int rc;
 
+	if (ep11->dll_xcpa_cmdblock == NULL) {
+		pr_verbose(verbose, "EP11 host lib function xcpa_cmdblock not "
+			"available but required for EP11 adm reencrypt.");
+		return -ELIBACC;
+	}
+
 	blob_len = ep11key->head.length;
 	if (blob_len > ep11key_size) {
 		pr_verbose(verbose, "Blob length larger than secure key size");
@@ -368,6 +406,12 @@ int reencipher_ep11_key(struct ep11_lib *ep11, target_t target,
 	util_assert(ep11 != NULL, "Internal error: ep11 is NULL");
 	util_assert(secure_key != NULL, "Internal error: secure_key is NULL");
 
+	if (ep11->dll_m_get_xcp_info == NULL) {
+		pr_verbose(verbose, "EP11 host lib function m_get_xcp_info not "
+			"available but required for EP11 EC key reencipher.");
+		return -ELIBACC;
+	}
+
 	rv = ep11->dll_m_get_xcp_info(&dinf, &dinf_len, CK_IBM_XCPQ_DOMAIN, 0,
 				      target);
 	if (rv != CKR_OK) {
@@ -402,3 +446,422 @@ int reencipher_ep11_key(struct ep11_lib *ep11, target_t target,
 	return 0;
 }
 
+/*
+ * For importing keys we need to encrypt the keys. So build the blob by
+ * m_UnwrapKey, use one wrap key for this purpose, can be any key,
+ * we use an AES key
+ */
+CK_RV make_wrapblob(struct ep11_lib *ep11, target_t target)
+{
+	CK_MECHANISM mech = { CKM_AES_KEY_GEN, NULL, 0 };
+	CK_BYTE csum[MAX_CSUMSIZE];
+	size_t csum_len = sizeof(csum);
+	CK_RV rv = 0;
+	CK_BBOOL cktrue = CK_TRUE;
+	CK_ULONG len = 32;
+	CK_ATTRIBUTE wrap_tmpl[] = {
+		{ CKA_VALUE_LEN, &len, sizeof(CK_ULONG) },
+		{ CKA_WRAP, (void *) &cktrue, sizeof(cktrue) },
+		{ CKA_UNWRAP, (void *) &cktrue, sizeof(cktrue) },
+	};
+	CK_ULONG wrap_tmpl_len = sizeof(wrap_tmpl) / sizeof(CK_ATTRIBUTE);
+
+	if (ep11->dll_m_GenerateKey == NULL) {
+		DEBUG("EP11 host lib function m_GenerateKey not available but "
+			"required for creating the EP11 wrap blob.");
+		return CKR_FUNCTION_NOT_SUPPORTED;
+	}
+
+	if (ep11->raw2key_wrap_blob_l != 0)
+		return CKR_OK;
+
+	ep11->raw2key_wrap_blob_l = sizeof(ep11->raw2key_wrap_blob);
+	rv = ep11->dll_m_GenerateKey(&mech, wrap_tmpl, wrap_tmpl_len, NULL, 0,
+			ep11->raw2key_wrap_blob, &ep11->raw2key_wrap_blob_l,
+			csum, &csum_len, target);
+
+	if (rv != CKR_OK) {
+		ep11->raw2key_wrap_blob_l = 0;
+		goto ret;
+	}
+
+	rv = CKR_OK;
+
+ret:
+	return rv;
+}
+
+/**
+ * Translate key flags into ep11 key attributes and add the attributes to the
+ * attrs in the array. *attrs_len specifies the number of already contained
+ * attributes in the array.
+ */
+void ec_key_add_attrs_from_flags(unsigned int flags, CK_ATTRIBUTE attrs[],
+						CK_ULONG *attrs_len, CK_BBOOL *cktrue)
+{
+	const size_t accepted_flags[] = {
+		XCP_BLOB_MODIFIABLE, XCP_BLOB_RESTRICTABLE, XCP_BLOB_USE_AS_DATA,
+		XCP_BLOB_WRAP, XCP_BLOB_TRUSTED, XCP_BLOB_WRAP_W_TRUSTED,
+		XCP_BLOB_RETAINED
+	};
+	const CK_ULONG flag2attr[] = {
+		CKA_MODIFIABLE, CKA_IBM_RESTRICTABLE, CKA_IBM_USE_AS_DATA,
+		CKA_WRAP, CKA_TRUSTED, CKA_WRAP_WITH_TRUSTED,
+		CKA_IBM_RETAINKEY
+	};
+	CK_ATTRIBUTE attr;
+	size_t i, num_attrs = sizeof(flag2attr) / sizeof(CK_ULONG);
+
+	if (flags == 0)
+		return;
+
+	attr.pValue = cktrue;
+	attr.ulValueLen = sizeof(CK_BBOOL);
+
+	for (i = 0; i < num_attrs; i++) {
+		if (flags & accepted_flags[i]) {
+			attr.type = flag2attr[i];
+			memcpy(&attrs[*attrs_len], &attr, sizeof(CK_ATTRIBUTE));
+			(*attrs_len)++;
+		}
+	}
+}
+
+/**
+ * The ep11 host lib wants key material in ASN.1 form. We just need some
+ * static ASN.1 encodings for EC public keys.
+ */
+void make_asn1_key_sequence(unsigned int curve,
+					const unsigned char *pubkey, unsigned int publen,
+					const unsigned char *privkey, unsigned int privlen,
+					CK_BYTE *seq_buf, CK_ULONG *seq_len)
+{
+	asn1_p256_key_seq_t p256 = {
+		.seq1 = ZPC_P256_KEY_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_P256_PARAMS,
+		.seq2 = ZPC_P256_KEY_SEQ2,
+		.seq3 = ZPC_P256_KEY_SEQ3,
+	};
+
+	asn1_p384_key_seq_t p384 = {
+		.seq1 = ZPC_P384_KEY_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_P384_PARAMS,
+		.seq2 = ZPC_P384_KEY_SEQ2,
+		.seq3 = ZPC_P384_KEY_SEQ3,
+	};
+
+	asn1_p521_key_seq_t p521 = {
+		.seq1 = ZPC_P521_KEY_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_P521_PARAMS,
+		.seq2 = ZPC_P521_KEY_SEQ2,
+		.seq3 = ZPC_P521_KEY_SEQ3,
+	};
+
+	asn1_ed25519_key_seq_t ed25519 = {
+		.seq1 = ZPC_ED25519_KEY_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_ED25519_PARAMS,
+		.seq2 = ZPC_ED25519_KEY_SEQ2,
+		.seq3 = ZPC_ED25519_KEY_SEQ3,
+	};
+
+	asn1_ed448_key_seq_t ed448 = {
+		.seq1 = ZPC_ED448_KEY_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_ED448_PARAMS,
+		.seq2 = ZPC_ED448_KEY_SEQ2,
+		.seq3 = ZPC_ED448_KEY_SEQ3,
+	};
+
+	switch (curve) {
+	case 0:
+		memcpy(&p256.privkey, privkey, privlen);
+		memcpy(&p256.pubkey, pubkey, publen);
+		memcpy(seq_buf, &p256, sizeof(p256));
+		*seq_len = sizeof(p256);
+		break;
+	case 1:
+		memcpy(&p384.privkey, privkey, privlen);
+		memcpy(&p384.pubkey, pubkey, publen);
+		memcpy(seq_buf, &p384, sizeof(p384));
+		*seq_len = sizeof(p384);
+		break;
+	case 2:
+		memcpy(&p521.privkey, privkey, privlen);
+		memcpy(&p521.pubkey, pubkey, publen);
+		memcpy(seq_buf, &p521, sizeof(p521));
+		*seq_len = sizeof(p521);
+		break;
+	case 3:
+		memcpy(&ed25519.privkey, privkey, privlen);
+		memcpy(&ed25519.pubkey, pubkey, publen);
+		memcpy(seq_buf, &ed25519, sizeof(ed25519));
+		*seq_len = sizeof(ed25519);
+		break;
+	case 4:
+		memcpy(&ed448.privkey, privkey, privlen);
+		memcpy(&ed448.pubkey, pubkey, publen);
+		memcpy(seq_buf, &ed448, sizeof(ed448));
+		*seq_len = sizeof(ed448);
+		break;
+	}
+}
+
+int ec_key_clr2sec_ep11(struct ep11_lib *ep11, unsigned int curve,
+				unsigned int flags, unsigned char *secure_key, unsigned int *seclen,
+				const unsigned char *pubkey, unsigned int publen,
+				const unsigned char *privkey, unsigned int privlen,
+				target_t target)
+{
+	CK_BYTE iv[PAES_BLOCK_SIZE], cipher[MAX_BLOBSIZE];
+	CK_BYTE csum[MAX_BLOBSIZE], blob[MAX_BLOBSIZE];
+	CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, PAES_BLOCK_SIZE };
+	unsigned char *ep11_pin_blob = NULL;
+	CK_ULONG ep11_pin_blob_len = 0, cipher_len = sizeof(cipher);
+	CK_ULONG cslen = sizeof(csum), asn1_len;
+	size_t blob_len = MAX_BLOBSIZE;
+	CK_BYTE asn1_buf[1000];
+	CK_RV rv;
+	int rc, MAX_EP11_ATTRS = 10; /* below 3 defaults plus max 7 from flags */
+	CK_ATTRIBUTE attrs[MAX_EP11_ATTRS];
+	CK_ULONG attrs_len = 0;
+	CK_ULONG keyType = CKK_EC;
+	CK_BBOOL cktrue = CK_TRUE;
+	CK_ATTRIBUTE default_attrs[] = {
+		{ CKA_KEY_TYPE, &keyType, sizeof(keyType) },
+		{ CKA_IBM_PROTKEY_EXTRACTABLE, &cktrue, sizeof(CK_BBOOL) },
+		{ CKA_SIGN, &cktrue, sizeof(CK_BBOOL) },
+	};
+	struct ep11kblob_header *ep11hdr;
+
+	if (ep11->dll_m_EncryptSingle == NULL || ep11->dll_m_UnwrapKey == NULL) {
+		DEBUG("EP11 host lib function m_EncryptSingle and/or m_UnwrapKey "
+			"not available but required for EP11 EC clear key import.");
+		return -ELIBACC;
+	}
+
+	/* Create AES wrapping key */
+	rv = make_wrapblob(ep11, target);
+	if (rv != CKR_OK) {
+		DEBUG("Could not create the wrap blob");
+		goto ret;
+	}
+
+	/* Create ASN.1 key struct for m_EncryptSingle */
+	make_asn1_key_sequence(curve, pubkey, publen, privkey, privlen,
+						(CK_BYTE *)&asn1_buf, &asn1_len);
+
+	/* Encrypt EC private key with AES wrapping key */
+	rv = ep11->dll_m_EncryptSingle(ep11->raw2key_wrap_blob,
+						ep11->raw2key_wrap_blob_l, &mech_w,
+						(unsigned char *)asn1_buf, asn1_len,
+						cipher, &cipher_len, target);
+	if (rv != CKR_OK) {
+		DEBUG("Error m_EncryptSingle, rv = 0x%lx", rv);
+		goto ret;
+	}
+
+	/* Add default attributes */
+	memcpy(attrs, &default_attrs, sizeof(default_attrs));
+	attrs_len = sizeof(default_attrs) / sizeof(CK_ATTRIBUTE);
+
+	/* Add user-defined flags, translated to attributes */
+	ec_key_add_attrs_from_flags(flags, attrs, &attrs_len, &cktrue);
+
+	/* Create the secure key blob */
+	rv = ep11->dll_m_UnwrapKey(cipher, cipher_len, ep11->raw2key_wrap_blob,
+			ep11->raw2key_wrap_blob_l, NULL, ~0, ep11_pin_blob,
+			ep11_pin_blob_len, &mech_w, (CK_ATTRIBUTE *)&attrs, attrs_len,
+			blob, &blob_len, csum, &cslen, target);
+	if (rv != CKR_OK) {
+		DEBUG("Error m_UnwrapKey, rv = 0x%lx", rv);
+		goto ret;
+	}
+
+	/* Add info to ep11 header (overlay over session ID field). This info
+	 * is later needed for reencipher. */
+	ep11hdr = (struct ep11kblob_header *)&blob;
+	ep11hdr->len = blob_len;
+	ep11hdr->version = PKEY_TYPE_EP11_ECC;
+	ep11hdr->bitlen = curve2bitlen[curve];
+
+	/* Copy result */
+	memcpy(secure_key, blob, blob_len);
+	*seclen = blob_len;
+
+	rv = CKR_OK;
+
+ret:
+
+	switch (rv) {
+	case CKR_OK:
+		rc = 0;
+		break;
+	default:
+		rc = -EIO;
+		break;
+	}
+
+	return rc;
+}
+
+/**
+ * Extract the public key from given secure ECC key token. To obtain a public
+ * key here, it must be contained in the token. The host lib does not
+ * re-calculate a public key from given secure key.
+ */
+int ec_key_extract_public_ep11(struct ep11_lib *ep11, int curve,
+				unsigned char *secure_key, unsigned int seclen,
+				unsigned char *public_key, unsigned int *publen,
+				target_t target)
+{
+	CK_RV rv;
+	CK_BYTE spki[MAX_MACED_SPKI_SIZE];
+	size_t spki_len = sizeof(spki);
+	CK_ATTRIBUTE templ[] = {
+		{ CKA_IBM_MACED_PUBLIC_KEY_INFO, &spki, sizeof(spki) },
+	};
+	int rc = -EIO;
+
+	if (ep11->dll_m_GetAttributeValue == NULL) {
+		DEBUG("EP11 host lib function m_GetAttributeValue not "
+			"available but required for EP11 EC extract public key.");
+		return -ELIBACC;
+	}
+
+	rv = ep11->dll_m_GetAttributeValue(secure_key, seclen, templ, 1, target);
+	if (rv != CKR_OK) {
+		DEBUG("Error m_GetAttributeValue, rv = 0x%lx", rv);
+		goto ret;
+	}
+
+	memcpy(public_key, spki + curve2puboffset[curve], spki_len);
+	*publen = curve2publen[curve];
+
+	rc = 0;
+
+ret:
+
+	return rc;
+}
+
+int ec_key_generate_ep11(struct ep11_lib *ep11, int curve,
+				unsigned int flags,
+				unsigned char *secure_key, unsigned int *seclen,
+				unsigned char *public_key, unsigned int *publen,
+				target_t target)
+{
+	unsigned char *ep11_pin_blob = NULL;
+	CK_ULONG ep11_pin_blob_len = 0;
+	CK_MECHANISM mech = { CKM_EC_KEY_PAIR_GEN, NULL, 0 };
+	CK_BYTE blob[MAX_BLOBSIZE];
+	size_t blob_len = MAX_BLOBSIZE;
+	unsigned char spki[MAX_BLOBSIZE];
+	size_t spki_len = sizeof(spki);
+	int rc;
+	CK_RV rv;
+	CK_BYTE *q;
+	size_t qlen;
+	CK_BYTE p256_params[] = ZPC_P256_PARAMS;
+	CK_BYTE p384_params[] = ZPC_P384_PARAMS;
+	CK_BYTE p521_params[] = ZPC_P521_PARAMS;
+	CK_BYTE ed25519_params[] = ZPC_ED25519_PARAMS;
+	CK_BYTE ed448_params[] = ZPC_ED448_PARAMS;
+	CK_ULONG ec_params_len_from_curve[] = {
+		sizeof(p256_params), sizeof(p384_params), sizeof(p521_params),
+		sizeof(ed25519_params), sizeof(ed448_params),
+	};
+	CK_BYTE *ec_params;
+	CK_ULONG ec_params_len = 0;
+	int MAX_EP11_ATTRS = 15;
+	CK_ATTRIBUTE priv_attrs[MAX_EP11_ATTRS];
+	CK_BBOOL cktrue = CK_TRUE;
+
+
+	if (ep11->dll_m_GenerateKeyPair == NULL) {
+		DEBUG("EP11 host lib function m_GenerateKeyPair not "
+			"available but required for EP11 EC key generate.");
+		return -EIO;
+	}
+
+	switch (curve) {
+	case 0:
+		ec_params = &p256_params[0];
+		break;
+	case 1:
+		ec_params = &p384_params[0];
+		break;
+	case 2:
+		ec_params = &p521_params[0];
+		break;
+	case 3:
+		ec_params = &ed25519_params[0];
+		break;
+	case 4:
+		ec_params = &ed448_params[0];
+		break;
+	}
+	ec_params_len = ec_params_len_from_curve[curve];
+
+	CK_ATTRIBUTE default_priv_attrs[] = {
+		{CKA_IBM_PROTKEY_EXTRACTABLE, &cktrue, sizeof(cktrue)},
+		{CKA_PRIVATE, &cktrue, sizeof(cktrue)},
+		{CKA_SIGN, &cktrue, sizeof(cktrue)},
+	};
+	CK_ATTRIBUTE pub_attrs[] = {
+		{ CKA_VERIFY, &cktrue, sizeof(cktrue) },
+		{ CKA_EC_PARAMS, ec_params, ec_params_len },
+	};
+	CK_ULONG pub_attrs_len = sizeof(pub_attrs) / sizeof(CK_ATTRIBUTE);
+	CK_ULONG priv_attrs_len;
+	struct ep11kblob_header *ep11hdr;
+
+	/* Add default attributes */
+	memcpy(&priv_attrs, &default_priv_attrs, sizeof(default_priv_attrs));
+	priv_attrs_len = sizeof(default_priv_attrs) / sizeof(CK_ATTRIBUTE);
+
+	/* Add user-defined flags, translated to attributes */
+	ec_key_add_attrs_from_flags(flags, priv_attrs, &priv_attrs_len, &cktrue);
+
+	/* Generate the secure key blob */
+	rv = ep11->dll_m_GenerateKeyPair(&mech, pub_attrs, pub_attrs_len,
+						priv_attrs, priv_attrs_len,
+						ep11_pin_blob, ep11_pin_blob_len,
+						blob, &blob_len,
+						spki, &spki_len, target);
+	if (rv != CKR_OK) {
+		DEBUG("Error m_GenerateKeyPair, rv = 0x%lx", rv);
+		rc = EIO;
+		goto ret;
+	}
+
+	/* Add info to ep11 header (overlay over session ID field). This info
+	 * is later needed for sec2prot and reencipher. */
+	ep11hdr = (struct ep11kblob_header *)&blob;
+	ep11hdr->len = blob_len;
+	ep11hdr->version = PKEY_TYPE_EP11_ECC;
+	ep11hdr->bitlen = curve2bitlen[curve];
+
+	/* Get public key from spki */
+	if (spki_len > MAX_BLOBSIZE || blob_len > MAX_BLOBSIZE) {
+		DEBUG("Invalid spki size from m_GenerateKeyPair: %ld bytes", spki_len);
+		rc = EIO;
+		goto ret;
+	}
+	q = spki + curve2qoffset[curve];
+	qlen = curve2publen[curve];
+
+	/* Copy results */
+	memcpy(public_key, q, qlen);
+	*publen = qlen;
+	memcpy(secure_key, blob, blob_len);
+	*seclen = blob_len;
+
+	rc = 0;
+
+ret:
+	return rc;
+}
