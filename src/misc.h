@@ -20,6 +20,9 @@ typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long long u64;
 
+/* Maximum binary MKVP byte-length. */
+# define MAX_MKVPLEN            32
+
 void memzero_secure(void *, size_t);
 int memcmp_consttime(const void *, const void *, size_t);
 int hexstr2buf(u8 *, size_t *, const char *);
