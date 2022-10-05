@@ -67,6 +67,23 @@ zpc_error_string(int err)
 		"protected-key only",
 		"keys are equal",
 		"not supported",
+		"Invalid EC curve",
+		"EC curve not set",
+		"EC private key not set",
+		"EC public key not set",
+		"No EC key parts given",
+		"signature invalid",
+		"PKEY_BLOB2PROTK3 ioctl failed",
+		"PKEY_CLR2SECK3 ioctl failed",
+		"No APQNs set for this key, but required for this operation",
+		"Signature length is invalid for this EC key",
+		"Given public/private key parts are inconsistent",
+		"CCA host library not available, but required for this operation",
+		"EP11 host library not available, but required for this operation",
+		"The given EC public key length is invalid",
+		"The given EC private key length is invalid",
+		"The given buffer does not contain a valid CCA secure key token",
+		"The given buffer does not contain a valid EP11 secure key token",
 		"LAST"
 	};
 	const char *rc;

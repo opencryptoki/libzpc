@@ -301,6 +301,109 @@ extern "C" {
 # define ZPC_ERROR_NOTSUP            49
 
 /**
+ * \def ZPC_ERROR_EC_INVALID_CURVE
+ * \brief Invalid EC curve.
+ */
+# define ZPC_ERROR_EC_INVALID_CURVE  50
+
+/**
+ * \def ZPC_ERROR_EC_CURVE_NOTSET
+ * \brief EC curve not set.
+ */
+# define ZPC_ERROR_EC_CURVE_NOTSET  51
+
+/**
+ * \def ZPC_ERROR_EC_PRIVKEY_NOTSET
+ * \brief EC private key not set.
+ */
+# define ZPC_ERROR_EC_PRIVKEY_NOTSET  52
+
+/**
+ * \def ZPC_ERROR_EC_PUBKEY_NOTSET
+ * \brief EC public key not set.
+ */
+# define ZPC_ERROR_EC_PUBKEY_NOTSET  53
+
+/**
+ * \def ZPC_ERROR_EC_NO_KEY_PARTS
+ * \brief No EC key parts given.
+ */
+# define ZPC_ERROR_EC_NO_KEY_PARTS  54
+
+/**
+ * \def ZPC_ERROR_EC_SIGNATURE_INVALID
+ * \brief signature invalid.
+ */
+# define ZPC_ERROR_EC_SIGNATURE_INVALID  55
+
+/**
+ * \def ZPC_ERROR_IOCTLBLOB2PROTK3
+ * \brief PKEY_BLOB2PROTK3 ioctl failed.
+ */
+# define ZPC_ERROR_IOCTLBLOB2PROTK3    56
+
+/**
+ * \def ZPC_ERROR_IOCTLCLR2SECK3
+ * \brief PKEY_CLR2SECK3 ioctl failed.
+ */
+# define ZPC_ERROR_IOCTLCLR2SECK3    57
+
+/**
+ * \def ZPC_ERROR_APQNS_NOTSET
+ * \brief No APQNs set for this key, but required for this operation.
+ */
+# define ZPC_ERROR_APQNS_NOTSET      58
+
+/**
+ * \def ZPC_ERROR_EC_SIGNATURE_LENGTH
+ * \brief length of given signature is invalid for this EC key.
+ */
+# define ZPC_ERROR_EC_SIGNATURE_LENGTH  59
+
+/**
+ * \def ZPC_ERROR_EC_KEY_PARTS_INCONSISTENT
+ * \brief given public/private key parts are inconsistent. They do not belong
+ * to the same EC key.
+ */
+# define ZPC_ERROR_EC_KEY_PARTS_INCONSISTENT  60
+
+/**
+ * \def ZPC_ERROR_CCA_HOST_LIB_NOT_AVAILABLE
+ * \brief the CCA host library is not available, but required for this function.
+ */
+# define ZPC_ERROR_CCA_HOST_LIB_NOT_AVAILABLE  61
+
+/**
+ * \def ZPC_ERROR_EP11_HOST_LIB_NOT_AVAILABLE
+ * \brief the EP11 host library is not available, but required for this function.
+ */
+# define ZPC_ERROR_EP11_HOST_LIB_NOT_AVAILABLE  62
+
+/**
+ * \def ZPC_ERROR_EC_PUBKEY_LENGTH
+ * \brief the given EC public key length is invalid.
+ */
+# define ZPC_ERROR_EC_PUBKEY_LENGTH  63
+
+/**
+ * \def ZPC_ERROR_EC_PRIVKEY_LENGTH
+ * \brief the given EC private key length is invalid.
+ */
+# define ZPC_ERROR_EC_PRIVKEY_LENGTH  64
+
+/**
+ * \def ZPC_ERROR_EC_NO_CCA_SECUREKEY_TOKEN
+ * \brief the given buffer does not contain a valid CCA secure key token.
+ */
+# define ZPC_ERROR_EC_NO_CCA_SECUREKEY_TOKEN  65
+
+/**
+ * \def ZPC_ERROR_EC_NO_EP11_SECUREKEY_TOKEN
+ * \brief the given buffer does not contain a valid EP11 secure key token.
+ */
+# define ZPC_ERROR_EC_NO_EP11_SECUREKEY_TOKEN  66
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
