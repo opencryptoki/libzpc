@@ -226,6 +226,9 @@ TEST(aes_key, import_clear_1)
 	const char *mkvp;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
@@ -285,6 +288,9 @@ TEST(aes_key, import_clear_2)
 	const char *mkvp;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags= testlib_env_aes_key_type();
@@ -327,6 +333,9 @@ TEST(aes_key, generate_1)
 	const char *mkvp;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags= testlib_env_aes_key_flags();
@@ -382,6 +391,9 @@ TEST(aes_key, generate_2)
 	const char *mkvp;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags= testlib_env_aes_key_flags();
@@ -424,11 +436,18 @@ TEST(aes_key, reencipher)
 	const char *mkvp;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags= testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -471,6 +490,9 @@ TEST(aes_key, export)
 	const char *mkvp;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags= testlib_env_aes_key_flags();
