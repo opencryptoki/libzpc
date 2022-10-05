@@ -92,6 +92,65 @@ struct aescipherkeytoken {
 	u8  varpart[80]; /* variable part */
 } __packed;
 
+struct ccakeytoken {
+	u8  type; /* TOKEN_TYPE_INTERNAL (0x1F) for internal key token */
+	u8  version;
+	u16 length;
+	u32 reserved1;
+	u8  privtok; /* CCA private key token: 0x20 */
+	u8  priv_tok_version;
+	u16 priv_tok_len;
+	u8  aeskw; /* secure key: AESKW */
+	u8  data_sec_hash; /* data section hash */
+	u16 reserved2;
+	u8  keyusage;
+	u8  curve_type;
+	u8  key_format; /* 0x08 = encrypted internal EC key */
+	u8  section_version;
+	u16 p_len;
+	u16 associated_data_len1;
+	u8  mkvp[8];
+	u8  opk[48]; /* Object Protection Key (OPK) */
+	u16 associated_data_len2;
+	u16 formatted_section_len;
+	u8  associated_data_version;
+	u8  key_label_len;
+	u16 associated_data_len3;
+	u16 ext_associated_data_len;
+	u8  user_definable_data_len;
+	u8 curve_type2;
+	u16 p_len2;
+	u8 key_usage_flag;
+	u8 key_format_flag;
+	u8 ad_section_version;
+	u8 reserved3[3];
+	u8 encr_d[0];
+	/* followed by encrypted (D) */
+} __packed;
+
+struct eccpubtoken {
+	u8 id; /* 0x21 = public section */
+	u8 version;
+	u16 length;
+	u32 reserved1;
+	u8 curve_type;
+	u8 reserved2;
+	u16 p_bitlen;
+	u16 q_len;
+	u8 q[0];
+	/* followed by variable length q, max 133 bytes */
+} __packed;
+
+#define EP11_STRUCT_MAGIC        0x1234
+
+/*
+ * Internal used values for the version field of the key header.
+ * Should match to the enum pkey_key_type in pkey.h.
+ */
+#define TOKVER_EP11_AES                 0x03 /* EP11 AES key blob (old style) */
+#define TOKVER_EP11_AES_WITH_HEADER     0x06 /* EP11 AES key blob with hdr */
+#define TOKVER_EP11_ECC_WITH_HEADER     0x07 /* EP11 ECC key blob with hdr */
+
 struct ep11keytoken {
 	union {
 		u8 session[32];
@@ -122,6 +181,10 @@ struct ep11keytoken {
 #define _MIN(a, b)  ((a) < (b) ? (a) : (b))
 #define _MAX(a, b)  ((a) > (b) ? (a) : (b))
 
+#define MIN_EC_BLOB_SIZE		_MIN(sizeof(struct ccakeytoken), \
+									sizeof(struct ep11keytoken))
+#define MAX_EC_BLOB_SIZE		2048
+
 #define MAX_SECURE_KEY_SIZE	_MAX(EP11_KEY_SIZE, \
 				     _MAX(AESDATA_KEY_SIZE, AESCIPHER_KEY_SIZE))
 #define MIN_SECURE_KEY_SIZE	_MIN(EP11_KEY_SIZE, \
@@ -129,11 +192,22 @@ struct ep11keytoken {
 
 #define MAXPROTKEYSIZE	64	/* a protected key blob may be up to 64 bytes */
 
-/* Struct to hold protected key and length info */
+/* Struct to hold protected AES key and length info */
 struct pkey_protkey {
 	u32 type;	 /* key type, one of the PKEY_KEYTYPE_AES values */
 	u32 len;		/* bytes actually stored in protkey[]	 */
 	u8  protkey[MAXPROTKEYSIZE];	       /* the protected key blob */
+};
+
+#define MAXECPROTKEYSIZE	112	/* max 80 + 32 bytes for p521 */
+
+struct pkey_ecprotkey {
+	u8  protkey[MAXECPROTKEYSIZE]; /* the EC protected key blob */
+};
+
+struct pkey_ecpubkey {
+	u32 publen;
+	u8  pubkey[132]; /* max (66,66) for p521 public key (X,Y) value */
 };
 
 struct pkey_seckey {
@@ -150,6 +224,7 @@ struct pkey_clrkey {
 #define PKEY_KEYTYPE_AES_128	1
 #define PKEY_KEYTYPE_AES_192	2
 #define PKEY_KEYTYPE_AES_256	3
+#define PKEY_KEYTYPE_ECC		4
 
 struct pkey_genseck {
 	u16 cardnr;			/* in: card to use or FFFF for any */
@@ -187,6 +262,8 @@ enum pkey_key_type {
 	PKEY_TYPE_CCA_DATA   = (u32) 1,
 	PKEY_TYPE_CCA_CIPHER = (u32) 2,
 	PKEY_TYPE_EP11       = (u32) 3,
+	PKEY_TYPE_CCA_ECC    = (u32) 0x1f,
+	PKEY_TYPE_EP11_ECC   = (u32) 7,
 };
 
 enum pkey_key_size {
@@ -298,6 +375,38 @@ struct pkey_kblob2pkey2 {
 };
 #define PKEY_KBLOB2PROTK2 _IOWR(PKEY_IOCTL_MAGIC, 0x1A, struct pkey_kblob2pkey2)
 
+/*
+ * EP11 key blobs of type PKEY_TYPE_EP11_AES and PKEY_TYPE_EP11_ECC
+ * are ep11 blobs prepended by this header:
+ */
+struct ep11kblob_header {
+	u8  type;	/* always 0x00 */
+	u8  hver;	/* header version,  currently needs to be 0x00 */
+	u16 len;	/* total length in bytes (including this header) */
+	u8  version;	/* PKEY_TYPE_EP11_AES or PKEY_TYPE_EP11_ECC */
+	u8  res0;	/* unused */
+	u16 bitlen;	/* clear key bit len, 0 for unknown */
+	u8  res1[8];	/* unused */
+} __packed;
+
+/*
+ * Transform a key blob into a protected key, version 3.
+ * The difference to version 2 of this ioctl is that the protected key
+ * buffer is now explicitly and not within a struct pkey_protkey any more.
+ * So this ioctl is also able to handle EP11 and CCA ECC secure keys and
+ * provide ECC protected keys.
+ */
+struct pkey_kblob2pkey3 {
+	u8  *key; /* in: pointer to key blob */
+	u32 keylen; /* in: key blob size */
+	struct pkey_apqn *apqns; /* in: ptr to list of apqn targets */
+	u32 apqn_entries; /* in: # of apqn target list entries  */
+	u32 pkeytype; /* out: prot key type (enum pkey_key_type) */
+	u32 pkeylen; /* in/out: size of pkey buffer/actual len of pkey */
+	u8  *pkey; /* in: pkey blob buffer space ptr */
+};
+#define PKEY_KBLOB2PROTK3 _IOWR(PKEY_IOCTL_MAGIC, 0x1D, struct pkey_kblob2pkey3)
+
 #define KEY_TYPE_CCA_AESDATA        "CCA-AESDATA"
 #define KEY_TYPE_CCA_AESCIPHER      "CCA-AESCIPHER"
 #define KEY_TYPE_EP11_AES           "EP11-AES"
@@ -329,5 +438,7 @@ bool is_cca_aes_data_key(const u8 *key, size_t key_size);
 bool is_cca_aes_cipher_key(const u8 *key, size_t key_size);
 bool is_ep11_aes_key(const u8 *key, size_t key_size);
 bool is_xts_key(const u8 *key, size_t key_size);
+bool is_cca_ec_key(const u8 *key, size_t key_size);
+bool is_ep11_ec_key(const u8 *key, size_t key_size);
 
 #endif

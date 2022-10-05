@@ -102,6 +102,50 @@ bool is_cca_aes_cipher_key(const u8 *key, size_t key_size)
 }
 
 /**
+ * Check if the specified key is a CCA ECC key token.
+ *
+ * @param[in] key           the secure key token
+ * @param[in] key_size      the size of the secure key
+ *
+ * @returns true if the key is an CCA ECC token type
+ */
+bool is_cca_ec_key(const u8 *key, size_t key_size)
+{
+	struct ccakeytoken *cipherkey = (struct ccakeytoken *)key;
+
+	if (key == NULL || key_size < sizeof(struct ccakeytoken))
+		return false;
+
+	if (cipherkey->type != 0x1F) /* internal header */
+		return false;
+	if (cipherkey->privtok != 0x20) /* private section */
+		return false;
+	if (cipherkey->key_format != 0x08) /* encrypted internal EC key */
+		return false;
+
+	switch (cipherkey->curve_type) {
+	case 0: /* prime */
+	case 2: /* edwards */
+		break;
+	default:
+		return false;
+	}
+
+	switch (cipherkey->p_len) {
+	case 255: /* ed25519 */
+	case 256: /* p256 */
+	case 384: /* p384 */
+	case 521: /* p521 */
+	case 448: /* ed448 */
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+/**
  * Check if the specified key is a EP11 AES key token.
  *
  * @param[in] key           the secure key token
@@ -123,7 +167,38 @@ bool is_ep11_aes_key(const u8 *key, size_t key_size)
 	if (ep11key->head.length > key_size)
 		return false;
 
-	if (ep11key->version != 0x1234)
+	if (ep11key->version != EP11_STRUCT_MAGIC)
+		return false;
+
+	return true;
+}
+
+/**
+ * Check if the specified key is an EP11 ECC key token with header
+ * (TOKVER_EP11_ECC_WITH_HEADER). This means we have a 16-byte ep11kblob_header
+ * followed by a ep11keytoken struct. We assume that the blob does not contain
+ * a filled out ep11keytoken header in the session field.
+ *
+ * @param[in] key           the secure key token
+ * @param[in] key_size      the size of the secure key
+ *
+ * @returns true if the key is an EP11 ECC token type
+ */
+bool is_ep11_ec_key_with_header(const u8 *key, size_t key_size)
+{
+	struct ep11kblob_header *ep11hdr;
+	struct ep11keytoken *ep11key;
+
+	if (key == NULL || key_size < MIN_EC_BLOB_SIZE || key_size > MAX_EC_BLOB_SIZE)
+		return false;
+
+	ep11hdr = (struct ep11kblob_header *)key;
+	ep11key = (struct ep11keytoken *)(key + sizeof(struct ep11kblob_header));
+
+	if (ep11hdr->version != TOKVER_EP11_ECC_WITH_HEADER)
+		return false;
+
+	if (ep11key->version != EP11_STRUCT_MAGIC)
 		return false;
 
 	return true;
