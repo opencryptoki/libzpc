@@ -18,9 +18,6 @@
  * Internal aes_key interface.
  */
 
-/* Maximum binary MKVP byte-length. */
-# define MAX_MKVPLEN		32
-
 /* Maximum size of secure key blob. */
 # define MAX_AESKEYBLOBSIZE	512
 
