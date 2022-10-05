@@ -17,6 +17,8 @@
 #include "zpc/aes_cbc.h"
 #include "zpc/aes_ecb.h"
 #include "zpc/aes_cmac.h"
+#include "zpc/ecc_key.h"
+#include "zpc/ecdsa_ctx.h"
 
 #ifndef ZPC_ERROR_H
 # error "ZPC_ERROR_H undefined."
@@ -41,6 +43,12 @@
 #endif
 #ifndef ZPC_AES_CMAC_H
 # error "ZPC_AES_CMC_H undefined."
+#endif
+#ifndef ZPC_ECDSA_CTX_H
+# error "ZPC_ECDSA_CTX_H undefined."
+#endif
+#ifndef ZPC_ECC_KEY_H
+# error "ZPC_ECC_KEY_H undefined."
 #endif
 
 int b_headers_not_empty;
