@@ -18,6 +18,8 @@ extern "C" {
 
 # include <stddef.h>
 
+#include "zpc/ecc_key.h"
+
 # define UNUSED(x)	(void)(x)
 # define NMEMB(x)	(sizeof(x) / sizeof(x[0]))
 
@@ -300,10 +302,201 @@ do {                                                                           \
         zpc_aes_key_free(&aes_key);                                            \
 } while (0)
 
+# define TESTLIB_ENV_EC_KEY_CHECK()                                                           \
+do {                                                                                          \
+        const char *apqns[257];                                                               \
+        const char *mkvp;                                                                     \
+        int type, rc;                                                                         \
+        int curve = testlib_env_ec_key_curve();                                               \
+                                                                                              \
+        switch (curve) {                                                                      \
+        case ZPC_EC_CURVE_P256:      /* fall-through */                                       \
+        case ZPC_EC_CURVE_P384:      /* fall-through */                                       \
+        case ZPC_EC_CURVE_P521:      /* fall-through */                                       \
+        case ZPC_EC_CURVE_ED25519:   /* fall-through */                                       \
+        case ZPC_EC_CURVE_ED448:     /* fall-through */                                       \
+            break;                                                                            \
+        case ZPC_EC_CURVE_INVALID:                                                            \
+            GTEST_SKIP_("ZPC_TEST_EC_KEY_CURVE environment variable set to invalid value.");  \
+            break;                                                                            \
+        default:                                                                              \
+            GTEST_SKIP_("ZPC_TEST_EC_KEY_CURVE environment variable not set.");               \
+            break;                                                                            \
+        }                                                                                     \
+                                                                                              \
+        type = testlib_env_ec_key_type();                                                     \
+        if (type == -1)	                                                                      \
+                GTEST_SKIP_("ZPC_TEST_EC_KEY_TYPE environment variable not set.");            \
+                                                                                              \
+        mkvp = testlib_env_ec_key_mkvp();                                                     \
+        rc = testlib_env_ec_key_apqns(apqns);                                                 \
+        if (rc == 0 && mkvp != NULL)                                                          \
+            GTEST_SKIP_("Both ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables set.");  \
+        if (rc != 0 && mkvp == NULL)                                                            \
+            GTEST_SKIP_("ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables unset.");     \
+} while (0)
+
+# define TESTLIB_EC_HW_CAPS_CHECK()                                            \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_ecdsa_ctx *ctx;                                             \
+                                                                               \
+        rc = zpc_ecdsa_ctx_alloc(&ctx);                                        \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check: opening /dev/pkey failed.");           \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check: no hw capabilities for ECDSA.");       \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check: cannot allocate ECDSA ctx object.");   \
+            break;                                                             \
+        default:                                                               \
+            zpc_ecdsa_ctx_free(&ctx);                                          \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_EC_SW_CAPS_CHECK(type)                                        \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_ec_key *ec_key;                                             \
+                                                                               \
+        rc = zpc_ec_key_alloc(&ec_key);                                        \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("SW_CAPS check (EC): Cannot allocate key object.");    \
+                                                                               \
+        rc = zpc_ec_key_set_type(ec_key, type);                                \
+        if (type == ZPC_EC_KEY_TYPE_CCA &&                                     \
+            rc == ZPC_ERROR_CCA_HOST_LIB_NOT_AVAILABLE) {                      \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("SW_CAPS check (EC): CCA host lib not available or too old (min CCA 7.0)."); \
+        }                                                                      \
+        if (type == ZPC_EC_KEY_TYPE_EP11 &&                                    \
+            rc == ZPC_ERROR_EP11_HOST_LIB_NOT_AVAILABLE) {                     \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("SW_CAPS check (EC): EP11 host lib not available or too old (min EP11 3.0)."); \
+        }                                                                      \
+        if (rc != 0) {                                                         \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("HW_CAPS check (EC): unexpected error when setting key type."); \
+        }                                                                      \
+        zpc_ec_key_free(&ec_key);                                              \
+} while (0)
+
+# define TESTLIB_EC_KERNEL_CAPS_CHECK(type,mkvp,apqns)                         \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_ec_key *ec_key;                                             \
+                                                                               \
+        rc = zpc_ec_key_alloc(&ec_key);                                        \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("KERNEL_CAPS check (EC): Cannot allocate key object."); \
+                                                                               \
+        rc = zpc_ec_key_set_mkvp(ec_key, NULL); /* cannot fail */              \
+        rc = zpc_ec_key_set_curve(ec_key, ZPC_EC_CURVE_P256); /* cannot fail */ \
+        rc = zpc_ec_key_set_type(ec_key, type);                                \
+        if (rc != 0) {                                                         \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("KERNEL_CAPS check (EC): error setting key type.");    \
+        }                                                                      \
+        if (mkvp != NULL) {                                                    \
+            rc = zpc_ec_key_set_mkvp(ec_key, mkvp);                            \
+            if (rc != 0) {                                                     \
+                zpc_ec_key_free(&ec_key);                                      \
+                GTEST_SKIP_("KERNEL_CAPS check (EC): error setting mkvp.");    \
+            }                                                                  \
+        } else {                                                               \
+            rc = zpc_ec_key_set_apqns(ec_key, apqns);                          \
+            if (rc != 0) {                                                     \
+                zpc_ec_key_free(&ec_key);                                      \
+                GTEST_SKIP_("KERNEL_CAPS check (EC): error setting apqns.");   \
+            }                                                                  \
+        }                                                                      \
+        rc = zpc_ec_key_generate(ec_key);                                      \
+        if (rc == ZPC_ERROR_IOCTLBLOB2PROTK3) {                                \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("KERNEL_CAPS check (EC): ioctl PKEY_KBLOB2PROTK3 not supported by kernel."); \
+        }                                                                      \
+        if (rc != 0) {                                                         \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("KERNEL_CAPS check (EC): Unexpected error when generating test key."); \
+        }                                                                      \
+                                                                               \
+        zpc_ec_key_free(&ec_key);                                              \
+} while (0)
+
+/**
+ * The reencipher tests require current and new master keys set in the
+ * related CCA or EP11 APQNs. For CCA, also "reencipher old to current" is
+ * supported, but currently not tested to keep tests independent of key types.
+ * Either mkvp or apqns must be specified (not NULL)
+ */
+# define TESTLIB_EC_NEW_MK_CHECK(type,mkvp,apqns)                              \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_ec_key *ec_key;                                             \
+                                                                               \
+        rc = zpc_ec_key_alloc(&ec_key);                                        \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("NEW_MK check (EC): Cannot allocate key object.");     \
+                                                                               \
+        rc = zpc_ec_key_set_type(ec_key, type);                                \
+        if (type == ZPC_EC_KEY_TYPE_CCA &&                                     \
+            rc == ZPC_ERROR_CCA_HOST_LIB_NOT_AVAILABLE) {                      \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("NEW_MK check (EC): CCA host lib not available or too old (min CCA 7.0).");  \
+        }                                                                      \
+        if (type == ZPC_EC_KEY_TYPE_EP11 &&                                    \
+            rc == ZPC_ERROR_EP11_HOST_LIB_NOT_AVAILABLE) {                     \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("NEW_MK check (EC): EP11 host lib not available or too old (min EP11 3.0)."); \
+        }                                                                      \
+        if (mkvp != NULL) {                                                    \
+            rc = zpc_ec_key_set_mkvp(ec_key, mkvp);                            \
+            if (rc != 0) {                                                     \
+                zpc_ec_key_free(&ec_key);                                      \
+                GTEST_SKIP_("NEW_MK check (EC): error setting mkvp.");         \
+            }                                                                  \
+        } else {                                                               \
+            rc = zpc_ec_key_set_apqns(ec_key, apqns);                          \
+            if (rc != 0) {                                                     \
+                zpc_ec_key_free(&ec_key);                                      \
+                GTEST_SKIP_("NEW_MK check (EC): error setting apqns.");        \
+            }                                                                  \
+        }                                                                      \
+        rc = zpc_ec_key_set_curve(ec_key, ZPC_EC_CURVE_P256);/* cannot fail */ \
+        rc = zpc_ec_key_generate(ec_key);                                      \
+        if (rc != 0) {                                                         \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("NEW_MK check (EC): error generating test key.");      \
+        }                                                                      \
+        rc = zpc_ec_key_reencipher(ec_key, ZPC_EC_KEY_REENCIPHER_CURRENT_TO_NEW); \
+        if (rc != 0) {                                                         \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("NEW_MK check (EC): new MK not set for this APQN/MKVP."); \
+        }                                                                      \
+        zpc_ec_key_free(&ec_key);                                              \
+} while (0)
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long long u64;
+
+struct EC_TEST_VECTOR {
+	int curve;
+	unsigned char privkey[66];
+	int privkey_len;
+	unsigned char pubkey[132];
+	int pubkey_len;
+	unsigned char msg[64];
+	int msg_len;
+	unsigned char sig[144];
+	int sig_len;
+};
+extern const struct EC_TEST_VECTOR ec_tv[5];
 
 const char *testlib_env_aes_key_mkvp(void);
 int testlib_env_aes_key_apqns(const char *[257]);
@@ -312,7 +505,15 @@ int testlib_env_aes_key_size(void);
 int testlib_env_aes_key_type(void);
 unsigned int testlib_env_aes_key_flags(void);
 
+const char *testlib_env_ec_key_mkvp(void);
+int testlib_env_ec_key_apqns(const char *[257]);
+void testlib_env_ec_key_check(void);
+zpc_ec_curve_t testlib_env_ec_key_curve(void);
+int testlib_env_ec_key_type(void);
+unsigned int testlib_env_ec_key_flags(void);
+
 unsigned char *testlib_hexstr2buf(const char *, size_t *);
+unsigned char *testlib_hexstr2fixedbuf(const char *hexstr, size_t tolen);
 char *testlib_buf2hexstr(const unsigned char *, size_t);
 
 # ifdef __cplusplus
