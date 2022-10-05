@@ -1,6 +1,11 @@
 Changelog {#changes}
 ===
 
+**Version 1.1.0**
+
+- Implements an ECC-KEY API : `zpc/ecc_key.h`.
+- Implements an ECDSA-CTX API : `zpc/ecdsa_ctx.h`.
+
 **Version 1.0.1**
 
 - Updated spec file for rpm build

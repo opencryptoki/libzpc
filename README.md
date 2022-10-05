@@ -24,6 +24,13 @@ Authenticated Encryption (AEAD):
     AES-128-CCM, AES-192-CCM, AES-256-CCM
     AES-128-GCM, AES-192-GCM, AES-256-GCM
 
+Elliptic-curve digital signature create/verify (ECDSA):
+
+    prime256, oid = 1.2.840.10045.3.1.7
+    secp384, oid = 1.3.132.0.34
+    secp521, oid = 1.3.132.0.35
+    ed25519, oid = 1.3.101.112
+    ed448, oid = 1.3.101.113
 
 Building
 ---
@@ -43,6 +50,13 @@ Additional prerequisites for building the test program:
 Additional prerequisites for building the html and latex doc:
 - doxygen >= 1.8.17
 - latex, bibtex
+
+Additional hardware and software prerequisites for ECDSA:
+- Message security assist (MSA) 9 (IBM z15 or later)
+- Crypto Express 7S CCA coprocessor (CEX7C) or later for CCA type keys
+- Crypto Express 7S EP11 coprocessor (CEX7P) or later for EP11 type keys
+- CCA host library version 7.1 or later for CCA type keys
+- EP11 host library version 3.0 or later for EP11 type keys
 
 Building `libzpc`:
 
@@ -71,13 +85,21 @@ To run all tests, do
 
 from the build directory.
 
-The following environment variables can be passed to `./runtest`:
+For AES, the following environment variables can be passed to `./runtest`:
 - `ZPC_TEST_AES_KEY_TYPE=<type>` : The choices for `<type>` are `ZPC_AES_KEY_TYPE_CCA_DATA`, `ZPC_AES_KEY_TYPE_CCA_CIPHER` and `ZPC_AES_KEY_TYPE_EP11`. AES tests are skipped if this variable is unset or its value is invalid.
 - `ZPC_TEST_AES_KEY_SIZE=<size>` : The choices for `<size>` are `128`, `192` and `256`. AES tests are skipped if this variable is unset or its value is invalid.
 - `ZPC_TEST_AES_KEY_FLAGS=<flags>` : `<flags>` is a 4 byte unsigned integer value that specifies the key's flags. `<flags>` defaults to `0` if this variable is unset or its value is invalid.
 - `ZPC_TEST_AES_KEY_MKVP=<mkvp>` : Test the APQNs that match `<mkvp>`
 and key type.
 - `ZPC_TEST_AES_KEY_APQNS=<apqns>` : Test the `<apqns>`.
+
+For ECDSA, the following environment variables can be passed to `./runtest`:
+- `ZPC_TEST_EC_KEY_TYPE=<type>` : The choices for `<type>` are `ZPC_EC_KEY_TYPE_CCA` and `ZPC_EC_KEY_TYPE_EP11`. ECDSA tests are skipped if this variable is unset or its value is invalid.
+- `ZPC_TEST_EC_KEY_CURVE=<curve>` : The choices for `<curve>` are `p256` (prime256), `p384` (secp384), `p521` (secp521), `ed25519` (ed25519) and `ed448` (ed448). ECDSA tests are skipped if this variable is unset or its value is invalid.
+- `ZPC_TEST_EC_KEY_FLAGS=<flags>` : `<flags>` is a 4 byte unsigned integer value that specifies the key's flags. `<flags>` defaults to `0` if this variable is unset or its value is invalid.
+- `ZPC_TEST_EC_KEY_MKVP=<mkvp>` : Test the APQNs that match `<mkvp>`
+and key type.
+- `ZPC_TEST_EC_KEY_APQNS=<apqns>` : Test the `<apqns>`.
 
 See
 
