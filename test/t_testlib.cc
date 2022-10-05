@@ -281,6 +281,42 @@ TEST(testlib, env_aes_key_flags)
 	}
 }
 
+TEST(testlib, env_ec_key_curve)
+{
+	const char *oldenv = NULL;
+	int rc, curve;
+	size_t i;
+	struct {
+		const char *curvestr;
+		const int curveint;
+	} kat[] = {
+		{ "", -2 }, { "blahblah", -1 }, { "p256", 0 }, { "p384", 1 },
+		{ "p521", 2 }, { "ed25519", 3 }, { "ed448", 4 }, { "P256", 0 },
+		{ "ED25519", 3 }
+	};
+
+	/* Save environment. */
+	oldenv = getenv("ZPC_TEST_EC_KEY_CURVE");
+
+	for (i = 0; i < NMEMB(kat); i++)  {
+		rc = setenv("ZPC_TEST_EC_KEY_CURVE", kat[i].curvestr, 1);
+		ASSERT_EQ(rc, 0);
+
+		curve = testlib_env_ec_key_curve();
+		EXPECT_EQ(curve, kat[i].curveint);
+
+		rc = unsetenv("ZPC_TEST_EC_KEY_CURVE");
+		ASSERT_EQ(rc, 0);
+
+	}
+
+	if (oldenv != NULL) {
+		/* Restore environment. */
+		rc = setenv("ZPC_TEST_EC_KEY_CURVE", oldenv, 1);
+		ASSERT_EQ(rc, 0);
+	}
+}
+
 TEST(testlib, hexstr2buf)
 {
 	const u8 buf1[] = {0xde, 0xad, 0xbe, 0xef};

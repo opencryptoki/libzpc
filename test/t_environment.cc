@@ -9,6 +9,7 @@
 #include "testlib.h"
 
 #include "zpc/aes_key.h"
+#include "zpc/ecc_key.h"
 
 #include <stdio.h>
 
@@ -35,6 +36,29 @@ TEST(environment, test_aes_key)
 		break;
 	default:
 		ASSERT_TRUE(size == 128 || size == 192 || size == 256);
+		break;
+	}
+}
+
+/*
+ * Check environment variables for test cases
+ * that use zpc_ec_key objects.
+ */
+TEST(environment, test_ec_key)
+{
+	int curve;
+
+	curve = testlib_env_ec_key_curve();
+	switch(curve) {
+	case ZPC_EC_CURVE_NOT_SET: /* fall-through */
+	case ZPC_EC_CURVE_P256:    /* fall-through */
+	case ZPC_EC_CURVE_P384:    /* fall-through */
+	case ZPC_EC_CURVE_P521:    /* fall-through */
+	case ZPC_EC_CURVE_ED25519: /* fall-through */
+	case ZPC_EC_CURVE_ED448:   /* fall-through */
+		break;
+	default:
+		ASSERT_TRUE(curve >= ZPC_EC_CURVE_P256 && curve <= ZPC_EC_CURVE_ED448);
 		break;
 	}
 }
