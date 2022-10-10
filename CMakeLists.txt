@@ -45,6 +45,8 @@ set(ZPC_HEADERS
     include/zpc/aes_cbc.h
     include/zpc/aes_ecb.h
     include/zpc/aes_cmac.h
+    include/zpc/ecc_key.h
+    include/zpc/ecdsa_ctx.h
 )
 
 set(ZPC_SOURCES
@@ -59,6 +61,8 @@ set(ZPC_SOURCES
     src/aes_cmac.c
     src/aes_ccm.c
     src/aes_gcm.c
+    src/ecc_key.c
+    src/ecdsa_ctx.c
 
     src/zkey/utils.c
     src/zkey/pkey.c
@@ -187,6 +191,13 @@ set(NIST_AES_XTS_SHA256
     67bb04b018182f65530596786e7783f817d2e56509bf3b1f066609b8e3e29c36
 )
 
+set(NIST_ECDSA_URL
+    https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/components/186-3ecdsasiggencomponenttestvectors.zip
+)
+set(NIST_ECDSA_SHA256
+    cf07d0b3c961032138a072feba237be51da6ff1f9f5af1230e1d6e84858a164f
+)
+
 include(ExternalProject)
 
 ExternalProject_Add(nist_aes
@@ -291,6 +302,38 @@ set(NIST_AES_CMAC_SOURCE_DIR
     ${SOURCE_DIR}
 )
 
+ExternalProject_Add(nist_ecdsa
+    URL               ${NIST_ECDSA_URL}
+    URL_HASH          SHA256=${NIST_ECDSA_SHA256}
+    PREFIX            ${CMAKE_BINARY_DIR}/nist_ecdsa
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   ""
+    TEST_COMMAND      ""
+)
+ExternalProject_Get_Property(nist_ecdsa SOURCE_DIR)
+set(NIST_ECDSA_SOURCE_DIR
+    ${SOURCE_DIR}
+)
+add_custom_command(
+  OUTPUT            nist_ecdsa.json
+  COMMAND           chmod 755 ${CMAKE_SOURCE_DIR}/misc/nist2json_ecdsa.pl && 
+                    ${CMAKE_SOURCE_DIR}/misc/nist2json_ecdsa.pl
+                        ${NIST_ECDSA_SOURCE_DIR}/SigGenComponent.txt
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  DEPENDS           nist_ecdsa
+)
+add_custom_target(nist_ecdsa_json ALL DEPENDS nist_ecdsa.json)
+
+add_custom_command(
+  OUTPUT            nist_eddsa.json
+  COMMAND           ${CMAKE_COMMAND} -E copy 
+                        ${CMAKE_SOURCE_DIR}/misc/nist_eddsa.json
+                        ${CMAKE_BINARY_DIR}
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+add_custom_target(nist_eddsa_json ALL DEPENDS nist_eddsa.json)
+
 ExternalProject_Add(wycheproof
     GIT_REPOSITORY    ${WYCHEPROOF_GIT}
     GIT_TAG           ${WYCHEPROOF_TAG}
@@ -336,6 +379,8 @@ set(ZPC_TEST_SOURCES
     test/b_aes_cmac.c
     test/b_aes_ccm.c
     test/b_aes_gcm.c
+    test/b_ecc_key.c
+    test/b_ecdsa_ctx.c
     test/t_system.cc
     test/t_testlib.cc
     test/t_environment.cc
@@ -347,6 +392,8 @@ set(ZPC_TEST_SOURCES
     test/t_aes_xts.cc
     test/t_aes_ccm.cc
     test/t_aes_gcm.cc
+    test/t_ecc_key.cc
+    test/t_ecdsa_ctx.cc
 )
 
 add_executable(runtest ${ZPC_TEST_SOURCES})
