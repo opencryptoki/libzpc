@@ -16,6 +16,13 @@ if(POLICY CMP0063)
     cmake_policy(SET CMP0063 NEW)
 endif()
 
+# New in version 3.24: prefer to set the timestamps of all extracted contents
+# to the time of the extraction.
+# https://cmake.org/cmake/help/git-stage/policy/CMP0135.html
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif()
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 11)
