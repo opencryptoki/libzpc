@@ -245,8 +245,9 @@ typedef unsigned long int (*m_GetAttributeValue_t) (const unsigned char *blob,
 		target_t target);
 
 struct ep11_version {
-	unsigned int	minor;
-	unsigned int	major;
+	unsigned int major;
+	unsigned int minor;
+	unsigned int modification;
 };
 
 struct ep11_lib {
