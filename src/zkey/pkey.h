@@ -43,6 +43,31 @@ struct tokenheader {
 #define TOKEN_VERSION_CLEAR_KEY		0x02
 #define TOKEN_VERSION_EP11_AES		0x03
 
+/* Some ECC related constants */
+#define EC_PUBLEN_P256                   64
+#define EC_PUBLEN_P384                   96
+#define EC_PUBLEN_P521                  132
+#define EC_PUBLEN_ED25519                32
+#define EC_PUBLEN_ED448                  57
+
+#define EC_PRIVLEN_P256                  32
+#define EC_PRIVLEN_P384                  48
+#define EC_PRIVLEN_P521                  66
+#define EC_PRIVLEN_ED25519               32
+#define EC_PRIVLEN_ED448                 57
+
+#define EC_BITLEN_P256                  256
+#define EC_BITLEN_P384                  384
+#define EC_BITLEN_P521                  521
+#define EC_BITLEN_ED25519               255
+#define EC_BITLEN_ED448                 448
+
+#define EC_SIGLEN_P256                   64
+#define EC_SIGLEN_P384                   96
+#define EC_SIGLEN_P521                  132
+#define EC_SIGLEN_ED25519                64
+#define EC_SIGLEN_ED448                 114
+
 struct aesdatakeytoken {
 	u8  type;     /* TOKEN_TYPE_INTERNAL (0x01) for internal key token */
 	u8  res0[3];
@@ -440,5 +465,4 @@ bool is_ep11_aes_key(const u8 *key, size_t key_size);
 bool is_xts_key(const u8 *key, size_t key_size);
 bool is_cca_ec_key(const u8 *key, size_t key_size);
 bool is_ep11_ec_key(const u8 *key, size_t key_size);
-
 #endif
