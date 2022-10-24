@@ -233,3 +233,39 @@ bool is_xts_key(const u8 *key, size_t key_size)
 
 	return false;
 }
+
+/*
+ * Some ECC related utility arrays. Array index is the curve's
+ * enumeration from zpc_ec_curve_t.
+ */
+const size_t curve2publen[] = {
+	EC_PUBLEN_P256,
+	EC_PUBLEN_P384,
+	EC_PUBLEN_P521,
+	EC_PUBLEN_ED25519,
+	EC_PUBLEN_ED448
+};
+
+const size_t curve2privlen[] = {
+	EC_PRIVLEN_P256,
+	EC_PRIVLEN_P384,
+	EC_PRIVLEN_P521,
+	EC_PRIVLEN_ED25519,
+	EC_PRIVLEN_ED448
+};
+
+const uint16_t curve2bitlen[] = {
+	EC_BITLEN_P256,
+	EC_BITLEN_P384,
+	EC_BITLEN_P521,
+	EC_BITLEN_ED25519,
+	EC_BITLEN_ED448
+};
+
+const size_t curve2siglen[] = {
+	EC_SIGLEN_P256,
+	EC_SIGLEN_P384,
+	EC_SIGLEN_P521,
+	EC_SIGLEN_ED25519,
+	EC_SIGLEN_ED448,
+};
