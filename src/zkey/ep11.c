@@ -42,6 +42,58 @@
 
 extern const size_t curve2publen[];
 extern const uint16_t curve2bitlen[];
+extern const size_t curve2puboffset[];
+extern const size_t curve2macedspkilen[];
+
+/*
+ * Some SPKI related constants
+ */
+const unsigned char p256_spki_seq1[] = ZPC_P256_SPKI_SEQ1;
+const unsigned char p384_spki_seq1[] = ZPC_P384_SPKI_SEQ1;
+const unsigned char p521_spki_seq1[] = ZPC_P521_SPKI_SEQ1;
+const unsigned char ed25519_spki_seq1[] = ZPC_ED25519_SPKI_SEQ1;
+const unsigned char ed448_spki_seq1[] = ZPC_ED448_SPKI_SEQ1;
+
+const unsigned char *curve2spki_seq1[] = {
+	(unsigned char *)&p256_spki_seq1,
+	(unsigned char *)&p384_spki_seq1,
+	(unsigned char *)&p521_spki_seq1,
+	(unsigned char *)&ed25519_spki_seq1,
+	(unsigned char *)&ed448_spki_seq1,
+};
+
+const size_t curve2spki_seq1_len[] = {
+	sizeof(p256_spki_seq1),
+	sizeof(p384_spki_seq1),
+	sizeof(p521_spki_seq1),
+	sizeof(ed25519_spki_seq1),
+	sizeof(ed448_spki_seq1),
+};
+
+const unsigned char ec_pubkey[] = ZPC_EC_PUBKEY;
+const size_t ec_pubkey_len = sizeof(ec_pubkey);
+
+const unsigned char p256_params[] = ZPC_P256_PARAMS;
+const unsigned char p384_params[] = ZPC_P384_PARAMS;
+const unsigned char p521_params[] = ZPC_P521_PARAMS;
+const unsigned char ed25519_params[] = ZPC_ED25519_PARAMS;
+const unsigned char ed448_params[] = ZPC_ED448_PARAMS;
+
+const unsigned char *curve2spki_ec_params[] = {
+	(unsigned char *)&p256_params,
+	(unsigned char *)&p384_params,
+	(unsigned char *)&p521_params,
+	(unsigned char *)&ed25519_params,
+	(unsigned char *)&ed448_params,
+};
+
+const size_t curve2spki_ec_params_len[] = {
+	sizeof(p256_params),
+	sizeof(p384_params),
+	sizeof(p521_params),
+	sizeof(ed25519_params),
+	sizeof(ed448_params),
+};
 
 /**
  * Returns the major and minor version of the of the used EP11 host library.
@@ -683,16 +735,16 @@ int ec_key_clr2sec_ep11(struct ep11_lib *ep11, unsigned int curve,
 		goto ret;
 	}
 
-	/* Add info to ep11 header (overlay over session ID field). This info
-	 * is later needed for reencipher. */
-	ep11hdr = (struct ep11kblob_header *)&blob;
-	ep11hdr->len = blob_len;
+	/* Prepend an ep11kblob_header before the secure key blob as required by
+	 * keytype PKEY_TYPE_EP11_ECC (= TOKVER_EP11_ECC_WITH_HEADER). */
+	ep11hdr = (struct ep11kblob_header *)secure_key;
+	ep11hdr->len = blob_len + sizeof(struct ep11kblob_header);
 	ep11hdr->version = PKEY_TYPE_EP11_ECC;
 	ep11hdr->bitlen = curve2bitlen[curve];
 
 	/* Copy result */
-	memcpy(secure_key, blob, blob_len);
-	*seclen = blob_len;
+	memcpy(secure_key + sizeof(struct ep11kblob_header), blob, blob_len);
+	*seclen = blob_len + sizeof(struct ep11kblob_header);
 
 	rv = CKR_OK;
 
@@ -718,13 +770,14 @@ ret:
 int ec_key_extract_public_ep11(struct ep11_lib *ep11, int curve,
 				unsigned char *secure_key, unsigned int seclen,
 				unsigned char *public_key, unsigned int *publen,
+				unsigned char *spki, unsigned int *spkilen,
 				target_t target)
 {
 	CK_RV rv;
-	CK_BYTE spki[MAX_MACED_SPKI_SIZE];
-	size_t spki_len = sizeof(spki);
+	CK_BYTE temp[MAX_MACED_SPKI_SIZE] = { 0 };
+	CK_ULONG temp_len = sizeof(temp);
 	CK_ATTRIBUTE templ[] = {
-		{ CKA_IBM_MACED_PUBLIC_KEY_INFO, &spki, sizeof(spki) },
+		{ CKA_IBM_MACED_PUBLIC_KEY_INFO, &temp, temp_len },
 	};
 	int rc = -EIO;
 
@@ -734,13 +787,26 @@ int ec_key_extract_public_ep11(struct ep11_lib *ep11, int curve,
 		return -ELIBACC;
 	}
 
-	rv = ep11->dll_m_GetAttributeValue(secure_key, seclen, templ, 1, target);
+	/* Note that the secure key is a TOKVER_EP11_ECC_WITH_HEADER and has a
+	 * 16-byte ep11kblob_header prepended before the actual secure key blob.
+	 * This header must not be passed to the ep11 library. */
+	rv = ep11->dll_m_GetAttributeValue(secure_key + sizeof(struct ep11kblob_header),
+								seclen - sizeof(struct ep11kblob_header),
+								templ, 1, target);
 	if (rv != CKR_OK) {
 		DEBUG("Error m_GetAttributeValue, rv = 0x%lx", rv);
 		goto ret;
 	}
 
-	memcpy(public_key, spki + curve2puboffset[curve], spki_len);
+	if (templ[0].ulValueLen > MAX_MACED_SPKI_SIZE) {
+		DEBUG("EP11 host lib function dll_m_GetAttributeValue returned an"
+			"SPKI with %ld bytes. Cannot be handled.", templ[0].ulValueLen);
+		goto ret;
+	}
+
+	memcpy(spki, temp, templ[0].ulValueLen);
+	*spkilen = templ[0].ulValueLen;
+	memcpy(public_key, temp + curve2puboffset[curve], curve2publen[curve]);
 	*publen = curve2publen[curve];
 
 	rc = 0;
@@ -754,6 +820,7 @@ int ec_key_generate_ep11(struct ep11_lib *ep11, int curve,
 				unsigned int flags,
 				unsigned char *secure_key, unsigned int *seclen,
 				unsigned char *public_key, unsigned int *publen,
+				unsigned char *spki, unsigned int *spkilen,
 				target_t target)
 {
 	unsigned char *ep11_pin_blob = NULL;
@@ -761,53 +828,15 @@ int ec_key_generate_ep11(struct ep11_lib *ep11, int curve,
 	CK_MECHANISM mech = { CKM_EC_KEY_PAIR_GEN, NULL, 0 };
 	CK_BYTE blob[MAX_BLOBSIZE];
 	size_t blob_len = MAX_BLOBSIZE;
-	unsigned char spki[MAX_BLOBSIZE];
-	size_t spki_len = sizeof(spki);
+	unsigned char maced_spki[MAX_BLOBSIZE];
+	unsigned long maced_spki_len = sizeof(maced_spki);
 	int rc;
 	CK_RV rv;
 	CK_BYTE *q;
 	size_t qlen;
-	CK_BYTE p256_params[] = ZPC_P256_PARAMS;
-	CK_BYTE p384_params[] = ZPC_P384_PARAMS;
-	CK_BYTE p521_params[] = ZPC_P521_PARAMS;
-	CK_BYTE ed25519_params[] = ZPC_ED25519_PARAMS;
-	CK_BYTE ed448_params[] = ZPC_ED448_PARAMS;
-	CK_ULONG ec_params_len_from_curve[] = {
-		sizeof(p256_params), sizeof(p384_params), sizeof(p521_params),
-		sizeof(ed25519_params), sizeof(ed448_params),
-	};
-	CK_BYTE *ec_params;
-	CK_ULONG ec_params_len = 0;
 	int MAX_EP11_ATTRS = 15;
 	CK_ATTRIBUTE priv_attrs[MAX_EP11_ATTRS];
 	CK_BBOOL cktrue = CK_TRUE;
-
-
-	if (ep11->dll_m_GenerateKeyPair == NULL) {
-		DEBUG("EP11 host lib function m_GenerateKeyPair not "
-			"available but required for EP11 EC key generate.");
-		return -EIO;
-	}
-
-	switch (curve) {
-	case 0:
-		ec_params = &p256_params[0];
-		break;
-	case 1:
-		ec_params = &p384_params[0];
-		break;
-	case 2:
-		ec_params = &p521_params[0];
-		break;
-	case 3:
-		ec_params = &ed25519_params[0];
-		break;
-	case 4:
-		ec_params = &ed448_params[0];
-		break;
-	}
-	ec_params_len = ec_params_len_from_curve[curve];
-
 	CK_ATTRIBUTE default_priv_attrs[] = {
 		{CKA_IBM_PROTKEY_EXTRACTABLE, &cktrue, sizeof(cktrue)},
 		{CKA_PRIVATE, &cktrue, sizeof(cktrue)},
@@ -815,11 +844,18 @@ int ec_key_generate_ep11(struct ep11_lib *ep11, int curve,
 	};
 	CK_ATTRIBUTE pub_attrs[] = {
 		{ CKA_VERIFY, &cktrue, sizeof(cktrue) },
-		{ CKA_EC_PARAMS, ec_params, ec_params_len },
+		{ CKA_EC_PARAMS, (unsigned char *)curve2spki_ec_params[curve],
+				curve2spki_ec_params_len[curve] },
 	};
 	CK_ULONG pub_attrs_len = sizeof(pub_attrs) / sizeof(CK_ATTRIBUTE);
 	CK_ULONG priv_attrs_len;
 	struct ep11kblob_header *ep11hdr;
+
+	if (ep11->dll_m_GenerateKeyPair == NULL) {
+		DEBUG("EP11 host lib function m_GenerateKeyPair not "
+			"available but required for EP11 EC key generate.");
+		return -EIO;
+	}
 
 	/* Add default attributes */
 	memcpy(&priv_attrs, &default_priv_attrs, sizeof(default_priv_attrs));
@@ -833,37 +869,220 @@ int ec_key_generate_ep11(struct ep11_lib *ep11, int curve,
 						priv_attrs, priv_attrs_len,
 						ep11_pin_blob, ep11_pin_blob_len,
 						blob, &blob_len,
-						spki, &spki_len, target);
+						maced_spki, &maced_spki_len, target);
 	if (rv != CKR_OK) {
 		DEBUG("Error m_GenerateKeyPair, rv = 0x%lx", rv);
 		rc = EIO;
 		goto ret;
 	}
 
-	/* Add info to ep11 header (overlay over session ID field). This info
-	 * is later needed for sec2prot and reencipher. */
-	ep11hdr = (struct ep11kblob_header *)&blob;
-	ep11hdr->len = blob_len;
-	ep11hdr->version = PKEY_TYPE_EP11_ECC;
-	ep11hdr->bitlen = curve2bitlen[curve];
-
 	/* Get public key from spki */
-	if (spki_len > MAX_BLOBSIZE || blob_len > MAX_BLOBSIZE) {
-		DEBUG("Invalid spki size from m_GenerateKeyPair: %ld bytes", spki_len);
+	if (maced_spki_len > MAX_BLOBSIZE || blob_len > MAX_BLOBSIZE) {
+		DEBUG("Invalid spki size from m_GenerateKeyPair: %ld bytes", maced_spki_len);
 		rc = EIO;
 		goto ret;
 	}
-	q = spki + curve2qoffset[curve];
+	q = maced_spki + curve2puboffset[curve];
 	qlen = curve2publen[curve];
 
-	/* Copy results */
+	/* Copy public key and spki */
 	memcpy(public_key, q, qlen);
 	*publen = qlen;
-	memcpy(secure_key, blob, blob_len);
-	*seclen = blob_len;
+	memcpy(spki, maced_spki, maced_spki_len);
+	*spkilen = maced_spki_len;
+
+	/* Copy secure key, which is of type TOKVER_EP11_ECC_WITH_HEADER. It has
+	 * a 16-byte header prepended before the actual secure key blob. Refer
+	 * to kernel zcrypt_ep11misc.h. Fill out this header in the key struct.
+	 * This info is later needed for sec2prot. */
+	memset(secure_key, 0, sizeof(struct ep11kblob_header));
+	memcpy(secure_key + sizeof(struct ep11kblob_header), blob, blob_len);
+	*seclen = blob_len + sizeof(struct ep11kblob_header);
+	ep11hdr = (struct ep11kblob_header *)secure_key;
+	ep11hdr->len = blob_len + sizeof(struct ep11kblob_header);
+	ep11hdr->version = PKEY_TYPE_EP11_ECC;
+	ep11hdr->bitlen = curve2bitlen[curve];
 
 	rc = 0;
 
 ret:
 	return rc;
+}
+
+int ep11_get_raw_blob_length(const unsigned char *blob)
+{
+	struct ep11kblob_header *hdr = (struct ep11kblob_header *)blob;
+
+	return hdr->len;
+}
+
+void ep11_make_spki(int curve, const unsigned char *pubkey, unsigned int publen,
+			unsigned char *spki, unsigned int *spki_len)
+{
+	p256_maced_spki_t p256 = {
+		.seq1 = ZPC_P256_SPKI_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_P256_PARAMS,
+		.seq2 = ZPC_P256_SPKI_SEQ2,
+	};
+
+	p384_maced_spki_t p384 = {
+		.seq1 = ZPC_P384_SPKI_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_P384_PARAMS,
+		.seq2 = ZPC_P384_SPKI_SEQ2,
+	};
+
+	p521_maced_spki_t p521 = {
+		.seq1 = ZPC_P521_SPKI_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_P521_PARAMS,
+		.seq2 = ZPC_P521_SPKI_SEQ2,
+	};
+
+	ed25519_maced_spki_t ed25519 = {
+		.seq1 = ZPC_ED25519_SPKI_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_ED25519_PARAMS,
+		.seq2 = ZPC_ED25519_SPKI_SEQ2,
+	};
+
+	ed448_maced_spki_t ed448 = {
+		.seq1 = ZPC_ED448_SPKI_SEQ1,
+		.ec_pubkey = ZPC_EC_PUBKEY,
+		.ec_params = ZPC_ED448_PARAMS,
+		.seq2 = ZPC_ED448_SPKI_SEQ2,
+	};
+
+	switch (curve) {
+	case 0:
+		memcpy(&p256.pubkey, pubkey, publen);
+		memcpy(spki, &p256, sizeof(p256));
+		*spki_len = sizeof(p256) - EP11_SPKI_MACLEN;
+		break;
+	case 1:
+		memcpy(&p384.pubkey, pubkey, publen);
+		memcpy(spki, &p384, sizeof(p384));
+		*spki_len = sizeof(p384) - EP11_SPKI_MACLEN;
+		break;
+	case 2:
+		memcpy(&p521.pubkey, pubkey, publen);
+		memcpy(spki, &p521, sizeof(p521));
+		*spki_len = sizeof(p521) - EP11_SPKI_MACLEN;
+		break;
+	case 3:
+		memcpy(&ed25519.pubkey, pubkey, publen);
+		memcpy(spki, &ed25519, sizeof(ed25519));
+		*spki_len = sizeof(ed25519) - EP11_SPKI_MACLEN;
+		break;
+	case 4:
+		memcpy(&ed448.pubkey, pubkey, publen);
+		memcpy(spki, &ed448, sizeof(ed448));
+		*spki_len = sizeof(ed448) - EP11_SPKI_MACLEN;
+		break;
+	}
+}
+
+int ep11_make_maced_spki(struct ep11_lib *ep11,
+					const CK_BYTE *spki, unsigned int spki_len,
+					CK_BYTE *maced_spki, unsigned int *maced_spkilen,
+					target_t target)
+{
+	CK_BYTE csum[MAX_BLOBSIZE];
+	CK_MECHANISM mech = { CKM_IBM_TRANSPORTKEY, 0, 0 };
+	unsigned char *ep11_pin_blob = NULL;
+	CK_ULONG ep11_pin_blob_len = 0;
+	CK_ULONG cslen = sizeof(csum);
+	CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+	CK_ATTRIBUTE attrs[] = {
+		{ CKA_CLASS, &class, sizeof(class) },
+	};
+	CK_ATTRIBUTE *p_attrs = (CK_ATTRIBUTE *)&attrs;
+	CK_ULONG attrs_len = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
+	CK_ULONG ul_maced_spkilen = *maced_spkilen;
+	CK_RV rv;
+	int rc;
+
+	if (spki == NULL || spki_len == 0)
+		return 0;
+
+	if (ep11->dll_m_UnwrapKey == NULL) {
+		DEBUG("EP11 host lib function m_UnwrapKey not available but "
+			"required for creating an EP11 MACed public key SPKI.");
+		return -ELIBACC;
+	}
+
+	rv = ep11->dll_m_UnwrapKey(spki, spki_len, NULL, 0, NULL, 0,
+							ep11_pin_blob, ep11_pin_blob_len, &mech,
+							p_attrs, attrs_len, maced_spki,
+							&ul_maced_spkilen, csum, &cslen, target);
+	if (rv != CKR_OK) {
+		DEBUG("Error m_UnwrapKey, rv = 0x%lx", rv);
+		goto ret;
+	}
+
+	*maced_spkilen = ul_maced_spkilen;
+
+	rv = CKR_OK;
+
+ret:
+
+	switch (rv) {
+	case CKR_OK:
+		rc = 0;
+		break;
+	default:
+		rc = -EIO;
+		break;
+	}
+
+	return rc;
+}
+
+/**
+ * Check if the spki buffer contains an expected SPKI, which means it should
+ * at least match with the curve of the key object.
+ */
+int ep11_spki_valid_for_curve(int curve, const unsigned char *spki, unsigned int len)
+{
+	/* This can be either a raw or a maced spki. */
+	if (len < (curve2macedspkilen[curve] - EP11_SPKI_MACLEN) ||
+		len > curve2macedspkilen[curve])
+		return 0;
+
+	/* Looks like length is ok, now check if static parts are as expected */
+	if (memcmp(spki, curve2spki_seq1[curve], curve2spki_seq1_len[curve]) != 0 ||
+		memcmp(spki + curve2spki_seq1_len[curve], ec_pubkey, ec_pubkey_len) != 0 ||
+		memcmp(spki + curve2spki_seq1_len[curve] + ec_pubkey_len,
+				curve2spki_ec_params[curve], curve2spki_ec_params_len[curve]) != 0)
+		return 0;
+
+	return 1;
+}
+
+int ep11_check_wk(struct ep11_lib *ep11, const unsigned char *wk_id,
+				unsigned int wk_id_len, target_t target, bool verbose)
+{
+	CK_IBM_DOMAIN_INFO dinf;
+	CK_ULONG dinf_len = sizeof(dinf);
+	CK_RV rv;
+
+	if (ep11->dll_m_get_xcp_info == NULL) {
+		pr_verbose(verbose, "EP11 host lib function m_get_xcp_info not "
+			"available but required for EP11 EC key reencipher.");
+		return -ELIBACC;
+	}
+
+	rv = ep11->dll_m_get_xcp_info(&dinf, &dinf_len, CK_IBM_XCPQ_DOMAIN, 0,
+								target);
+	if (rv != CKR_OK) {
+		pr_verbose(verbose, "Failed to query domain information "
+			"m_get_xcp_info rc: 0x%lx", rv);
+		return -EIO;
+	}
+
+	if (memcmp(wk_id, dinf.wk, wk_id_len) != 0)
+		return -EIO;
+
+	return 0;
 }

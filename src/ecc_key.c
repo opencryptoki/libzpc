@@ -27,10 +27,21 @@
 
 extern const size_t curve2publen[];
 extern const size_t curve2privlen[];
+extern const size_t curve2puboffset[];
+extern const size_t curve2macedspkilen[];
+extern const size_t curve2rawspkilen[];
 
 static int __ec_key_alloc_apqns_from_mkvp(struct pkey_apqn **, size_t *,
 									const unsigned char[], int);
 static void __ec_key_reset(struct zpc_ec_key *);
+static int ec_key_check_ep11_spki(const struct zpc_ec_key *ec_key,
+						const unsigned char *spki, unsigned int spki_len);
+static void ec_key_use_maced_spki_from_buf(struct zpc_ec_key *ec_key,
+						const unsigned char *spki, unsigned int spki_len);
+static int ec_key_use_raw_spki_from_buf(struct zpc_ec_key *ec_key,
+						const unsigned char *spki, unsigned int spki_len);
+static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
+						const unsigned char *spki, unsigned int spki_len);
 
 
 int zpc_ec_key_alloc(struct zpc_ec_key **ec_key)
@@ -454,11 +465,19 @@ zpc_ec_key_export(struct zpc_ec_key *ec_key, unsigned char *buf,
 
 	if (buf == NULL) {
 		*buflen = ec_key->cur.seclen;
+		if (ec_key->pubkey_set)
+			*buflen += ec_key->pub.spkilen;
 		rc = 0;
 		goto ret;
 	}
 
-	if (*buflen < ec_key->cur.seclen) {
+	if (ec_key->pubkey_set && *buflen < ec_key->cur.seclen + ec_key->pub.spkilen) {
+		*buflen = ec_key->cur.seclen + ec_key->pub.spkilen;
+		rc = ZPC_ERROR_SMALLOUTBUF;
+		goto ret;
+	}
+
+	if (!ec_key->pubkey_set && *buflen < ec_key->cur.seclen) {
 		*buflen = ec_key->cur.seclen;
 		rc = ZPC_ERROR_SMALLOUTBUF;
 		goto ret;
@@ -466,6 +485,11 @@ zpc_ec_key_export(struct zpc_ec_key *ec_key, unsigned char *buf,
 
 	*buflen = ec_key->cur.seclen;
 	memcpy(buf, ec_key->cur.sec, *buflen);
+
+	if (ec_key->pubkey_set) {
+		memcpy(buf + *buflen, ec_key->pub.spki, ec_key->pub.spkilen);
+		*buflen += ec_key->pub.spkilen;
+	}
 
 	rc = 0;
 ret:
@@ -534,8 +558,8 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 				unsigned int buflen)
 {
 	target_t target;
-	int rc, rv;
-	size_t i;
+	int rc, rv, seclen;
+	size_t i, trailing_spki_len = 0;
 
 	UNUSED(rv);
 
@@ -575,15 +599,21 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 		goto ret;
 	}
 
-	if (ec_key->type == ZPC_EC_KEY_TYPE_EP11 && !is_ep11_ec_key(buf, buflen)) {
+	if (ec_key->type == ZPC_EC_KEY_TYPE_EP11 && !is_ep11_ec_key_with_header(buf, buflen)) {
 		rc = ZPC_ERROR_EC_NO_EP11_SECUREKEY_TOKEN;
 		goto ret;
 	}
 
+	/* In case of ep11, the imported buffer may contain the actual secure key
+	 * blob concatenated with a public key spki. */
+	if (ec_key->type == ZPC_EC_KEY_TYPE_EP11)
+		trailing_spki_len = buflen - ep11_get_raw_blob_length(buf);
+
 	/* Set (secure) private key. Host lib not needed for this. */
+	seclen = buflen - trailing_spki_len;
 	memset(ec_key->cur.sec, 0, sizeof(ec_key->cur.sec));
-	memcpy(ec_key->cur.sec, buf, buflen);
-	ec_key->cur.seclen = buflen;
+	memcpy(ec_key->cur.sec, buf, seclen);
+	ec_key->cur.seclen = seclen;
 	ec_key->key_set = 1;
 
 	/* Extract and set public key. For this we need the related host lib. If
@@ -621,6 +651,7 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 			rc = ec_key_extract_public_ep11(&ep11, ec_key->curve,
 					(unsigned char *)&ec_key->cur.sec, ec_key->cur.seclen,
 					(unsigned char *)&ec_key->pub.pubkey, &ec_key->pub.publen,
+					(unsigned char *)&ec_key->pub.spki, &ec_key->pub.spkilen,
 					target);
 			free_ep11_target_for_apqn(&ep11, target);
 			if (rc == 0)
@@ -630,6 +661,31 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 		assert(rv == 0);
 		if (rc != 0 || ec_key->pub.publen == 0)
 			ec_key->pubkey_set = 0;
+	}
+
+	/* At this point the secure key blob is imported.
+	 * - If the blob itself contains a public key, it's now extracted into the
+	 *   key struct, but only if this key obj has apqns/mkvps. Otherwise we
+	 *   could not extract the public key from the blob and the key obj has
+	 *   no public key so far.
+	 * - If there is a public key SPKI appended to the blob, we parse it out
+	 *   of the SPKI (which does not require apqns/mkvps). But we have no way
+	 *   for checking the correctness of the public key.
+	 * - If the public key could be extracted from the blob and SPKI, we have
+	 *   the public key given a second time. In this case we check if both
+	 *   pubkeys match.
+	 */
+	if (ec_key->type == ZPC_EC_KEY_TYPE_EP11 && trailing_spki_len > 0) {
+		const unsigned char *spki = buf + seclen;
+		if (ec_key_check_ep11_spki(ec_key, spki, trailing_spki_len) == 0) {
+			if (trailing_spki_len == curve2rawspkilen[ec_key->curve]) {
+				rc = ec_key_use_raw_spki_from_buf(ec_key, spki, trailing_spki_len);
+				if (rc != 0)
+					goto ret;
+			} else {
+				ec_key_use_maced_spki_from_buf(ec_key, spki, trailing_spki_len);
+			}
+		}
 	}
 
 	rc = 0;
@@ -647,6 +703,8 @@ int zpc_ec_key_import_clear(struct zpc_ec_key *ec_key, const unsigned char *pubk
 {
 	unsigned int flags;
 	int rc, rv;
+	size_t i;
+	target_t target;
 
 	UNUSED(rv);
 
@@ -731,6 +789,36 @@ int zpc_ec_key_import_clear(struct zpc_ec_key *ec_key, const unsigned char *pubk
 		ec_key->pub.publen = publen;
 		DEBUG("ec key at %p: public key set", ec_key);
 		ec_key->pubkey_set = 1;
+	}
+
+	/* In case of ep11, create a MACed spki from the given raw public key and
+	 * add it to the key struct. */
+	if (ec_key->pubkey_set == 1 && ec_key->type == ZPC_EC_KEY_TYPE_EP11) {
+
+		unsigned char temp[MAX_MACED_SPKI_SIZE];
+		unsigned int temp_len = sizeof(temp);
+
+		rv = pthread_mutex_lock(&ep11lock);
+		assert(rv == 0);
+		for (i = 0; i < ec_key->napqns; i++) {
+			rc = get_ep11_target_for_apqn(&ep11, ec_key->apqns[i].card,
+						ec_key->apqns[i].domain, &target, true);
+			if (rc)
+				continue;
+
+			ep11_make_spki(ec_key->curve, ec_key->pub.pubkey, ec_key->pub.publen,
+					(unsigned char *)&temp, &temp_len);
+
+			ec_key->pub.spkilen = sizeof(ec_key->pub.spki);
+			rc = ep11_make_maced_spki(&ep11, temp, temp_len, ec_key->pub.spki,
+					&ec_key->pub.spkilen, target);
+
+			free_ep11_target_for_apqn(&ep11, target);
+			if (rc == 0)
+				break;
+		}
+		rv = pthread_mutex_unlock(&ep11lock);
+		assert(rv == 0);
 	}
 
 	rc = 0;
@@ -829,6 +917,7 @@ int zpc_ec_key_generate(struct zpc_ec_key *ec_key)
 			rc = ec_key_generate_ep11(&ep11, ec_key->curve, flags,
 					(unsigned char *)&ec_key->cur.sec, &ec_key->cur.seclen,
 					(unsigned char *)&ec_key->pub.pubkey, &ec_key->pub.publen,
+					(unsigned char *)&ec_key->pub.spki, &ec_key->pub.spkilen,
 					target);
 
 			free_ep11_target_for_apqn(&ep11, target);
@@ -874,6 +963,9 @@ int zpc_ec_key_reencipher(struct zpc_ec_key *ec_key, unsigned int method)
 	target_t target;
 	int rv, rc = ZPC_ERROR_APQNSNOTSET;
 	size_t i;
+	unsigned char temp[MAX_MACED_SPKI_SIZE];
+	unsigned int temp_len = sizeof(temp);
+	struct ep11kblob_header *ep11hdr;
 
 	UNUSED(rv);
 
@@ -944,9 +1036,32 @@ int zpc_ec_key_reencipher(struct zpc_ec_key *ec_key, unsigned int method)
 			if (rc)
 				continue;
 
+			/* Note that the secure key is a TOKVER_EP11_ECC_WITH_HEADER and has a
+			 * 16-byte ep11kblob_header prepended before the actual secure key blob.
+			 * For reencipher we have to skip this prepended hdr and provide the
+			 * ep11kblob_header info as an overlay over the session field at
+			 * the beginning of the secure key. So at this point we assume that
+			 * the key's session id field does not contain any info! */
+			ep11hdr = (struct ep11kblob_header *)((unsigned char *)reenc.sec +
+					sizeof(struct ep11kblob_header));
+			ep11hdr->len = ec_key->cur.seclen - sizeof(struct ep11kblob_header);
+			ep11hdr->version = PKEY_TYPE_EP11_ECC;
+			ep11hdr->bitlen = 0;
+
 			rc = reencipher_ep11_key(&ep11, target, ec_key->apqns[i].card,
-					ec_key->apqns[i].domain, reenc.sec, ec_key->cur.seclen,
+					ec_key->apqns[i].domain, (unsigned char *)ep11hdr,
+					ec_key->cur.seclen - sizeof(struct ep11kblob_header),
 					true);
+
+			rc += ep11_make_maced_spki(&ep11,
+								(unsigned char *)&ec_key->pub.spki,
+								curve2rawspkilen[ec_key->curve],
+								temp, &temp_len, target);
+			if (rc == 0) {
+				memcpy(ec_key->pub.spki, temp, temp_len);
+				ec_key->pub.spkilen = temp_len;
+			}
+
 			free_ep11_target_for_apqn(&ep11, target);
 			if (rc == 0)
 				break;
@@ -1067,7 +1182,7 @@ int ec_key_clr2sec(struct zpc_ec_key *ec_key, unsigned int flags,
 		assert(rv == 0);
 		if (rc != 0)
 			rc = ZPC_ERROR_EC_KEY_PARTS_INCONSISTENT;
-		return rc;
+		break;
 	case ZPC_EC_KEY_TYPE_EP11:
 		rv = pthread_mutex_lock(&ep11lock);
 		assert(rv == 0);
@@ -1088,11 +1203,13 @@ int ec_key_clr2sec(struct zpc_ec_key *ec_key, unsigned int flags,
 		assert(rv == 0);
 		if (rc != 0)
 			rc = ZPC_ERROR_EC_KEY_PARTS_INCONSISTENT;
-		return rc;
 		break;
 	default:
-		return ZPC_ERROR_KEYTYPE;
+		rc = ZPC_ERROR_KEYTYPE;
+		break;
 	}
+
+	return rc;
 }
 
 /*
@@ -1203,6 +1320,106 @@ int ec_key_check(const struct zpc_ec_key *ec_key)
 		return ZPC_ERROR_EC_CURVE_NOTSET;
 	if (ec_key->type_set != 1)
 		return ZPC_ERROR_KEYTYPENOTSET;
+
+	return 0;
+}
+
+int ec_key_spki_valid_for_pubkey(const struct zpc_ec_key *ec_key,
+								const unsigned char *spki)
+{
+	if (ec_key->pubkey_set == 0)
+		return 1; /* no pubkey given to check against */
+
+	if (memcmp(ec_key->pub.pubkey, spki + curve2puboffset[ec_key->curve],
+			ec_key->pub.publen) == 0)
+		return 1;
+
+	return 0;
+}
+
+static int ec_key_check_ep11_spki(const struct zpc_ec_key *ec_key,
+							const unsigned char *spki, unsigned int spki_len)
+{
+	if (spki_len > curve2macedspkilen[ec_key->curve] &&
+		spki_len < curve2rawspkilen[ec_key->curve])
+		return ZPC_ERROR_EC_EP11_SPKI_INVALID_LENGTH;
+
+	if (!ep11_spki_valid_for_curve(ec_key->curve, spki, spki_len))
+		return ZPC_ERROR_EC_EP11_SPKI_INVALID_CURVE;
+
+	if (spki_len == curve2macedspkilen[ec_key->curve] &&
+		!ec_key_spki_valid_for_pubkey(ec_key, spki))
+		return ZPC_ERROR_EC_EP11_SPKI_INVALID_PUBKEY;
+
+	if (spki_len == curve2macedspkilen[ec_key->curve] &&
+		!ec_key_spki_has_valid_mkvp(ec_key, spki, spki_len))
+		return ZPC_ERROR_EC_EP11_SPKI_INVALID_MKVP;
+
+	return 0;
+}
+
+static void ec_key_use_maced_spki_from_buf(struct zpc_ec_key *ec_key,
+						const unsigned char *spki, unsigned int spki_len)
+{
+	memcpy(ec_key->pub.spki, spki, spki_len);
+	ec_key->pub.spkilen = spki_len;
+
+	memcpy(ec_key->pub.pubkey, spki + curve2puboffset[ec_key->curve],
+			curve2publen[ec_key->curve]);
+	ec_key->pub.publen = curve2publen[ec_key->curve];
+
+	ec_key->pubkey_set = 1;
+}
+
+static int ec_key_use_raw_spki_from_buf(struct zpc_ec_key *ec_key,
+						const unsigned char *spki, unsigned int spki_len)
+{
+	target_t target;
+	int rc = -EIO, rv;
+	size_t i;
+
+	rv = pthread_mutex_lock(&ep11lock);
+	assert(rv == 0);
+
+	for (i = 0; i < ec_key->napqns; i++) {
+		rc = get_ep11_target_for_apqn(&ep11, ec_key->apqns[i].card,
+					ec_key->apqns[i].domain, &target, true);
+		if (rc)
+			continue;
+
+		rc = ep11_make_maced_spki(&ep11, spki, spki_len, ec_key->pub.spki,
+								&ec_key->pub.spkilen, target);
+
+		free_ep11_target_for_apqn(&ep11, target);
+		if (rc == 0)
+			break;
+	}
+
+	if (rc == 0) {
+		memcpy(ec_key->pub.pubkey, spki + curve2puboffset[ec_key->curve],
+				curve2publen[ec_key->curve]);
+		ec_key->pub.publen = curve2publen[ec_key->curve];
+		ec_key->pubkey_set = 1;
+	}
+
+	rv = pthread_mutex_unlock(&ep11lock);
+	assert(rv == 0);
+
+	return rc;
+}
+
+static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
+						const unsigned char *spki, unsigned int spki_len)
+{
+	(void)spki_len; /* suppress unused parm compiler warning */
+
+	spki_mac_t *mac_part = (spki_mac_t *)(spki + curve2rawspkilen[ec_key->curve]);
+
+	if (ec_key->mkvp_set == 0)
+		return 1; /* cannot judge */
+
+	if (memcmp(ec_key->mkvp, mac_part->wk_id, 16) == 0)
+		return 1;
 
 	return 0;
 }
