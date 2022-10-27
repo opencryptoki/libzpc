@@ -681,3 +681,149 @@ TEST(ec_key, import)
 	zpc_ec_key_free(&ec_key2);
 	EXPECT_EQ(ec_key2, nullptr);
 }
+
+TEST(ec_key, spki_test)
+{
+	struct zpc_ec_key *ec_key, *ec_key2;
+	unsigned int pubkeylen, privkeylen, blob_len, pubkey_offset;
+	u8 buf[3000] = {0}, buf2[3000] = {0}, buf3[132] = {0}, buf4[3000] = {0};
+	unsigned int buflen = sizeof(buf);
+	unsigned int buf2len = sizeof(buf2);
+	unsigned int buf3len = sizeof(buf3);
+	unsigned int buf4len = sizeof(buf4);
+	unsigned int flags;
+	const char *apqns[257];
+	const char *mkvp;
+	int rc, type;
+	zpc_ec_curve_t curve;
+
+	/* These numbers are derived from the pxxx_maced_spki_t structs in ep11.h,
+	 * applications should have their own way of handling SPKIs. */
+	unsigned int curve2pubkey_offset[] = { 27, 24, 26, 21, 21 };
+
+	struct ep11kblob_header {
+		u8  type;	/* always 0x00 */
+		u8  hver;	/* header version,  currently needs to be 0x00 */
+		u16 len;	/* total length in bytes (including this header) */
+		u8  version;	/* PKEY_TYPE_EP11_AES or PKEY_TYPE_EP11_ECC */
+		u8  res0;	/* unused */
+		u16 bitlen;	/* clear key bit len, 0 for unknown */
+		u8  res1[8];	/* unused */
+	};
+
+	TESTLIB_ENV_EC_KEY_CHECK();
+
+	curve = testlib_env_ec_key_curve();
+	type = testlib_env_ec_key_type();
+	flags= testlib_env_ec_key_flags();
+	mkvp = testlib_env_ec_key_mkvp();
+	(void)testlib_env_ec_key_apqns(apqns);
+
+	if (type != ZPC_EC_KEY_TYPE_EP11)
+		GTEST_SKIP_("Skipping spki_test. Only supported for EP11 type keys.");
+
+	TESTLIB_EC_SW_CAPS_CHECK(type);
+
+	TESTLIB_EC_KERNEL_CAPS_CHECK(type, mkvp, apqns);
+
+	const u8 *pubkey = ec_tv[curve].pubkey;
+	const u8 *privkey = ec_tv[curve].privkey;
+	pubkeylen = ec_tv[curve].pubkey_len;
+	privkeylen = ec_tv[curve].privkey_len;
+
+	rc = zpc_ec_key_alloc(&ec_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ec_key_alloc(&ec_key2);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_ec_key_set_curve(ec_key, curve);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ec_key_set_curve(ec_key2, curve);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_ec_key_set_type(ec_key, type);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ec_key_set_type(ec_key2, type);
+	EXPECT_EQ(rc, 0);
+
+	if (mkvp != NULL) {
+		rc = zpc_ec_key_set_mkvp(ec_key, mkvp);
+		EXPECT_EQ(rc, 0);
+		rc = zpc_ec_key_set_mkvp(ec_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = zpc_ec_key_set_apqns(ec_key, apqns);
+		EXPECT_EQ(rc, 0);
+		rc = zpc_ec_key_set_apqns(ec_key2, apqns);
+		EXPECT_EQ(rc, 0);
+	}
+
+	rc = zpc_ec_key_set_flags(ec_key, flags);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ec_key_set_flags(ec_key2, flags);
+	EXPECT_EQ(rc, 0);
+
+	/* Test (1): Import private key only */
+	rc = zpc_ec_key_import_clear(ec_key, NULL, 0, privkey, privkeylen);
+	EXPECT_EQ(rc, 0);
+
+	/* Export key, there is no public key spki available. The buflen must
+	 * be equal to the length given inside the secure key blob. */
+	rc = zpc_ec_key_export(ec_key, buf, &buflen);
+	EXPECT_EQ(rc, 0);
+	EXPECT_EQ(buflen, ((struct ep11kblob_header *)buf)->len);
+
+	/* Test (2): Add public key, now an spki is created internally */
+	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, NULL, 0);
+	EXPECT_EQ(rc, 0);
+
+	/* Export key: buf2len must now be greater than buflen, because of the
+	 * appended spki. */
+	rc = zpc_ec_key_export(ec_key, buf2, &buf2len);
+	EXPECT_EQ(rc, 0);
+	EXPECT_GT(buf2len, buflen);
+
+	/* Public key inside the spki must be identical to original pubkey */
+	blob_len = ((struct ep11kblob_header *)buf2)->len;
+	pubkey_offset = curve2pubkey_offset[curve];
+	EXPECT_TRUE(memcmp(pubkey, buf2 + blob_len + pubkey_offset, pubkeylen) == 0);
+
+	/* Test (3): Now import [blob||spki] into a second key */
+	rc = zpc_ec_key_import(ec_key2, buf2, buf2len);
+	EXPECT_EQ(rc, 0);
+
+	/* Export public key only: must be identical to original public key */
+	rc = zpc_ec_key_export_public(ec_key2, buf3, &buf3len);
+	EXPECT_EQ(rc, 0);
+	EXPECT_EQ(buf3len, pubkeylen);
+	EXPECT_TRUE(memcmp(buf3, pubkey, buf3len) == 0);
+
+	/* Export secure key: must be [blob||spki] as previously imported */
+	rc = zpc_ec_key_export(ec_key2, buf4, &buf4len);
+	EXPECT_EQ(rc, 0);
+	EXPECT_EQ(buf4len, buf2len);
+	EXPECT_TRUE(memcmp(buf4, buf2, buf4len) == 0);
+
+	/* Test (4): Generate a new key pair */
+	rc = zpc_ec_key_generate(ec_key);
+	EXPECT_EQ(rc, 0);
+
+	/* Export public key */
+	rc = zpc_ec_key_export_public(ec_key2, buf3, &buf3len);
+	EXPECT_EQ(rc, 0);
+
+	/* Export [blob||spki] */
+	buflen = sizeof(buf);
+	rc = zpc_ec_key_export(ec_key2, buf, &buflen);
+	EXPECT_EQ(rc, 0);
+
+	/* Public key must be identical to public key inside the spki */
+	blob_len = ((struct ep11kblob_header *)buf)->len;
+	pubkey_offset = curve2pubkey_offset[curve];
+	EXPECT_TRUE(memcmp(buf3, buf + blob_len + pubkey_offset, buf3len) == 0);
+
+	zpc_ec_key_free(&ec_key);
+	EXPECT_EQ(ec_key, nullptr);
+	zpc_ec_key_free(&ec_key2);
+	EXPECT_EQ(ec_key2, nullptr);
+}
