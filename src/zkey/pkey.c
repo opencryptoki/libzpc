@@ -269,3 +269,27 @@ const size_t curve2siglen[] = {
 	EC_SIGLEN_ED25519,
 	EC_SIGLEN_ED448,
 };
+
+const size_t curve2puboffset[] = {
+	sizeof(p256_maced_spki_t) - EC_PUBLEN_P256 - EP11_SPKI_MACLEN,
+	sizeof(p384_maced_spki_t) - EC_PUBLEN_P384 - EP11_SPKI_MACLEN,
+	sizeof(p521_maced_spki_t) - EC_PUBLEN_P521 - EP11_SPKI_MACLEN,
+	sizeof(ed25519_maced_spki_t) - EC_PUBLEN_ED25519 - EP11_SPKI_MACLEN,
+	sizeof(ed448_maced_spki_t) - EC_PUBLEN_ED448 - EP11_SPKI_MACLEN,
+};
+
+const size_t curve2macedspkilen[] = {
+	sizeof(p256_maced_spki_t),
+	sizeof(p384_maced_spki_t),
+	sizeof(p521_maced_spki_t),
+	sizeof(ed25519_maced_spki_t),
+	sizeof(ed448_maced_spki_t),
+};
+
+const size_t curve2rawspkilen[] = {
+	sizeof(p256_maced_spki_t) - EP11_SPKI_MACLEN,
+	sizeof(p384_maced_spki_t) - EP11_SPKI_MACLEN,
+	sizeof(p521_maced_spki_t) - EP11_SPKI_MACLEN,
+	sizeof(ed25519_maced_spki_t) - EP11_SPKI_MACLEN,
+	sizeof(ed448_maced_spki_t) - EP11_SPKI_MACLEN,
+};

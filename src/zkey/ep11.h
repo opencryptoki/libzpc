@@ -21,6 +21,8 @@
 
 #define CKK_EC               0x00000003
 
+#define CKO_PUBLIC_KEY       0x00000002
+
 #define MAX_CSUMSIZE         64
 static const char wrap_key_name[] = "EP11_wrapkey";
 
@@ -35,6 +37,7 @@ typedef CK_BYTE			CK_CHAR;
 typedef CK_ULONG		*CK_ULONG_PTR;
 typedef void			*CK_VOID_PTR;
 typedef CK_BYTE			CK_BBOOL;
+typedef CK_ULONG		CK_OBJECT_CLASS;
 
 typedef CK_ULONG CK_ATTRIBUTE_TYPE;
 typedef struct CK_ATTRIBUTE {
@@ -43,6 +46,7 @@ typedef struct CK_ATTRIBUTE {
 	CK_ULONG ulValueLen; /* in bytes */
 } CK_ATTRIBUTE;
 
+#define CKA_CLASS                              0x00000000
 #define CKA_TOKEN                              0x00000001
 #define CKA_PRIVATE                            0x00000002
 #define CKA_LABEL                              0x00000003
@@ -82,6 +86,7 @@ typedef struct CK_MECHANISM {
 #define CKM_AES_CBC_PAD                        0x00001085
 #define CKM_AES_KEY_GEN                        0x00001080
 #define CKM_VENDOR_DEFINED                     0x80000000
+#define CKM_IBM_TRANSPORTKEY                   (CKM_VENDOR_DEFINED +0x20005)
 
 typedef struct XCP_ModuleSocket {
 	char		host[256 + 1];
@@ -270,7 +275,7 @@ struct ep11_lib {
 };
 
 /*
- * ASN.1 sequence constants
+ * ASN.1 constants for static key sequences below.
  */
 #define ZPC_P256_PARAMS         {0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07}
 #define ZPC_P384_PARAMS         {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22}
@@ -383,6 +388,88 @@ typedef struct {
 	CK_BYTE pubkey[57];
 } __attribute__((packed)) asn1_ed448_key_seq_t;
 
+#define EP11_SPKI_MACLEN        256
+
+#define ZPC_P256_SPKI_SEQ1          {0x30, 0x59, 0x30, 0x13}
+#define ZPC_P384_SPKI_SEQ1          {0x30, 0x76, 0x30, 0x10}
+#define ZPC_P521_SPKI_SEQ1          {0x30, 0x81, 0x9B, 0x30, 0x10}
+#define ZPC_ED25519_SPKI_SEQ1       {0x30, 0x33, 0x30, 0x0E}
+#define ZPC_ED448_SPKI_SEQ1         {0x30, 0x4C, 0x30, 0x0E}
+
+#define ZPC_P256_SPKI_SEQ2          {0x03, 0x42, 0x00, 0x04}
+#define ZPC_P384_SPKI_SEQ2          {0x03, 0x62, 0x00, 0x04}
+#define ZPC_P521_SPKI_SEQ2          {0x03, 0x81, 0x86, 0x00, 0x04}
+#define ZPC_ED25519_SPKI_SEQ2       {0x03, 0x21, 0x00}
+#define ZPC_ED448_SPKI_SEQ2         {0x03, 0x3A, 0x00}
+
+/**
+ * ep11 wire spec: SPKI with MAC
+ */
+typedef struct {
+	CK_BYTE wk_id_octet_string[2];
+	CK_BYTE wk_id[16];
+	CK_BYTE session_id_octet_string[2];
+	CK_BYTE session_id[32];
+	CK_BYTE salt_octet_string[2];
+	CK_BYTE salt[8];
+	CK_BYTE mode_octet_string[2];
+	CK_BYTE mode_id[8];
+	CK_BYTE variable_part[0]; /* variable length attributes and MAC */
+} __attribute__((packed)) spki_mac_t;
+
+/**
+ * SEQUENCE (2 elem)
+ *  SEQUENCE (2 elem)
+ *    OBJECT IDENTIFIER 1.2.840.10045.2.1 ecPublicKey (ANSI X9.62 public key type)
+ *    OBJECT IDENTIFIER 1.2.840.10045.3.1.7 prime256v1 (ANSI X9.62 named elliptic curve)
+ *  BIT STRING ...
+ */
+typedef struct {
+	CK_BYTE seq1[4];
+	CK_BYTE ec_pubkey[9];
+	CK_BYTE ec_params[10];
+	CK_BYTE seq2[4];
+	CK_BYTE pubkey[64];
+	CK_BYTE mac[EP11_SPKI_MACLEN];
+} __attribute__((packed)) p256_maced_spki_t;
+
+typedef struct {
+	CK_BYTE seq1[4];
+	CK_BYTE ec_pubkey[9];
+	CK_BYTE ec_params[7];
+	CK_BYTE seq2[4];
+	CK_BYTE pubkey[96];
+	CK_BYTE mac[EP11_SPKI_MACLEN];
+} __attribute__((packed)) p384_maced_spki_t;
+
+typedef struct {
+	CK_BYTE seq1[5];
+	CK_BYTE ec_pubkey[9];
+	CK_BYTE ec_params[7];
+	CK_BYTE seq2[5];
+	CK_BYTE pubkey[132];
+	CK_BYTE mac[EP11_SPKI_MACLEN];
+} __attribute__((packed)) p521_maced_spki_t;
+
+typedef struct {
+	CK_BYTE seq1[4];
+	CK_BYTE ec_pubkey[9];
+	CK_BYTE ec_params[5];
+	CK_BYTE seq2[3];
+	CK_BYTE pubkey[32];
+	CK_BYTE mac[EP11_SPKI_MACLEN];
+} __attribute__((packed)) ed25519_maced_spki_t;
+
+typedef struct {
+	CK_BYTE seq1[4];
+	CK_BYTE ec_pubkey[9];
+	CK_BYTE ec_params[5];
+	CK_BYTE seq2[3];
+	CK_BYTE pubkey[57];
+	CK_BYTE mac[EP11_SPKI_MACLEN];
+} __attribute__((packed)) ed448_maced_spki_t;
+
+
 int load_ep11_library(struct ep11_lib *ep11, bool verbose);
 
 int get_ep11_target_for_apqn(struct ep11_lib *ep11, unsigned int card,
@@ -404,10 +491,34 @@ int ec_key_clr2sec_ep11(struct ep11_lib *ep11, unsigned int curve,
 int ec_key_extract_public_ep11(struct ep11_lib *ep11, int curve,
 			unsigned char *ecc_token, unsigned int ecc_token_len,
 			unsigned char *ecc_pub_token, unsigned int *p_ecc_pub_token_len,
+			unsigned char *spki, unsigned int *spkilen,
 			target_t target);
 
 int ec_key_generate_ep11(struct ep11_lib *ep11, int curve, unsigned int flags,
 			unsigned char *secure_key, unsigned int *seclen,
 			unsigned char *public_key, unsigned int *publen,
+			unsigned char *spki, unsigned int *spkilen,
 			target_t target);
+
+int ep11_blob_has_spki(const unsigned char *blob, unsigned int blob_len);
+
+int ep11_get_raw_blob_length(const unsigned char *blob);
+
+int ep11_get_spki_from_buf(const unsigned char *buf, unsigned int buf_len,
+			int curve, unsigned char *spki, unsigned int *raw_spki_len,
+			target_t target);
+
+void ep11_make_spki(int curve, const unsigned char *pubkey, unsigned int publen,
+			unsigned char *spki, unsigned int *spki_len);
+
+int ep11_make_maced_spki(struct ep11_lib *ep11,
+			const CK_BYTE *spki, unsigned int spki_len,
+			CK_BYTE *maced_spki, unsigned int *maced_spkilen,
+			target_t target);
+
+int ep11_spki_valid_for_curve(int curve, const unsigned char *spki,
+			unsigned int len);
+
+int ep11_check_wk(struct ep11_lib *ep11, const unsigned char *wk_id,
+			unsigned int wk_id_len, target_t target, bool verbose);
 #endif

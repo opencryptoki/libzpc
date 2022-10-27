@@ -230,9 +230,13 @@ struct pkey_ecprotkey {
 	u8  protkey[MAXECPROTKEYSIZE]; /* the EC protected key blob */
 };
 
+#define MAX_MACED_SPKI_SIZE	sizeof(p521_maced_spki_t)
+
 struct pkey_ecpubkey {
 	u32 publen;
 	u8  pubkey[132]; /* max (66,66) for p521 public key (X,Y) value */
+	u32 spkilen;
+	u8  spki[MAX_MACED_SPKI_SIZE];
 };
 
 struct pkey_seckey {
@@ -464,5 +468,5 @@ bool is_cca_aes_cipher_key(const u8 *key, size_t key_size);
 bool is_ep11_aes_key(const u8 *key, size_t key_size);
 bool is_xts_key(const u8 *key, size_t key_size);
 bool is_cca_ec_key(const u8 *key, size_t key_size);
-bool is_ep11_ec_key(const u8 *key, size_t key_size);
+bool is_ep11_ec_key_with_header(const u8 *key, size_t key_size);
 #endif
