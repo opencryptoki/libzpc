@@ -42,6 +42,8 @@ static int ec_key_use_raw_spki_from_buf(struct zpc_ec_key *ec_key,
 						const unsigned char *spki, unsigned int spki_len);
 static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
 						const unsigned char *spki, unsigned int spki_len);
+static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key,
+						const unsigned char *buf);
 
 
 int zpc_ec_key_alloc(struct zpc_ec_key **ec_key)
@@ -336,6 +338,15 @@ int zpc_ec_key_set_mkvp(struct zpc_ec_key *ec_key, const char *mkvp)
 	memcpy(ec_key->mkvp, mkvpbuf, mkvpbuflen);
 	ec_key->apqns_set = 1;
 	ec_key->mkvp_set = 1;
+
+	/* If the key already has a secure key set, its mkvp must match */
+	if (ec_key->cur.seclen > 0 && !ec_key_blob_has_valid_mkvp(ec_key, ec_key->cur.sec)) {
+		rc = ZPC_ERROR_WKVPMISMATCH;
+		goto ret;
+	}
+
+	rc = 0;
+
 ret:
 	rv = pthread_mutex_unlock(&ec_key->lock);
 	assert(rv == 0);
@@ -418,7 +429,15 @@ int zpc_ec_key_set_apqns(struct zpc_ec_key *ec_key, const char *apqns[])
 	DEBUG("ec key at %p: %lu apqns set", ec_key, ec_key->napqns);
 	ec_key->napqns = napqns;
 	ec_key->apqns_set = 1;
+
+	/* If the key already has a secure key set, its mkvp must match */
+	if (ec_key->cur.seclen > 0 && !ec_key_blob_has_valid_mkvp(ec_key, ec_key->cur.sec)) {
+		rc = ZPC_ERROR_WKVPMISMATCH;
+		goto ret;
+	}
+
 	rc = 0;
+
 ret:
 	if (rc != 0) {
 		free(ec_key->apqns);
@@ -601,6 +620,11 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 
 	if (ec_key->type == ZPC_EC_KEY_TYPE_EP11 && !is_ep11_ec_key_with_header(buf, buflen)) {
 		rc = ZPC_ERROR_EC_NO_EP11_SECUREKEY_TOKEN;
+		goto ret;
+	}
+
+	if (!ec_key_blob_has_valid_mkvp(ec_key, buf)) {
+		rc = ZPC_ERROR_WKVPMISMATCH;
 		goto ret;
 	}
 
@@ -1419,6 +1443,31 @@ static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
 		return 1; /* cannot judge */
 
 	if (memcmp(ec_key->mkvp, mac_part->wk_id, 16) == 0)
+		return 1;
+
+	return 0;
+}
+
+static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key, const unsigned char *buf)
+{
+	const unsigned char *mkvp;
+	unsigned int mkvp_len;
+
+	if (ec_key->mkvp_set == 0)
+		return 1; /* cannot judge */
+
+	if (ec_key->type == ZPC_EC_KEY_TYPE_CCA) {
+		mkvp = ((struct ccakeytoken *)buf)->mkvp;
+		mkvp_len = MKVP_LEN_CCA;
+	} else {
+		/* Keys of type PKEY_TYPE_EP11_ECC have a ep11kblob_header prepended
+		 * before the actual key blob */
+		const unsigned char *buf2 = buf + sizeof(struct ep11kblob_header);
+		mkvp = ((struct ep11keytoken *)buf2)->wkvp;
+		mkvp_len = MKVP_LEN_EP11;
+	}
+
+	if (memcmp(ec_key->mkvp, mkvp, mkvp_len) == 0)
 		return 1;
 
 	return 0;

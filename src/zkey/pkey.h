@@ -68,6 +68,9 @@ struct tokenheader {
 #define EC_SIGLEN_ED25519                64
 #define EC_SIGLEN_ED448                 114
 
+#define MKVP_LEN_EP11                    16
+#define MKVP_LEN_CCA                      8
+
 struct aesdatakeytoken {
 	u8  type;     /* TOKEN_TYPE_INTERNAL (0x01) for internal key token */
 	u8  res0[3];
@@ -134,7 +137,7 @@ struct ccakeytoken {
 	u8  section_version;
 	u16 p_len;
 	u16 associated_data_len1;
-	u8  mkvp[8];
+	u8  mkvp[MKVP_LEN_CCA];
 	u8  opk[48]; /* Object Protection Key (OPK) */
 	u16 associated_data_len2;
 	u16 formatted_section_len;
@@ -188,7 +191,7 @@ struct ep11keytoken {
 			u16 keybitlen; /* clear key bit len, 0 for unknown */
 		} head;
 	};
-	u8  wkvp[16]; /* wrapping key verification pattern */
+	u8  wkvp[MKVP_LEN_EP11]; /* wrapping key verification pattern */
 	u64 attr;     /* boolean key attributes */
 	u64 mode;     /* mode bits */
 	u16 version;  /* 0x1234, ep11 blob struct version */
