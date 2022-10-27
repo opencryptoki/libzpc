@@ -404,6 +404,30 @@ extern "C" {
 # define ZPC_ERROR_EC_NO_EP11_SECUREKEY_TOKEN  66
 
 /**
+ * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_LENGTH
+ * \brief the imported buffer contains an EP11 SPKI with an invalid length.
+ */
+# define ZPC_ERROR_EC_EP11_SPKI_INVALID_LENGTH  67
+
+/**
+ * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_FOR_CURVE
+ * \brief the imported buffer contains an EP11 SPKI with an invalid EC curve.
+ */
+# define ZPC_ERROR_EC_EP11_SPKI_INVALID_CURVE  68
+
+/**
+ * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_FOR_PUBKEY
+ * \brief the imported buffer contains an EP11 SPKI with an invalid public key.
+ */
+# define ZPC_ERROR_EC_EP11_SPKI_INVALID_PUBKEY  69
+
+/**
+ * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_MKVP
+ * \brief the imported buffer contains an EP11 MACed SPKI with an invalid MKVP.
+ */
+# define ZPC_ERROR_EC_EP11_SPKI_INVALID_MKVP  70
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
