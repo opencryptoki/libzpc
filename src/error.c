@@ -84,6 +84,10 @@ zpc_error_string(int err)
 		"The given EC private key length is invalid",
 		"The given buffer does not contain a valid CCA secure key token",
 		"The given buffer does not contain a valid EP11 secure key token",
+		"The imported buffer contains an EP11 SPKI with an invalid length",
+		"The imported buffer contains an EP11 SPKI with an invalid EC curve",
+		"The imported buffer contains an EP11 SPKI with an invalid public key",
+		"The imported buffer contains an EP11 MACed SPKI with an invalid MKVP",
 		"LAST"
 	};
 	const char *rc;
