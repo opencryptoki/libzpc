@@ -44,6 +44,8 @@ static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
 						const unsigned char *spki, unsigned int spki_len);
 static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key,
 						const unsigned char *buf);
+static int ec_key_blob_is_pkey_extractable(struct zpc_ec_key *ec_key,
+						const unsigned char *buf);
 
 
 int zpc_ec_key_alloc(struct zpc_ec_key **ec_key)
@@ -625,6 +627,11 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 
 	if (!ec_key_blob_has_valid_mkvp(ec_key, buf)) {
 		rc = ZPC_ERROR_WKVPMISMATCH;
+		goto ret;
+	}
+
+	if (!ec_key_blob_is_pkey_extractable(ec_key, buf)) {
+		rc = ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE;
 		goto ret;
 	}
 
@@ -1469,6 +1476,24 @@ static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key, const unsigned 
 
 	if (memcmp(ec_key->mkvp, mkvp, mkvp_len) == 0)
 		return 1;
+
+	return 0;
+}
+
+static int ec_key_blob_is_pkey_extractable(struct zpc_ec_key *ec_key, const unsigned char *buf)
+{
+	if (ec_key->type == ZPC_EC_KEY_TYPE_CCA) {
+		u8 keyusage = ((struct ccakeytoken *)buf)->keyusage;
+		if (keyusage & CCA_XPRTCPAC)
+			return 1;
+	} else {
+		/* Keys of type PKEY_TYPE_EP11_ECC have a ep11kblob_header prepended
+		 * before the actual key blob */
+		const unsigned char *buf2 = buf + sizeof(struct ep11kblob_header);
+		u64 attr = ((struct ep11keytoken *)buf2)->attr;
+		if (attr & XCP_BLOB_PROTKEY_EXTRACTABLE)
+			return 1;
+	}
 
 	return 0;
 }

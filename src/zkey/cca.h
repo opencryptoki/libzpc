@@ -32,6 +32,13 @@
 #define METHOD_OLD_TO_CURRENT	"RTCMK   "
 #define METHOD_CURRENT_TO_NEW	"RTNMK   "
 
+/*
+ * ECC private key section (X'20'), Key-usage and translation control flag.
+ */
+typedef enum {
+	CCA_XPRTCPAC                  = 0x01,
+} ECC_Key_Flags;
+
 typedef void (*t_CSNBKTC)(long *return_code,
 			  long *reason_code,
 			  long *exit_data_length,
