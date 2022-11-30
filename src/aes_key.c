@@ -27,6 +27,8 @@
 static int __aes_key_alloc_apqns_from_mkvp(struct pkey_apqn **, size_t *,
     const unsigned char[], int);
 static void __aes_key_reset(struct zpc_aes_key *);
+static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key,
+								const unsigned char *buf);
 
 int
 zpc_aes_key_alloc(struct zpc_aes_key **aes_key)
@@ -595,6 +597,11 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 		goto ret;
 	}
 
+	if (!aes_key_blob_has_valid_mkvp(aes_key, buf)) {
+		rc = ZPC_ERROR_WKVPMISMATCH;
+		goto ret;
+	}
+
 	memset(aes_key->cur.sec, 0, sizeof(aes_key->cur.sec));
 	memcpy(aes_key->cur.sec, buf, buflen);
 	aes_key->cur.seclen = buflen;
@@ -1015,6 +1022,37 @@ aes_key_check(const struct zpc_aes_key *aes_key)
 	/* Random protected keys have no type. */
 	if (aes_key->rand_protk == 0 && aes_key->type_set != 1)
 		return ZPC_ERROR_KEYTYPENOTSET;
+
+	return 0;
+}
+
+static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key, const unsigned char *buf)
+{
+	const unsigned char *mkvp;
+	unsigned int mkvp_len;
+	u64 mkvp_value;
+
+	if (aes_key->mkvp_set == 0)
+		return 1; /* cannot judge */
+
+	switch (aes_key->type) {
+	case ZPC_AES_KEY_TYPE_CCA_DATA:
+		mkvp_value = ((struct aesdatakeytoken *)buf)->mkvp;
+		mkvp = (const unsigned char *)&mkvp_value;
+		mkvp_len = MKVP_LEN_CCA;
+		break;
+	case ZPC_AES_KEY_TYPE_CCA_CIPHER:
+		mkvp = ((struct aescipherkeytoken *)buf)->kvp;
+		mkvp_len = MKVP_LEN_CCA;
+		break;
+	default:
+		mkvp = ((struct ep11keytoken *)buf)->wkvp;
+		mkvp_len = MKVP_LEN_EP11;
+		break;
+	}
+
+	if (memcmp(aes_key->mkvp, mkvp, mkvp_len) == 0)
+		return 1;
 
 	return 0;
 }
