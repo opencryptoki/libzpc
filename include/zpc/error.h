@@ -428,6 +428,12 @@ extern "C" {
 # define ZPC_ERROR_EC_EP11_SPKI_INVALID_MKVP  70
 
 /**
+ * \def ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE
+ * \brief the imported buffer contains a key blob that cannot be transformed into a protected key.
+ */
+# define ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE  71
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
