@@ -29,6 +29,8 @@ static int __aes_key_alloc_apqns_from_mkvp(struct pkey_apqn **, size_t *,
 static void __aes_key_reset(struct zpc_aes_key *);
 static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key,
 								const unsigned char *buf);
+static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key,
+								const unsigned char *buf);
 
 int
 zpc_aes_key_alloc(struct zpc_aes_key **aes_key)
@@ -602,6 +604,11 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 		goto ret;
 	}
 
+	if (!aes_key_blob_is_pkey_extractable(aes_key, buf)) {
+		rc = ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE;
+		goto ret;
+	}
+
 	memset(aes_key->cur.sec, 0, sizeof(aes_key->cur.sec));
 	memcpy(aes_key->cur.sec, buf, buflen);
 	aes_key->cur.seclen = buflen;
@@ -1053,6 +1060,33 @@ static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key, const unsign
 
 	if (memcmp(aes_key->mkvp, mkvp, mkvp_len) == 0)
 		return 1;
+
+	return 0;
+}
+
+static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key, const unsigned char *buf)
+{
+	u16 kmf1;
+	u64 attr;
+
+	switch (aes_key->type) {
+	case ZPC_AES_KEY_TYPE_CCA_DATA:
+		/* No check possible. The flags field in struct aesdatakeytoken
+		 * does not contain a CCA_XPRTCPAC indication. */
+		return 1;
+	case ZPC_AES_KEY_TYPE_CCA_CIPHER:
+		kmf1 = ((struct aescipherkeytoken *)buf)->kmf1;
+		if (kmf1 & KMF1_XPRT_CPAC)
+			return 1;
+		break;
+	case ZPC_AES_KEY_TYPE_EP11:
+		attr = ((struct ep11keytoken *)buf)->attr;
+		if (attr & XCP_BLOB_PROTKEY_EXTRACTABLE)
+			return 1;
+		break;
+	default:
+		break;
+	}
 
 	return 0;
 }

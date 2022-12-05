@@ -33,6 +33,15 @@
 #define METHOD_CURRENT_TO_NEW	"RTNMK   "
 
 /*
+ * General format of a variable-length symmetric key-token, version X'05'.
+ * Optional key-management field 1, high-order byte (export control):
+ * (Refer to kernel's zcrypt_cca_misc.h)
+ */
+typedef enum {
+	KMF1_XPRT_CPAC                = 0x0800,
+} AES_Key_Flags;
+
+/*
  * ECC private key section (X'20'), Key-usage and translation control flag.
  */
 typedef enum {
