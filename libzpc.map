@@ -58,3 +58,29 @@ global:
 local:
 	*;
 };
+
+ZPC_1.1.0 {
+global:
+	zpc_ec_key_alloc;
+	zpc_ec_key_set_curve;
+	zpc_ec_key_set_type;
+	zpc_ec_key_set_flags;
+	zpc_ec_key_set_mkvp;
+	zpc_ec_key_set_apqns;
+	zpc_ec_key_import;
+	zpc_ec_key_import_clear;
+	zpc_ec_key_export;
+	zpc_ec_key_export_public;
+	zpc_ec_key_generate;
+	zpc_ec_key_reencipher;
+	zpc_ec_key_free;
+
+	zpc_ecdsa_ctx_alloc;
+	zpc_ecdsa_ctx_set_key;
+	zpc_ecdsa_sign;
+	zpc_ecdsa_verify;
+	zpc_ecdsa_ctx_free;
+
+local: *;
+} ZPC_1.0;
+
