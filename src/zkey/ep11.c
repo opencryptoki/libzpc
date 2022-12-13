@@ -355,7 +355,6 @@ static int ep11_adm_reencrypt(struct ep11_lib *ep11, target_t target,
 {
 	CK_BYTE resp[MAX_BLOBSIZE];
 	CK_BYTE req[MAX_BLOBSIZE];
-	char ep11_token_header[sizeof(ep11key->head)];
 	struct XCPadmresp lrb;
 	struct XCPadmresp rb;
 	size_t resp_len;
@@ -370,18 +369,10 @@ static int ep11_adm_reencrypt(struct ep11_lib *ep11, target_t target,
 		return -ELIBACC;
 	}
 
-	blob_len = ep11key->head.length;
-	if (blob_len > ep11key_size) {
-		pr_verbose(verbose, "Blob length larger than secure key size");
-		return -EINVAL;
-	}
+	blob_len = ep11key_size;
 
 	rb.domain = domain;
 	lrb.domain = domain;
-
-	/* The token header is an overlay over the (all zero) session field */
-	memcpy(ep11_token_header, ep11key, sizeof(ep11_token_header));
-	memset(ep11key->session, 0, sizeof(ep11key->session));
 
 	resp_len = sizeof(resp);
 	req_len = ep11->dll_xcpa_cmdblock(req, sizeof(req), XCP_ADM_REENCRYPT,
@@ -428,7 +419,6 @@ static int ep11_adm_reencrypt(struct ep11_lib *ep11, target_t target,
 	}
 
 	memcpy(ep11key, lrb.payload, blob_len);
-	memcpy(ep11key, ep11_token_header, sizeof(ep11_token_header));
 
 	return 0;
 }

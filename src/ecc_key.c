@@ -996,7 +996,6 @@ int zpc_ec_key_reencipher(struct zpc_ec_key *ec_key, unsigned int method)
 	size_t i;
 	unsigned char temp[MAX_MACED_SPKI_SIZE];
 	unsigned int temp_len = sizeof(temp);
-	struct ep11kblob_header *ep11hdr;
 
 	UNUSED(rv);
 
@@ -1070,17 +1069,9 @@ int zpc_ec_key_reencipher(struct zpc_ec_key *ec_key, unsigned int method)
 			/* Note that the secure key is a TOKVER_EP11_ECC_WITH_HEADER and has a
 			 * 16-byte ep11kblob_header prepended before the actual secure key blob.
 			 * For reencipher we have to skip this prepended hdr and provide the
-			 * ep11kblob_header info as an overlay over the session field at
-			 * the beginning of the secure key. So at this point we assume that
-			 * the key's session id field does not contain any info! */
-			ep11hdr = (struct ep11kblob_header *)((unsigned char *)reenc.sec +
-					sizeof(struct ep11kblob_header));
-			ep11hdr->len = ec_key->cur.seclen - sizeof(struct ep11kblob_header);
-			ep11hdr->version = PKEY_TYPE_EP11_ECC;
-			ep11hdr->bitlen = 0;
-
+			 * key blob directly. */
 			rc = reencipher_ep11_key(&ep11, target, ec_key->apqns[i].card,
-					ec_key->apqns[i].domain, (unsigned char *)ep11hdr,
+					ec_key->apqns[i].domain, reenc.sec + sizeof(struct ep11kblob_header),
 					ec_key->cur.seclen - sizeof(struct ep11kblob_header),
 					true);
 
