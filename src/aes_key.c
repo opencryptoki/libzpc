@@ -741,6 +741,7 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 	target_t target;
 	int rv, rc = ZPC_ERROR_APQNSNOTSET;
 	size_t i;
+	char ep11_token_header[sizeof(struct ep11kblob_header)];
 
 	UNUSED(rv);
 
@@ -815,6 +816,11 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 
 		rv = pthread_mutex_lock(&ep11lock);
 		assert(rv == 0);
+
+		/* Save overlayed token header and clear session id field */
+		memcpy(ep11_token_header, reenc.sec, sizeof(ep11_token_header));
+		memset(reenc.sec, 0, 32);
+
 		for (i = 0; i < aes_key->napqns; i++) {
 			rc = get_ep11_target_for_apqn(&ep11,
 			    aes_key->apqns[i].card, aes_key->apqns[i].domain,
@@ -831,6 +837,9 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 		}
 		rv = pthread_mutex_unlock(&ep11lock);
 		assert(rv == 0);
+
+		/* Restore overlayed token header */
+		memcpy(reenc.sec, ep11_token_header, sizeof(ep11_token_header));
 		break;
 	default:
 		rc = ZPC_ERROR_KEYTYPE;
