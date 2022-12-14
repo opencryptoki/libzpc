@@ -434,6 +434,12 @@ extern "C" {
 # define ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE  71
 
 /**
+ * \def ZPC_ERROR_APQNS_INVALID_VERSION
+ * \brief At least one APQN version is invalid for this function.
+ */
+# define ZPC_ERROR_APQNS_INVALID_VERSION  72
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.

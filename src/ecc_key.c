@@ -46,6 +46,7 @@ static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key,
 						const unsigned char *buf);
 static int ec_key_blob_is_pkey_extractable(struct zpc_ec_key *ec_key,
 						const unsigned char *buf);
+static int ec_key_apqns_have_valid_version(struct zpc_ec_key *ec_key);
 
 
 int zpc_ec_key_alloc(struct zpc_ec_key **ec_key)
@@ -435,6 +436,12 @@ int zpc_ec_key_set_apqns(struct zpc_ec_key *ec_key, const char *apqns[])
 	/* If the key already has a secure key set, its mkvp must match */
 	if (ec_key->cur.seclen > 0 && !ec_key_blob_has_valid_mkvp(ec_key, ec_key->cur.sec)) {
 		rc = ZPC_ERROR_WKVPMISMATCH;
+		goto ret;
+	}
+
+	/* All APQNs must fulfill the hardware requirements for ECDSA */
+	if (!ec_key_apqns_have_valid_version(ec_key)) {
+		rc = ZPC_ERROR_APQNS_INVALID_VERSION;
 		goto ret;
 	}
 
@@ -1487,4 +1494,101 @@ static int ec_key_blob_is_pkey_extractable(struct zpc_ec_key *ec_key, const unsi
 	}
 
 	return 0;
+}
+
+static int file_fgets(const char *fname, char *buf, size_t buflen)
+{
+	FILE *fp;
+	char *end;
+	int rc = CKR_OK;
+
+	buf[0] = '\0';
+
+	fp = fopen(fname, "r");
+	if (fp == NULL) {
+		DEBUG("Failed to open file '%s'\n", fname);
+		return EIO;
+	}
+	if (fgets(buf, buflen, fp) == NULL) {
+		DEBUG("Failed to read from file '%s'\n", fname);
+		rc = EIO;
+		goto out_fclose;
+	}
+
+	end = memchr(buf, '\n', buflen);
+	if (end)
+		*end = 0;
+	else
+		buf[buflen - 1] = 0;
+
+	if (strlen(buf) == 0)
+		rc = EIO;
+
+out_fclose:
+
+	fclose(fp);
+	return rc;
+}
+
+static int get_card_type(unsigned int adapter, unsigned int *type)
+{
+	char fname[250];
+	char buf[250];
+	int rc;
+	unsigned int hwtype, rawtype;
+
+	sprintf(fname, "%scard%02x/type", SYSFS_DEVICES_AP, adapter);
+	rc = file_fgets(fname, buf, sizeof(buf));
+	if (rc != 0)
+		return rc;
+	if (sscanf(buf, "CEX%uP", type) != 1 && sscanf(buf, "CEX%uC", type) != 1)
+		return EIO;
+
+	sprintf(fname, "%scard%02x/hwtype", SYSFS_DEVICES_AP, adapter);
+	rc = file_fgets(fname, buf, sizeof(buf));
+	if (rc != 0)
+		return rc;
+	if (sscanf(buf, "%u", &hwtype) != 1)
+		return EIO;
+
+	sprintf(fname, "%scard%02x/raw_hwtype", SYSFS_DEVICES_AP, adapter);
+	rc = file_fgets(fname, buf, sizeof(buf));
+	if (rc != 0)
+		return rc;
+	if (sscanf(buf, "%u", &rawtype) != 1)
+		return EIO;
+
+	if (rawtype > hwtype) {
+		DEBUG("%s adapter: %u hwtype: %u raw_hwtype: %u\n", __func__, adapter, hwtype, rawtype);
+		/* Tolerated new card level: report calculated type */
+		*type += (rawtype - hwtype);
+	}
+
+	return 0;
+}
+
+static int is_min_cex7(unsigned int card)
+{
+	unsigned int type;
+	int rc;
+
+	rc = get_card_type(card, &type);
+	if (rc != 0 || type < 7)
+		return 0;
+
+	return 1;
+}
+
+static int ec_key_apqns_have_valid_version(struct zpc_ec_key *ec_key)
+{
+	size_t i;
+
+	/* For all key types we need at least a CEX7 card. More detailed card
+	 * version checking (e.g. card firmware level) may follow in future. */
+	for (i = 0; i < ec_key->napqns; i++) {
+		if (!is_min_cex7(ec_key->apqns[i].card))
+			return 0;
+	}
+
+	return 1;
 }

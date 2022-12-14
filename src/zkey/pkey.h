@@ -20,6 +20,8 @@
 #include "cca.h"
 #include "ep11.h"
 
+#define SYSFS_DEVICES_AP            "/sys/devices/ap/"
+
 /*
  * Definitions for the /dev/pkey kernel module interface
  */
