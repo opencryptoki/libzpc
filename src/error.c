@@ -90,6 +90,9 @@ zpc_error_string(int err)
 		"The imported buffer contains an EP11 MACed SPKI with an invalid MKVP",
 		"The imported buffer contains a key blob that cannot be transformed into a protected key.",
 		"At least one APQN version is invalid for this function.",
+		"The given buffer does not contain a valid EP11 AES secure key token.",
+		"The given buffer does not contain a valid CCA datakey token",
+		"The given buffer does not contain a valid CCA cipherkey token",
 		"LAST"
 	};
 	const char *rc;
