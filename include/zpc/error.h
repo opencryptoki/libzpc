@@ -440,6 +440,24 @@ extern "C" {
 # define ZPC_ERROR_APQNS_INVALID_VERSION  72
 
 /**
+ * \def ZPC_ERROR_AES_NO_EP11_SECUREKEY_TOKEN
+ * \brief the given buffer does not contain a valid EP11 AES secure key token.
+ */
+# define ZPC_ERROR_AES_NO_EP11_SECUREKEY_TOKEN  73
+
+/**
+ * \def ZPC_ERROR_AES_NO_CCA_DATAKEY_TOKEN
+ * \brief the given buffer does not contain a valid CCA datakey token.
+ */
+# define ZPC_ERROR_AES_NO_CCA_DATAKEY_TOKEN  74
+
+/**
+ * \def ZPC_ERROR_AES_NO_CCA_CIPHERKEY_TOKEN
+ * \brief the given buffer does not contain a valid CCA cipherkey token.
+ */
+# define ZPC_ERROR_AES_NO_CCA_CIPHERKEY_TOKEN  75
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
