@@ -623,3 +623,99 @@ TEST(aes_key, import)
 	zpc_aes_key_free(&aes_key2);
 	EXPECT_EQ(aes_key2, nullptr);
 }
+
+TEST(aes_key, import_old)
+{
+	struct zpc_aes_key *aes_key, *aes_key2;
+	u8 buf[1000], buf2[1000], buf3[1000];
+	unsigned int flags;
+	const char *apqns[257];
+	int rc, size, type;
+	size_t buflen = sizeof(buf);
+	size_t buf2len = sizeof(buf2);
+	size_t buf3len = sizeof(buf3);
+	const char *mkvp;
+	struct ep11kblob_header {
+		u8  type;	/* always 0x00 */
+		u8  hver;	/* header version,  currently needs to be 0x00 */
+		u16 len;	/* total length in bytes (including this header) */
+		u8  version;	/* PKEY_TYPE_EP11_AES or PKEY_TYPE_EP11_ECC */
+		u8  res0;	/* unused */
+		u16 bitlen;	/* clear key bit len, 0 for unknown */
+		u8  res1[8];	/* unused */
+	} __attribute__((packed));
+	struct ep11kblob_header *ep11hdr;
+
+	TESTLIB_ENV_AES_KEY_CHECK();
+	size = testlib_env_aes_key_size();
+	type = testlib_env_aes_key_type();
+	flags= testlib_env_aes_key_flags();
+	mkvp = testlib_env_aes_key_mkvp();
+	(void)testlib_env_aes_key_apqns(apqns);
+
+	if (type != ZPC_AES_KEY_TYPE_EP11)
+		GTEST_SKIP_("Skipping old style import test. Only supported for EP11 type keys.");
+
+	rc = zpc_aes_key_alloc(&aes_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_key_alloc(&aes_key2);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_key_set_size(aes_key, size);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_key_set_size(aes_key2, size);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_key_set_type(aes_key, type);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_key_set_type(aes_key2, type);
+	EXPECT_EQ(rc, 0);
+
+	if (mkvp != NULL) {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+		rc = zpc_aes_key_set_mkvp(aes_key2, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = zpc_aes_key_set_apqns(aes_key, apqns);
+		EXPECT_EQ(rc, 0);
+		rc = zpc_aes_key_set_apqns(aes_key2, apqns);
+		EXPECT_EQ(rc, 0);
+	}
+
+	rc = zpc_aes_key_set_flags(aes_key, flags);
+	EXPECT_EQ(rc, 0);
+
+	/* Generate: will result in a TOKVER_EP11_AES_WITH_HEADER */
+	rc = zpc_aes_key_generate(aes_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_key_export(aes_key, buf, &buflen);
+	EXPECT_EQ(rc, 0);
+
+	/* Convert blob into an "old style" TOKVER_EP11_AES without header. For
+	 * backward compatibility such keys are still accepted, but internally
+	 * converted into "new style" keys with header. */
+	memset(buf3, 0, sizeof(buf3));
+	buf3len = buflen - sizeof(struct ep11kblob_header);
+	memcpy(buf3, buf + sizeof(struct ep11kblob_header), buf3len);
+	ep11hdr = (struct ep11kblob_header *)buf3;
+	ep11hdr->version = 0x03; /* TOKVER_EP11_AES */
+	ep11hdr->len = buf3len;
+
+	/* Import "old style" key */
+	rc = zpc_aes_key_import(aes_key2, buf3, buf3len);
+	EXPECT_EQ(rc, 0);
+
+	/* Export will result in a converted TOKVER_EP11_AES_WITH_HEADER and
+	 * should be identical to the first export. */
+	rc = zpc_aes_key_export(aes_key2, buf2, &buf2len);
+	EXPECT_EQ(rc, 0);
+
+	EXPECT_EQ(buf2len, buflen);
+	EXPECT_TRUE(memcmp(buf2, buf, buflen) == 0);
+
+	zpc_aes_key_free(&aes_key);
+	EXPECT_EQ(aes_key, nullptr);
+	zpc_aes_key_free(&aes_key2);
+	EXPECT_EQ(aes_key2, nullptr);
+}
