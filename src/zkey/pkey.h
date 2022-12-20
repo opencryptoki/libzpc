@@ -471,6 +471,7 @@ struct ext_lib {
 bool is_cca_aes_data_key(const u8 *key, size_t key_size);
 bool is_cca_aes_cipher_key(const u8 *key, size_t key_size);
 bool is_ep11_aes_key(const u8 *key, size_t key_size);
+bool is_ep11_aes_key_with_header(const u8 *key, size_t key_size);
 bool is_xts_key(const u8 *key, size_t key_size);
 bool is_cca_ec_key(const u8 *key, size_t key_size);
 bool is_ep11_ec_key_with_header(const u8 *key, size_t key_size);
