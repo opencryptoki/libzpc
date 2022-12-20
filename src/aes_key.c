@@ -28,9 +28,10 @@ static int __aes_key_alloc_apqns_from_mkvp(struct pkey_apqn **, size_t *,
     const unsigned char[], int);
 static void __aes_key_reset(struct zpc_aes_key *);
 static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key,
-								const unsigned char *buf);
+								const unsigned char *buf, size_t buflen);
 static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key,
-								const unsigned char *buf);
+								const unsigned char *buf, size_t buflen);
+static int aes_key_add_ep11_header(struct zpc_aes_key *aes_key);
 
 int
 zpc_aes_key_alloc(struct zpc_aes_key **aes_key)
@@ -488,6 +489,12 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 		goto ret;
 	}
 
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+		rc = aes_key_add_ep11_header(aes_key);
+		if (rc)
+			goto ret;
+	}
+
 	DEBUG("aes key at %p: key set", aes_key);
 	aes_key->key_set = 1;
 	rc = 0;
@@ -599,12 +606,29 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 		goto ret;
 	}
 
-	if (!aes_key_blob_has_valid_mkvp(aes_key, buf)) {
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11 &&
+		!is_ep11_aes_key_with_header(buf, buflen) &&
+		!is_ep11_aes_key(buf, buflen)) {
+		rc = ZPC_ERROR_AES_NO_EP11_SECUREKEY_TOKEN;
+		goto ret;
+	}
+
+	if (aes_key->type == ZPC_AES_KEY_TYPE_CCA_DATA && !is_cca_aes_data_key(buf, buflen)) {
+		rc = ZPC_ERROR_AES_NO_CCA_DATAKEY_TOKEN;
+		goto ret;
+	}
+
+	if (aes_key->type == ZPC_AES_KEY_TYPE_CCA_CIPHER && !is_cca_aes_cipher_key(buf, buflen)) {
+		rc = ZPC_ERROR_AES_NO_CCA_CIPHERKEY_TOKEN;
+		goto ret;
+	}
+
+	if (!aes_key_blob_has_valid_mkvp(aes_key, buf, buflen)) {
 		rc = ZPC_ERROR_WKVPMISMATCH;
 		goto ret;
 	}
 
-	if (!aes_key_blob_is_pkey_extractable(aes_key, buf)) {
+	if (!aes_key_blob_is_pkey_extractable(aes_key, buf, buflen)) {
 		rc = ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE;
 		goto ret;
 	}
@@ -613,6 +637,13 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 	memcpy(aes_key->cur.sec, buf, buflen);
 	aes_key->cur.seclen = buflen;
 	aes_key->key_set = 1;
+
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11 && is_ep11_aes_key(buf, buflen)) {
+		rc = aes_key_add_ep11_header(aes_key);
+		if (rc)
+			goto ret;
+	}
+
 	rc = 0;
 ret:
 	rv = pthread_mutex_unlock(&aes_key->lock);
@@ -720,6 +751,12 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 	if (rc)
 		goto ret;
 
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+		rc = aes_key_add_ep11_header(aes_key);
+		if (rc)
+			goto ret;
+	}
+
 	DEBUG("aes key at %p: key set to generated secure key", aes_key);
 	aes_key->key_set = 1;
 	rc = 0;
@@ -741,7 +778,6 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 	target_t target;
 	int rv, rc = ZPC_ERROR_APQNSNOTSET;
 	size_t i;
-	char ep11_token_header[sizeof(struct ep11kblob_header)];
 
 	UNUSED(rv);
 
@@ -817,10 +853,6 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 		rv = pthread_mutex_lock(&ep11lock);
 		assert(rv == 0);
 
-		/* Save overlayed token header and clear session id field */
-		memcpy(ep11_token_header, reenc.sec, sizeof(ep11_token_header));
-		memset(reenc.sec, 0, 32);
-
 		for (i = 0; i < aes_key->napqns; i++) {
 			rc = get_ep11_target_for_apqn(&ep11,
 			    aes_key->apqns[i].card, aes_key->apqns[i].domain,
@@ -828,18 +860,22 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 			if (rc)
 				continue;
 
+			/* Note that the secure key is a TOKVER_EP11_AES_WITH_HEADER and has a
+			 * 16-byte ep11kblob_header prepended before the actual secure key blob.
+			 * For reencipher we have to skip this prepended hdr and provide the
+			 * key blob directly. */
 			rc = reencipher_ep11_key(&ep11, target,
-			    aes_key->apqns[i].card, aes_key->apqns[i].domain,
-			    reenc.sec, aes_key->cur.seclen, true);
+						aes_key->apqns[i].card, aes_key->apqns[i].domain,
+						reenc.sec + sizeof(struct ep11kblob_header),
+						aes_key->cur.seclen - sizeof(struct ep11kblob_header),
+						true);
+
 			free_ep11_target_for_apqn(&ep11, target);
 			if (rc == 0)
 				break;
 		}
 		rv = pthread_mutex_unlock(&ep11lock);
 		assert(rv == 0);
-
-		/* Restore overlayed token header */
-		memcpy(reenc.sec, ep11_token_header, sizeof(ep11_token_header));
 		break;
 	default:
 		rc = ZPC_ERROR_KEYTYPE;
@@ -940,8 +976,7 @@ __aes_key_reset(struct zpc_aes_key *aes_key)
  * (Re)derive protected key from a secure key.
  * Caller must hold aes_key's wr lock.
  */
-int
-aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
+int aes_key_sec2prot_without_header(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 {
 	struct pkey_kblob2pkey2 io;
 	struct aes_key *key = NULL;
@@ -967,6 +1002,75 @@ aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 
 	memcpy(&aes_key->prot, &io.protkey, sizeof(aes_key->prot));
 	return 0;
+}
+
+/*
+ * Currently there is no ioctl to convert a TOKVER_EP11_AES_WITH_HEADER. So
+ * prepare an overlay over the session id field and convert it as a
+ * TOKVER_EP11_AES. Then restore the session id field.
+ */
+int aes_key_sec2prot_with_header(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
+{
+	struct pkey_kblob2pkey2 io;
+	struct aes_key *key = NULL;
+	int rc;
+	unsigned char temp[sizeof(struct ep11kblob_header)];
+	struct ep11kblob_header *hdr;
+
+	assert(sec == AES_KEY_SEC_OLD || sec == AES_KEY_SEC_CUR);
+
+	if (sec == AES_KEY_SEC_CUR)
+		key = &aes_key->cur;
+	else if (sec == AES_KEY_SEC_OLD)
+		key = &aes_key->old;
+	assert(key != NULL);
+
+	memcpy(temp, key->sec + 16, 16); // save first 16 bytes session id
+	memcpy(key->sec + 16, key->sec, 16); // overlay hdr in session id
+	hdr = (struct ep11kblob_header *)(key->sec + 16);
+	hdr->version = TOKEN_VERSION_EP11_AES; // set key type TOKVER_EP11_AES
+	hdr->len = key->seclen - 16; // adjust length
+
+	memset(&io, 0, sizeof(io));
+	io.key = key->sec + 16;
+	io.keylen = key->seclen - 16;
+	io.apqns = aes_key->apqns;
+	io.apqn_entries = aes_key->napqns;
+
+	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+
+	memcpy(key->sec + 16, temp, 16); // restore session id in any case
+
+	if (rc != 0)
+		return ZPC_ERROR_IOCTLBLOB2PROTK2;
+
+	memcpy(&aes_key->prot, &io.protkey, sizeof(aes_key->prot));
+	return 0;
+}
+
+/*
+ * (Re)derive protected key from a secure key.
+ * Caller must hold aes_key's wr lock.
+ */
+int aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
+{
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+		struct aes_key *key = NULL;
+		size_t keylen;
+		assert(sec == AES_KEY_SEC_OLD || sec == AES_KEY_SEC_CUR);
+		if (sec == AES_KEY_SEC_CUR) {
+			key = &aes_key->cur;
+			keylen = aes_key->cur.seclen;
+		} else if (sec == AES_KEY_SEC_OLD) {
+			key = &aes_key->old;
+			keylen = aes_key->old.seclen;
+		}
+		assert(key != NULL);
+		if (is_ep11_aes_key_with_header(key->sec, keylen))
+			return aes_key_sec2prot_with_header(aes_key, sec);
+	}
+
+	return aes_key_sec2prot_without_header(aes_key, sec);
 }
 
 /*
@@ -1042,27 +1146,32 @@ aes_key_check(const struct zpc_aes_key *aes_key)
 	return 0;
 }
 
-static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key, const unsigned char *buf)
+static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key,
+				const unsigned char *buf, size_t buflen)
 {
-	const unsigned char *mkvp;
+	const unsigned char *mkvp, *keytoken;
 	unsigned int mkvp_len;
 	u64 mkvp_value;
 
 	if (aes_key->mkvp_set == 0)
 		return 1; /* cannot judge */
 
+	keytoken = buf;
+	if (is_ep11_aes_key_with_header(buf, buflen))
+		keytoken += sizeof(struct ep11kblob_header);
+
 	switch (aes_key->type) {
 	case ZPC_AES_KEY_TYPE_CCA_DATA:
-		mkvp_value = ((struct aesdatakeytoken *)buf)->mkvp;
+		mkvp_value = ((struct aesdatakeytoken *)keytoken)->mkvp;
 		mkvp = (const unsigned char *)&mkvp_value;
 		mkvp_len = MKVP_LEN_CCA;
 		break;
 	case ZPC_AES_KEY_TYPE_CCA_CIPHER:
-		mkvp = ((struct aescipherkeytoken *)buf)->kvp;
+		mkvp = ((struct aescipherkeytoken *)keytoken)->kvp;
 		mkvp_len = MKVP_LEN_CCA;
 		break;
 	default:
-		mkvp = ((struct ep11keytoken *)buf)->wkvp;
+		mkvp = ((struct ep11keytoken *)keytoken)->wkvp;
 		mkvp_len = MKVP_LEN_EP11;
 		break;
 	}
@@ -1073,10 +1182,16 @@ static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key, const unsign
 	return 0;
 }
 
-static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key, const unsigned char *buf)
+static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key,
+					const unsigned char *buf, size_t buflen)
 {
+	const unsigned char *keytoken;
 	u16 kmf1;
 	u64 attr;
+
+	keytoken = buf;
+	if (is_ep11_aes_key_with_header(buf, buflen))
+		keytoken += sizeof(struct ep11kblob_header);
 
 	switch (aes_key->type) {
 	case ZPC_AES_KEY_TYPE_CCA_DATA:
@@ -1084,18 +1199,37 @@ static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key, const u
 		 * does not contain a CCA_XPRTCPAC indication. */
 		return 1;
 	case ZPC_AES_KEY_TYPE_CCA_CIPHER:
-		kmf1 = ((struct aescipherkeytoken *)buf)->kmf1;
+		kmf1 = ((struct aescipherkeytoken *)keytoken)->kmf1;
 		if (kmf1 & KMF1_XPRT_CPAC)
 			return 1;
 		break;
 	case ZPC_AES_KEY_TYPE_EP11:
-		attr = ((struct ep11keytoken *)buf)->attr;
+		attr = ((struct ep11keytoken *)keytoken)->attr;
 		if (attr & XCP_BLOB_PROTKEY_EXTRACTABLE)
 			return 1;
 		break;
 	default:
 		break;
 	}
+
+	return 0;
+}
+
+static int aes_key_add_ep11_header(struct zpc_aes_key *aes_key)
+{
+	struct ep11kblob_header *ep11hdr;
+
+	if (aes_key->cur.seclen + sizeof(struct ep11kblob_header) > sizeof(aes_key->cur.sec))
+		return 1;
+
+	memset(aes_key->cur.sec, 0, sizeof(struct ep11kblob_header));
+	memmove(aes_key->cur.sec + sizeof(struct ep11kblob_header), aes_key->cur.sec, aes_key->cur.seclen);
+	memset(aes_key->cur.sec + sizeof(struct ep11kblob_header), 0, 32);
+
+	ep11hdr = (struct ep11kblob_header *)aes_key->cur.sec;
+	ep11hdr->len = sizeof(struct ep11kblob_header) + aes_key->cur.seclen;
+	ep11hdr->version = TOKVER_EP11_AES_WITH_HEADER;
+	aes_key->cur.seclen = ep11hdr->len;
 
 	return 0;
 }

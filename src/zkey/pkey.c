@@ -157,7 +157,7 @@ bool is_ep11_aes_key(const u8 *key, size_t key_size)
 {
 	struct ep11keytoken *ep11key = (struct ep11keytoken *)key;
 
-	if (key == NULL || key_size < EP11_KEY_SIZE)
+	if (key == NULL || key_size < (EP11_KEY_SIZE - sizeof(ep11key->padding)))
 		return false;
 
 	if (ep11key->head.type != TOKEN_TYPE_NON_CCA)
@@ -171,6 +171,39 @@ bool is_ep11_aes_key(const u8 *key, size_t key_size)
 		return false;
 
 	return true;
+}
+
+/*
+ * Check if the specified key is a EP11 AES key token with header.
+ *
+ * @param[in] key           the secure key token
+ * @param[in] key_size      the size of the secure key
+ *
+ * @returns true if the key is an EP11 AES key token with header
+ */
+bool is_ep11_aes_key_with_header(const u8 *key, size_t key_size)
+{
+	struct ep11kblob_header *hdr = (struct ep11kblob_header *)key;
+	struct ep11keytoken *ep11key = (struct ep11keytoken *)(key + sizeof(struct ep11kblob_header));
+
+	if (key_size < (sizeof(struct ep11kblob_header) + EP11_KEY_SIZE - sizeof(ep11key->padding)))
+		return 0;
+
+	if (hdr->type != TOKEN_TYPE_NON_CCA)
+		return 0;
+	if (hdr->hver != 0x00)
+		return 0;
+	if (hdr->version != TOKVER_EP11_AES_WITH_HEADER)
+		return 0;
+	if (hdr->len > key_size)
+		return 0;
+	if (hdr->len < (sizeof(struct ep11kblob_header) + EP11_KEY_SIZE - sizeof(ep11key->padding)))
+		return 0;
+
+	if (ep11key->version != EP11_STRUCT_MAGIC)
+		return 0;
+
+	return 1;
 }
 
 /**
