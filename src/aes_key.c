@@ -24,8 +24,6 @@
 #include <string.h>
 #include <sys/ioctl.h>
 
-static int __aes_key_alloc_apqns_from_mkvp(struct pkey_apqn **, size_t *,
-    const unsigned char[], int);
 static void __aes_key_reset(struct zpc_aes_key *);
 static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key,
 								const unsigned char *buf, size_t buflen);
@@ -190,8 +188,8 @@ zpc_aes_key_set_type(struct zpc_aes_key *aes_key, int type)
 		aes_key->napqns = 0;
 		aes_key->apqns_set = 0;
 
-		rc = __aes_key_alloc_apqns_from_mkvp(&(aes_key->apqns),
-		    &(aes_key->napqns), aes_key->mkvp, type);
+		rc = alloc_apqns_from_mkvp(pkeyfd, &(aes_key->apqns), &(aes_key->napqns),
+								aes_key->mkvp, type);
 		if (rc != 0)
 			goto ret;
 
@@ -310,8 +308,8 @@ zpc_aes_key_set_mkvp(struct zpc_aes_key *aes_key, const char *mkvp)
 	aes_key->napqns = 0;
 	aes_key->apqns_set = 0;
 
-	rc = __aes_key_alloc_apqns_from_mkvp(&(aes_key->apqns),
-	    &(aes_key->napqns), mkvpbuf, aes_key->type);
+	rc = alloc_apqns_from_mkvp(pkeyfd, &(aes_key->apqns), &(aes_key->napqns),
+							mkvpbuf, aes_key->type);
 	if (rc != 0)
 		goto ret;
 
@@ -1072,65 +1070,6 @@ int aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 	}
 
 	return aes_key_sec2prot_without_header(aes_key, sec);
-}
-
-/*
- * Returns list of napqns in apqns that match the mkvp and key type.
- * Caller takes ownership of apqns.
- * Returns 0 on success. Otherwise, an appropriate ZPC_ERROR is returned.
- */
-static int
-__aes_key_alloc_apqns_from_mkvp(struct pkey_apqn **apqns, size_t *napqns,
-    const unsigned char mkvp[], int type)
-{
-	struct pkey_apqns4keytype apqns4keytype;
-	int rc;
-
-	assert(apqns != NULL);
-	assert(napqns != NULL);
-	assert(mkvp != NULL);
-
-	*apqns = NULL;
-	*napqns = 0;
-
-	for (;;) {
-		if (*napqns > 0) {
-			*apqns = calloc(*napqns, sizeof(**apqns));
-			if (*apqns == NULL) {
-				rc = ZPC_ERROR_MALLOC;
-				goto ret;
-			}
-		}
-
-		memset(&apqns4keytype, 0, sizeof(apqns4keytype));
-		apqns4keytype.type = type;
-		memcpy(apqns4keytype.cur_mkvp, mkvp,
-		    sizeof(apqns4keytype.cur_mkvp));
-		memcpy(apqns4keytype.alt_mkvp, mkvp,
-		    sizeof(apqns4keytype.alt_mkvp));
-		apqns4keytype.flags = PKEY_FLAGS_MATCH_CUR_MKVP;
-		apqns4keytype.apqns = *apqns;
-		apqns4keytype.apqn_entries = *napqns;
-
-		rc = ioctl(pkeyfd, PKEY_APQNS4KT, &apqns4keytype);
-		if (rc && (*napqns == 0 || (*napqns > 0 && rc != ENOSPC))) {
-			rc = ZPC_ERROR_IOCTLAPQNS4KT;
-			goto ret;
-		} else if (rc == 0 && apqns4keytype.apqn_entries == 0) {
-			rc = ZPC_ERROR_APQNNOTFOUND;
-			goto ret;
-		} else if (rc == 0 && *napqns > 0) {
-			break;
-		}
-
-		free(*apqns);
-		*apqns = NULL;
-
-		*napqns = apqns4keytype.apqn_entries;
-	}
-	rc = 0;
-ret:
-	return rc;
 }
 
 int

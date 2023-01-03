@@ -7,6 +7,8 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
+#include "zpc/error.h"
+
 #include <dlfcn.h>
 #include <err.h>
 #include <errno.h>
@@ -20,6 +22,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "lib/util_base.h"
 #include "lib/util_libc.h"
@@ -265,6 +268,64 @@ bool is_xts_key(const u8 *key, size_t key_size)
 	}
 
 	return false;
+}
+
+/*
+ * Returns list of napqns in apqns that match the mkvp and key type.
+ * Caller takes ownership of apqns.
+ * Returns 0 on success. Otherwise, an appropriate ZPC_ERROR is returned.
+ */
+int alloc_apqns_from_mkvp(int pkeyfd, struct pkey_apqn **apqns, size_t *napqns,
+							const unsigned char mkvp[], int type)
+{
+	struct pkey_apqns4keytype apqns4keytype;
+	int rc;
+
+	assert(apqns != NULL);
+	assert(napqns != NULL);
+	assert(mkvp != NULL);
+
+	*apqns = NULL;
+	*napqns = 0;
+
+	for (;;) {
+		if (*napqns > 0) {
+			*apqns = calloc(*napqns, sizeof(**apqns));
+			if (*apqns == NULL) {
+				rc = ZPC_ERROR_MALLOC;
+				goto ret;
+			}
+		}
+
+		memset(&apqns4keytype, 0, sizeof(apqns4keytype));
+		apqns4keytype.type = type;
+		memcpy(apqns4keytype.cur_mkvp, mkvp,
+		    sizeof(apqns4keytype.cur_mkvp));
+		memcpy(apqns4keytype.alt_mkvp, mkvp,
+		    sizeof(apqns4keytype.alt_mkvp));
+		apqns4keytype.flags = PKEY_FLAGS_MATCH_CUR_MKVP;
+		apqns4keytype.apqns = *apqns;
+		apqns4keytype.apqn_entries = *napqns;
+
+		rc = ioctl(pkeyfd, PKEY_APQNS4KT, &apqns4keytype);
+		if (rc && (*napqns == 0 || (*napqns > 0 && rc != ENOSPC))) {
+			rc = ZPC_ERROR_IOCTLAPQNS4KT;
+			goto ret;
+		} else if (rc == 0 && apqns4keytype.apqn_entries == 0) {
+			rc = ZPC_ERROR_APQNNOTFOUND;
+			goto ret;
+		} else if (rc == 0 && *napqns > 0) {
+			break;
+		}
+
+		free(*apqns);
+		*apqns = NULL;
+
+		*napqns = apqns4keytype.apqn_entries;
+	}
+	rc = 0;
+ret:
+	return rc;
 }
 
 /*
