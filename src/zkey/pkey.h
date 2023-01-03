@@ -475,4 +475,6 @@ bool is_ep11_aes_key_with_header(const u8 *key, size_t key_size);
 bool is_xts_key(const u8 *key, size_t key_size);
 bool is_cca_ec_key(const u8 *key, size_t key_size);
 bool is_ep11_ec_key_with_header(const u8 *key, size_t key_size);
+int alloc_apqns_from_mkvp(int pkeyfd, struct pkey_apqn **apqns, size_t *napqns,
+							const unsigned char mkvp[], int type);
 #endif
