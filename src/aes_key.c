@@ -407,6 +407,7 @@ zpc_aes_key_set_apqns(struct zpc_aes_key *aes_key, const char *apqns[])
 ret:
 	if (rc != 0) {
 		free(aes_key->apqns);
+		aes_key->apqns = NULL;
 		aes_key->napqns = 0;
 	}
 	rv = pthread_mutex_unlock(&aes_key->lock);
