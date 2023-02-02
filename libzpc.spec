@@ -1,5 +1,5 @@
 Name:		libzpc
-Version:	1.0.1
+Version:	1.1.0
 Release:	1%{?dist}
 Summary:	Open Source library for the IBM Z Protected-key crypto feature
 
@@ -88,6 +88,9 @@ The %{name}-static package contains the static library of %{name}.
 
 
 %changelog
+* Thu Feb 02 2023 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.1.0
+- Support for ECC keys and ECDSA signatures.
+
 * Wed Jun 22 2022 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.0.1
 - Updated spec file for rpm build and changed location
   of pkgconfig file to libdir.
