@@ -1024,6 +1024,34 @@ int aes_key_sec2prot_with_header(struct zpc_aes_key *aes_key, enum aes_key_sec s
 		key = &aes_key->old;
 	assert(key != NULL);
 
+	/*
+	 * First try the ioctl with the version 6 key blob. This also sends the
+	 * session id to the pkey kernel module.
+	 */
+	memset(&io, 0, sizeof(io));
+	io.key = key->sec;
+	io.keylen = key->seclen;
+	io.apqns = aes_key->apqns;
+	io.apqn_entries = aes_key->napqns;
+
+	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+	if (rc == 0)
+		goto done;
+
+	/*
+	 * Version 6 key blob ioctl failed, most likely there is no kernel support
+	 * for type 6 keys. Now check if this key is session bound: if it has a
+	 * session id, then we cannot convert this key without overlaying, i.e.
+	 * destroying, the session id. If not, retry the ioctl with a type 3 key
+	 * blob by overlaying the session id.
+	 */
+	if (is_session_bound(key->sec, key->seclen))
+		return ZPC_ERROR_IOCTLBLOB2PROTK2;
+
+	/*
+	 * This key is not session bound. Retry as version 3 key blob by overlaying
+	 * the session id field with the key header.
+	 */
 	memcpy(temp, key->sec + 16, 16); // save first 16 bytes session id
 	memcpy(key->sec + 16, key->sec, 16); // overlay hdr in session id
 	hdr = (struct ep11kblob_header *)(key->sec + 16);
@@ -1043,6 +1071,7 @@ int aes_key_sec2prot_with_header(struct zpc_aes_key *aes_key, enum aes_key_sec s
 	if (rc != 0)
 		return ZPC_ERROR_IOCTLBLOB2PROTK2;
 
+done:
 	memcpy(&aes_key->prot, &io.protkey, sizeof(aes_key->prot));
 	return 0;
 }
