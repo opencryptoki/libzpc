@@ -149,7 +149,34 @@ bool is_cca_ec_key(const u8 *key, size_t key_size)
 }
 
 /**
- * Check if the specified key is a EP11 AES key token.
+ * Check if the specified EP11 type 6 (TOKVER_EP11_AES_WITH_HEADER) AES key
+ * token is session bound, i.e. has a non-zero session id.
+ *
+ * @param[in] key           the type 6 secure key token
+ * @param[in] key_size      the size of the secure key
+ *
+ * @returns true if the key is a session-bound type 6 EP11 AES key token
+ */
+bool is_session_bound(const u8 *key, size_t key_size)
+{
+	const unsigned char null_session[32] = { 0, };
+
+	if (!is_ep11_aes_key_with_header(key, key_size))
+		return false;
+
+	if (memcmp(key + sizeof(struct ep11kblob_header),
+			null_session, sizeof(null_session)) == 0)
+		return false;
+
+	return true;
+}
+
+/**
+ * Check if the specified key is a type 3 (TOKVER_EP11_AES) EP11 AES key token.
+ * Type 3 keys always have their session id field overlayed by the key token
+ * header, so they cannot contain a valid session id. Let's require that the
+ * 2nd 16 bytes of the session id field are always zero, otherwise consider
+ * the key as corrupted.
  *
  * @param[in] key           the secure key token
  * @param[in] key_size      the size of the secure key
@@ -159,6 +186,7 @@ bool is_cca_ec_key(const u8 *key, size_t key_size)
 bool is_ep11_aes_key(const u8 *key, size_t key_size)
 {
 	struct ep11keytoken *ep11key = (struct ep11keytoken *)key;
+	const unsigned char nulls[16] = { 0, };
 
 	if (key == NULL || key_size < (EP11_KEY_SIZE - sizeof(ep11key->padding)))
 		return false;
@@ -171,6 +199,9 @@ bool is_ep11_aes_key(const u8 *key, size_t key_size)
 		return false;
 
 	if (ep11key->version != EP11_STRUCT_MAGIC)
+		return false;
+
+	if (memcmp(key + 16, nulls, 16) != 0)
 		return false;
 
 	return true;
