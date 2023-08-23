@@ -714,6 +714,20 @@ TEST(aes_key, import_old)
 	EXPECT_EQ(buf2len, buflen);
 	EXPECT_TRUE(memcmp(buf2, buf, buflen) == 0);
 
+	/* Now try a TOKVER_EP11_AES key that has an overlayed header, but the
+	 * remaining 16 bytes of the session id field are not zero. This key
+	 * is considered as corrupted. */
+	memset(buf3 + 16, 0x5c, 16);
+	rc = zpc_aes_key_import(aes_key2, buf3, buf3len);
+	EXPECT_EQ(rc, ZPC_ERROR_AES_NO_EP11_SECUREKEY_TOKEN);
+
+	/* Now try a TOKVER_EP11_AES key that is session-bound, i.e.
+	 * has a 32 byte session id instead of an overlayed header. This key
+	 * cannot be recognized, because of missing header information. */
+	memset(buf3, 0x5c, 32); /* fake a 32-byte session id */
+	rc = zpc_aes_key_import(aes_key2, buf3, buf3len);
+	EXPECT_EQ(rc, ZPC_ERROR_AES_NO_EP11_SECUREKEY_TOKEN);
+
 	zpc_aes_key_free(&aes_key);
 	EXPECT_EQ(aes_key, nullptr);
 	zpc_aes_key_free(&aes_key2);
