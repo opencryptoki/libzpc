@@ -27,36 +27,36 @@ extern "C" {
  * GTEST_SKIP_ assumes the caller to be the test function that is to
  * be skipped. So this one has to be implemented as a macro.
  */
-# define TESTLIB_ENV_AES_KEY_CHECK()													        \
-do {		                                                                                    \
-        const char *apqns[257];                                                                       \
-        const char *mkvp;															            \
-        int size, type, rc;																        \
-																					            \
-        size = testlib_env_aes_key_size();									                    \
-        switch (size) {                                                                         \
-        case 128:   /* fall-through */                                                          \
-        case 192:   /* fall-through */                                                          \
-        case 256:   /* fall-through */                                                          \
-            break;                                                                              \
-        case -1:														                        \
-            GTEST_SKIP_("ZPC_TEST_AES_KEY_SIZE environment variable not set.");                 \
-            break;                                                                              \
-        default:                                                                                \
+# define TESTLIB_ENV_AES_KEY_CHECK()                                           \
+do {                                                                           \
+        const char *apqns[257];                                                \
+        const char *mkvp;                                                      \
+        int size, type, rc;                                                    \
+                                                                               \
+        size = testlib_env_aes_key_size();                                     \
+        switch (size) {                                                        \
+        case 128:   /* fall-through */                                         \
+        case 192:   /* fall-through */                                         \
+        case 256:   /* fall-through */                                         \
+            break;                                                             \
+        case -1:                                                               \
+            GTEST_SKIP_("ZPC_TEST_AES_KEY_SIZE environment variable not set."); \
+            break;                                                             \
+        default:                                                               \
             GTEST_SKIP_("ZPC_TEST_AES_KEY_SIZE environment variable set to invalid key-size."); \
-            break;                                                                              \
-        }			                                                                            \
-        											                                            \
-        type = testlib_env_aes_key_type();											            \
-        if (type == -1)																            \
-                GTEST_SKIP_("ZPC_TEST_AES_KEY_TYPE environment variable not set.");	            \
-                                                                                                \
-        mkvp = testlib_env_aes_key_mkvp();                                                      \
-        rc = testlib_env_aes_key_apqns(apqns);                                                  \
-        if (rc == 0 && mkvp != NULL)                                                            \
-            GTEST_SKIP_("Both ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables set.");    \
-        if (rc != 0 && mkvp == NULL)                                                            \
-            GTEST_SKIP_("ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables unset.");       \
+            break;                                                             \
+        }                                                                      \
+                                                                               \
+        type = testlib_env_aes_key_type();                                     \
+        if (type == -1)                                                        \
+                GTEST_SKIP_("ZPC_TEST_AES_KEY_TYPE environment variable not set."); \
+                                                                               \
+        mkvp = testlib_env_aes_key_mkvp();                                     \
+        rc = testlib_env_aes_key_apqns(apqns);                                 \
+        if (rc == 0 && mkvp != NULL)                                           \
+            GTEST_SKIP_("Both ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables set."); \
+        if (rc != 0 && mkvp == NULL)                                           \
+            GTEST_SKIP_("ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables unset."); \
 } while (0)
 
 # define TESTLIB_AES_ECB_HW_CAPS_CHECK()                                       \
@@ -302,38 +302,38 @@ do {                                                                           \
         zpc_aes_key_free(&aes_key);                                            \
 } while (0)
 
-# define TESTLIB_ENV_EC_KEY_CHECK()                                                           \
-do {                                                                                          \
-        const char *apqns[257];                                                               \
-        const char *mkvp;                                                                     \
-        int type, rc;                                                                         \
-        int curve = testlib_env_ec_key_curve();                                               \
-                                                                                              \
-        switch (curve) {                                                                      \
-        case ZPC_EC_CURVE_P256:      /* fall-through */                                       \
-        case ZPC_EC_CURVE_P384:      /* fall-through */                                       \
-        case ZPC_EC_CURVE_P521:      /* fall-through */                                       \
-        case ZPC_EC_CURVE_ED25519:   /* fall-through */                                       \
-        case ZPC_EC_CURVE_ED448:     /* fall-through */                                       \
-            break;                                                                            \
-        case ZPC_EC_CURVE_INVALID:                                                            \
-            GTEST_SKIP_("ZPC_TEST_EC_KEY_CURVE environment variable set to invalid value.");  \
-            break;                                                                            \
-        default:                                                                              \
-            GTEST_SKIP_("ZPC_TEST_EC_KEY_CURVE environment variable not set.");               \
-            break;                                                                            \
-        }                                                                                     \
-                                                                                              \
-        type = testlib_env_ec_key_type();                                                     \
-        if (type == -1)	                                                                      \
-                GTEST_SKIP_("ZPC_TEST_EC_KEY_TYPE environment variable not set.");            \
-                                                                                              \
-        mkvp = testlib_env_ec_key_mkvp();                                                     \
-        rc = testlib_env_ec_key_apqns(apqns);                                                 \
-        if (rc == 0 && mkvp != NULL)                                                          \
-            GTEST_SKIP_("Both ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables set.");  \
-        if (rc != 0 && mkvp == NULL)                                                            \
-            GTEST_SKIP_("ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables unset.");     \
+# define TESTLIB_ENV_EC_KEY_CHECK()                                            \
+do {                                                                           \
+        const char *apqns[257];                                                \
+        const char *mkvp;                                                      \
+        int type, rc;                                                          \
+        int curve = testlib_env_ec_key_curve();                                \
+                                                                               \
+        switch (curve) {                                                       \
+        case ZPC_EC_CURVE_P256:      /* fall-through */                        \
+        case ZPC_EC_CURVE_P384:      /* fall-through */                        \
+        case ZPC_EC_CURVE_P521:      /* fall-through */                        \
+        case ZPC_EC_CURVE_ED25519:   /* fall-through */                        \
+        case ZPC_EC_CURVE_ED448:     /* fall-through */                        \
+            break;                                                             \
+        case ZPC_EC_CURVE_INVALID:                                             \
+            GTEST_SKIP_("ZPC_TEST_EC_KEY_CURVE environment variable set to invalid value."); \
+            break;                                                             \
+        default:                                                               \
+            GTEST_SKIP_("ZPC_TEST_EC_KEY_CURVE environment variable not set."); \
+            break;                                                             \
+        }                                                                      \
+                                                                               \
+        type = testlib_env_ec_key_type();                                      \
+        if (type == -1)                                                        \
+                GTEST_SKIP_("ZPC_TEST_EC_KEY_TYPE environment variable not set."); \
+                                                                               \
+        mkvp = testlib_env_ec_key_mkvp();                                      \
+        rc = testlib_env_ec_key_apqns(apqns);                                  \
+        if (rc == 0 && mkvp != NULL)                                           \
+            GTEST_SKIP_("Both ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables set."); \
+        if (rc != 0 && mkvp == NULL)                                           \
+            GTEST_SKIP_("ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables unset."); \
 } while (0)
 
 # define TESTLIB_EC_HW_CAPS_CHECK()                                            \
