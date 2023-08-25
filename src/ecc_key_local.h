@@ -63,4 +63,6 @@ int ec_key_clr2sec(struct zpc_ec_key *ec_key, unsigned int flags,
 			const unsigned char *privkey, unsigned int privlen);
 int ec_key_sec2prot(struct zpc_ec_key *, enum ec_key_sec sec);
 int ec_key_check(const struct zpc_ec_key *);
+int ec_key_clr2prot(struct zpc_ec_key *ec_key, const unsigned char *privkey,
+			unsigned int privlen);
 #endif

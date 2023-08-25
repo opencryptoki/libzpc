@@ -418,3 +418,11 @@ const size_t curve2rawspkilen[] = {
 	sizeof(ed25519_maced_spki_t) - EP11_SPKI_MACLEN,
 	sizeof(ed448_maced_spki_t) - EP11_SPKI_MACLEN,
 };
+
+const u32 curve2pkey_keytype[] = {
+	PKEY_KEYTYPE_ECC_P256,
+	PKEY_KEYTYPE_ECC_P384,
+	PKEY_KEYTYPE_ECC_P521,
+	PKEY_KEYTYPE_ECC_ED25519,
+	PKEY_KEYTYPE_ECC_ED448,
+};
