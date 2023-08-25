@@ -210,6 +210,109 @@ TEST(aes_gcm, set_iv)
 	EXPECT_EQ(aes_key, nullptr);
 }
 
+TEST(aes_gcm, create_iv)
+{
+	struct zpc_aes_key *aes_key;
+	struct zpc_aes_gcm *aes_gcm1, *aes_gcm2;
+	const char *mkvp, *apqns[257];
+	u8 aad[99], m[99], tag[16], tmp_tag[16], buf[99], pt[99];
+	u8 iv_buf[4096];
+	int rc, size, type;
+	unsigned int flags;
+
+	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_GCM_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
+	size = testlib_env_aes_key_size();
+	type = testlib_env_aes_key_type();
+	flags = testlib_env_aes_key_flags();
+	mkvp = testlib_env_aes_key_mkvp();
+	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	rc = zpc_aes_key_alloc(&aes_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_gcm_alloc(&aes_gcm1);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_gcm_alloc(&aes_gcm2);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_gcm_create_iv(aes_gcm1, iv_buf, 0);
+	EXPECT_EQ(rc, ZPC_ERROR_IVSIZE);
+	rc = zpc_aes_gcm_create_iv(aes_gcm1, iv_buf, 1234);
+	EXPECT_EQ(rc, ZPC_ERROR_KEYNOTSET);
+
+	rc = zpc_aes_key_set_size(aes_key, size);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_key_set_type(aes_key, type);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_key_set_flags(aes_key, flags);
+	EXPECT_EQ(rc, 0);
+	if (mkvp != NULL) {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = zpc_aes_key_set_apqns(aes_key, apqns);
+		EXPECT_EQ(rc, 0);
+	}
+
+	rc = zpc_aes_key_generate(aes_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_gcm_set_key(aes_gcm1, aes_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_gcm_set_key(aes_gcm2, aes_key);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_gcm_create_iv(aes_gcm1, iv_buf, SIZE_MAX);
+	EXPECT_EQ(rc, ZPC_ERROR_IVSIZE);
+	rc = zpc_aes_gcm_create_iv(aes_gcm1, iv_buf, 11);
+	EXPECT_EQ(rc, ZPC_ERROR_IVSIZE);
+	rc = zpc_aes_gcm_create_iv(aes_gcm1, iv_buf, 12);
+	EXPECT_EQ(rc, 0);
+
+	/* Create internal iv for encrypt/decrypt */
+	rc = zpc_aes_gcm_create_iv(aes_gcm1, iv_buf, 1234);
+	EXPECT_EQ(rc, 0);
+
+	/* Encrypt in-place with internally created iv */
+	rc = zpc_aes_gcm_encrypt(aes_gcm1, buf, tag, sizeof(tag), aad, sizeof(aad), m, sizeof(m));
+	EXPECT_EQ(rc, 0);
+
+	/*
+	 * Try to use set_iv on first ctx with already created internal iv. This
+	 * fails because it is not allowed to overwrite an internal iv.
+	 */
+	rc = zpc_aes_gcm_set_iv(aes_gcm1, iv_buf, 78);
+	EXPECT_EQ(rc, ZPC_ERROR_GCM_IV_CREATED_INTERNALLY);
+
+	/*
+	 * Try to use same ctx for decrypt: this fails, because the initial iv
+	 * is not available because set_iv is not allowed on this ctx after
+	 * creating an internal iv.
+	 */
+	memcpy(tmp_tag, tag, sizeof(tag));
+	rc = zpc_aes_gcm_decrypt(aes_gcm1, pt, tmp_tag, sizeof(tmp_tag), aad, sizeof(aad), buf, sizeof(buf));
+	EXPECT_EQ(rc, ZPC_ERROR_GCM_IV_CREATED_INTERNALLY);
+
+	/* Decrypt in-place with internally created iv and 2nd ctx */
+	rc = zpc_aes_gcm_set_iv(aes_gcm2, iv_buf, 1234);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_gcm_decrypt(aes_gcm2, pt, tag, sizeof(tag), aad, sizeof(aad), buf, sizeof(buf));
+	EXPECT_EQ(rc, 0);
+	EXPECT_TRUE(memcmp(pt, m, sizeof(m)) == 0);
+
+	zpc_aes_gcm_free(&aes_gcm1);
+	EXPECT_EQ(aes_gcm1, nullptr);
+	zpc_aes_gcm_free(&aes_gcm2);
+	EXPECT_EQ(aes_gcm2, nullptr);
+	zpc_aes_key_free(&aes_key);
+	EXPECT_EQ(aes_key, nullptr);
+}
+
 TEST(aes_gcm, encrypt)
 {
 	struct zpc_aes_key *aes_key;
