@@ -30,6 +30,7 @@ extern const size_t curve2privlen[];
 extern const size_t curve2puboffset[];
 extern const size_t curve2macedspkilen[];
 extern const size_t curve2rawspkilen[];
+extern const u32 curve2pkey_keytype[];
 
 static void __ec_key_reset(struct zpc_ec_key *);
 static int ec_key_check_ep11_spki(const struct zpc_ec_key *ec_key,
@@ -811,9 +812,12 @@ int zpc_ec_key_import_clear(struct zpc_ec_key *ec_key, const unsigned char *pubk
 			goto ret;
 		}
 
-		rc = ec_key_sec2prot(ec_key, EC_KEY_SEC_CUR);
+		rc = ec_key_clr2prot(ec_key, privkey, privlen);
 		if (rc) {
-			goto ret;
+			rc = ec_key_sec2prot(ec_key, EC_KEY_SEC_CUR);
+			if (rc) {
+				goto ret;
+			}
 		}
 
 		DEBUG("ec key at %p: private/protected key set", ec_key);
@@ -1266,6 +1270,68 @@ int ec_key_sec2prot(struct zpc_ec_key *ec_key, enum ec_key_sec sec)
 	memset(&io, 0, sizeof(io));
 	io.key = key->sec;
 	io.keylen = keybuf_len;
+	io.apqns = ec_key->apqns;
+	io.apqn_entries = ec_key->napqns;
+	io.pkeytype = (ec_key->type == ZPC_EC_KEY_TYPE_CCA ? PKEY_TYPE_CCA_ECC : PKEY_TYPE_EP11_ECC);
+	io.pkeylen = sizeof(ec_key->prot.protkey);
+	io.pkey = (unsigned char *)&ec_key->prot.protkey;
+
+	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK3, &io);
+	if (rc != 0) {
+		return ZPC_ERROR_IOCTLBLOB2PROTK3;
+	}
+
+	return 0;
+}
+
+int ec_key_clr2prot(struct zpc_ec_key *ec_key, const unsigned char *privkey,
+					unsigned int privlen)
+{
+	struct pkey_kblob2pkey3 io;
+	unsigned char buf[sizeof(struct clearkeytoken) + 80];
+	struct clearkeytoken *clrtok = (struct clearkeytoken *)&buf;
+	int rc;
+
+	memset(buf, 0, sizeof(buf));
+	clrtok->version = 0x02;
+	clrtok->keytype = curve2pkey_keytype[ec_key->curve];
+	switch (clrtok->keytype) {
+	case PKEY_KEYTYPE_ECC_P256:
+	case PKEY_KEYTYPE_ECC_P384:
+	case PKEY_KEYTYPE_ECC_ED25519:
+		memcpy(clrtok->clearkey, privkey, privlen);
+		clrtok->len = privlen;
+		break;
+	case PKEY_KEYTYPE_ECC_P521:
+		memcpy(clrtok->clearkey + 80 - privlen, privkey, privlen);
+		clrtok->len = 80;
+		break;
+	case PKEY_KEYTYPE_ECC_ED448:
+		memcpy(clrtok->clearkey + 64 - privlen, privkey, privlen);
+		clrtok->len = 64;
+		break;
+	default: /* should not occur */
+		return ZPC_ERROR_EC_INVALID_CURVE;
+	}
+
+	memset(&io, 0, sizeof(io));
+	io.key = buf;
+	switch (clrtok->keytype) {
+	case PKEY_KEYTYPE_ECC_P256:
+	case PKEY_KEYTYPE_ECC_P384:
+	case PKEY_KEYTYPE_ECC_ED25519:
+		io.keylen = sizeof(struct clearkeytoken) + privlen;
+		break;
+	case PKEY_KEYTYPE_ECC_P521:
+		io.keylen = sizeof(struct clearkeytoken) + 80;
+		break;
+	case PKEY_KEYTYPE_ECC_ED448:
+		io.keylen = sizeof(struct clearkeytoken) + 64;
+		break;
+	default: /* should not occur */
+		return ZPC_ERROR_EC_INVALID_CURVE;
+	}
+
 	io.apqns = ec_key->apqns;
 	io.apqn_entries = ec_key->napqns;
 	io.pkeytype = (ec_key->type == ZPC_EC_KEY_TYPE_CCA ? PKEY_TYPE_CCA_ECC : PKEY_TYPE_EP11_ECC);

@@ -259,6 +259,22 @@ struct pkey_clrkey {
 #define PKEY_KEYTYPE_AES_192	2
 #define PKEY_KEYTYPE_AES_256	3
 #define PKEY_KEYTYPE_ECC		4
+#define PKEY_KEYTYPE_ECC_P256         5
+#define PKEY_KEYTYPE_ECC_P384         6
+#define PKEY_KEYTYPE_ECC_P521         7
+#define PKEY_KEYTYPE_ECC_ED25519      8
+#define PKEY_KEYTYPE_ECC_ED448        9
+
+/* inside view of a clear key token (type 0x00 version 0x02) */
+struct clearkeytoken {
+	u8 type; /* 0x00 for PAES specific key tokens */
+	u8 res0[3];
+	u8 version; /* 0x02 for clear key token */
+	u8 res1[3];
+	u32 keytype; /* key type, one of the PKEY_KEYTYPE_* values */
+	u32 len; /* bytes actually stored in clearkey[] */
+	u8 clearkey[]; /* clear key value */
+} __packed;
 
 struct pkey_genseck {
 	u16 cardnr;			/* in: card to use or FFFF for any */
