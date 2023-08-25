@@ -17,6 +17,8 @@
  * Internal aes_gcm interface.
  */
 
+#define GCM_RECOMMENDED_IV_LENGTH           12
+
 struct zpc_aes_gcm {
 	struct cpacf_kma_gcm_aes_param param;
 	struct zpc_aes_key *aes_key;
@@ -25,6 +27,7 @@ struct zpc_aes_gcm {
 
 	int key_set;
 	int iv_set;
+	int iv_created;
 };
 
 #endif

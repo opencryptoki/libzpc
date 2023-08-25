@@ -27,5 +27,6 @@ void memzero_secure(void *, size_t);
 int memcmp_consttime(const void *, const void *, size_t);
 int hexstr2buf(u8 *, size_t *, const char *);
 void buf2hexstr(char *, size_t, const unsigned char *, size_t);
+int local_rng(u8 *output, size_t bytes);
 
 #endif

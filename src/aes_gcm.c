@@ -150,6 +150,68 @@ ret:
 }
 
 int
+zpc_aes_gcm_create_iv(struct zpc_aes_gcm *aes_gcm, u8 *iv, size_t ivlen)
+{
+	u8 *iv_tmp = NULL;
+	int rc;
+
+	if (pkeyfd < 0) {
+		rc = ZPC_ERROR_DEVPKEY;
+		goto ret;
+	}
+	if (!hwcaps.aes_gcm) {
+		rc = ZPC_ERROR_HWCAPS;
+		goto ret;
+	}
+	if (aes_gcm == NULL) {
+		rc = ZPC_ERROR_ARG1NULL;
+		goto ret;
+	}
+	if (iv == NULL) {
+		rc = ZPC_ERROR_ARG2NULL;
+		goto ret;
+	}
+
+	/* 12 <= iv bit-length <= 2^64 - 1, iv bit-length % 8 == 0 */
+	if (ivlen < GCM_RECOMMENDED_IV_LENGTH || ivlen > SIZE_MAX - 16) {
+		rc = ZPC_ERROR_IVSIZE;
+		goto ret;
+	}
+	if (aes_gcm->key_set != 1) {
+		rc = ZPC_ERROR_KEYNOTSET;
+		goto ret;
+	}
+
+	iv_tmp = calloc(ivlen, 1);
+	if (!iv_tmp) {
+		rc = ZPC_ERROR_MALLOC;
+		goto ret;
+	}
+
+	if (local_rng(iv_tmp, ivlen) != 0) {
+		rc = ZPC_ERROR_RNDGEN;
+		goto ret;
+	}
+
+	aes_gcm->iv_created = 0;
+	rc = zpc_aes_gcm_set_iv(aes_gcm, iv_tmp, ivlen);
+	if (rc != 0)
+		goto ret;
+
+	DEBUG("aes-gcm context at %p: iv created and set", aes_gcm);
+	aes_gcm->iv_set = 1;
+	aes_gcm->iv_created = 1;
+	memcpy(iv, iv_tmp, ivlen);
+	rc = 0;
+
+ret:
+	if (iv_tmp != NULL)
+		free(iv_tmp);
+	DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+	return rc;
+}
+
+int
 zpc_aes_gcm_set_iv(struct zpc_aes_gcm *aes_gcm, const u8 * iv, size_t ivlen)
 {
 	struct cpacf_kma_gcm_aes_param *param;
@@ -186,6 +248,10 @@ zpc_aes_gcm_set_iv(struct zpc_aes_gcm *aes_gcm, const u8 * iv, size_t ivlen)
 
 	if (aes_gcm->key_set != 1) {
 		rc = ZPC_ERROR_KEYNOTSET;
+		goto ret;
+	}
+	if (aes_gcm->iv_created == 1) {
+		rc = ZPC_ERROR_GCM_IV_CREATED_INTERNALLY;
 		goto ret;
 	}
 
@@ -439,6 +505,10 @@ zpc_aes_gcm_decrypt(struct zpc_aes_gcm *aes_gcm, u8 * m, const u8 * tag,
 	}
 	if (!aes_gcm->iv_set) {
 		rc = ZPC_ERROR_IVNOTSET;
+		goto ret;
+	}
+	if (aes_gcm->iv_created) {
+		rc = ZPC_ERROR_GCM_IV_CREATED_INTERNALLY;
 		goto ret;
 	}
 

@@ -10,10 +10,34 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 static int ishexdigit(const char);
 static unsigned char hexdigit2byte(char);
 static char byte2hexdigit(unsigned char);
+
+int
+local_rng(u8 *output, size_t bytes)
+{
+	int ranfd;
+	int rlen;
+	unsigned int totallen = 0;
+
+	ranfd = open("/dev/prandom", O_RDONLY);
+	if (ranfd < 0)
+		ranfd = open("/dev/urandom", O_RDONLY);
+	if (ranfd >= 0) {
+		do {
+			rlen = read(ranfd, output + totallen, bytes - totallen);
+			totallen += rlen;
+		} while (totallen < bytes);
+		close(ranfd);
+		return 0;
+	}
+
+	return -1;
+}
 
 int
 hexstr2buf(u8 * buf, size_t *buflen, const char *hex)
