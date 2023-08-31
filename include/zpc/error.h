@@ -458,6 +458,18 @@ extern "C" {
 # define ZPC_ERROR_AES_NO_CCA_CIPHERKEY_TOKEN  75
 
 /**
+ * \def ZPC_ERROR_RNDGEN
+ * \brief error creating random bytes.
+ */
+# define ZPC_ERROR_RNDGEN  76
+
+/**
+ * \def ZPC_ERROR_GCM_IV_CREATED_INTERNALLY
+ * \brief invalid usage of a gcm context with an internally created iv.
+ */
+# define ZPC_ERROR_GCM_IV_CREATED_INTERNALLY  77
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
