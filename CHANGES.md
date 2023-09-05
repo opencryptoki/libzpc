@@ -1,6 +1,10 @@
 Changelog {#changes}
 ===
 
+**Version 1.1.1**
+
+- Exploit PKEY_KBLOB2PROTK2 for AES EP11 version 6 keys
+
 **Version 1.1.0**
 
 - Implements an ECC-KEY API : `zpc/ecc_key.h`.
