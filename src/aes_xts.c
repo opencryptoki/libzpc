@@ -25,6 +25,7 @@
 #include <string.h>
 
 static int __aes_xts_set_iv(struct zpc_aes_xts *, const u8 *);
+static int __aes_xts_set_intermediate_iv(struct zpc_aes_xts *, const u8 iv[16]);
 static int __aes_xts_crypt(struct zpc_aes_xts *, u8 *, const u8 *, size_t,
     unsigned long);
 static void __aes_xts_reset(struct zpc_aes_xts *);
@@ -254,6 +255,87 @@ zpc_aes_xts_set_iv(struct zpc_aes_xts *aes_xts, const u8 * iv)
 
 	DEBUG("aes-xts context at %p: iv set", aes_xts);
 	aes_xts->iv_set = 1;
+ret:
+	DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+	return rc;
+}
+
+int
+zpc_aes_xts_get_intermediate_iv(struct zpc_aes_xts *aes_xts, unsigned char iv[16])
+{
+	int rc, off1;
+
+	if (pkeyfd < 0) {
+		rc = ZPC_ERROR_DEVPKEY;
+		goto ret;
+	}
+	if (!hwcaps.aes_xts) {
+		rc = ZPC_ERROR_HWCAPS;
+		goto ret;
+	}
+	if (aes_xts == NULL) {
+		rc = ZPC_ERROR_ARG1NULL;
+		goto ret;
+	}
+
+	if (iv == NULL) {
+		rc = ZPC_ERROR_ARG2NULL;
+		goto ret;
+	}
+
+	if (aes_xts->iv_set != 1) {
+		rc = ZPC_ERROR_IVNOTSET;
+		goto ret;
+	}
+
+	off1 = AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize);
+	memcpy(iv, aes_xts->param_km + off1, 16);
+	rc = 0;
+
+ret:
+	DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+	return rc;
+}
+
+int
+zpc_aes_xts_set_intermediate_iv(struct zpc_aes_xts *aes_xts, const unsigned char iv[16])
+{
+	int rc;
+
+	if (pkeyfd < 0) {
+		rc = ZPC_ERROR_DEVPKEY;
+		goto ret;
+	}
+	if (!hwcaps.aes_xts) {
+		rc = ZPC_ERROR_HWCAPS;
+		goto ret;
+	}
+	if (aes_xts == NULL) {
+		rc = ZPC_ERROR_ARG1NULL;
+		goto ret;
+	}
+	if (iv == NULL) {
+		rc = ZPC_ERROR_ARG2NULL;
+		goto ret;
+	}
+
+	if (aes_xts->key_set != 1) {
+		rc = ZPC_ERROR_KEYNOTSET;
+		goto ret;
+	}
+
+	if (aes_xts->iv_set != 1) {
+		rc = ZPC_ERROR_IVNOTSET;
+		goto ret;
+	}
+
+	rc = __aes_xts_set_intermediate_iv(aes_xts, iv);
+	if (rc)
+		goto ret;
+
+	aes_xts->iv_set = 1;
+
+	DEBUG("aes-xts context at %p: intermediate iv set", aes_xts);
 ret:
 	DEBUG("return %d (%s)", rc, zpc_error_string(rc));
 	return rc;
@@ -500,6 +582,24 @@ __aes_xts_set_iv(struct zpc_aes_xts *aes_xts, const u8 * iv)
 	memcpy(aes_xts->param_km + off1, aes_xts->param_pcc + off2, 16);
 	rc = 0;
 ret:
+	return rc;
+}
+
+static int
+__aes_xts_set_intermediate_iv(struct zpc_aes_xts *aes_xts, const u8 iv[16])
+{
+	int rc, off1;
+
+	assert(aes_xts != NULL);
+	assert(iv != NULL);
+	assert(aes_xts->aes_key1 != NULL);
+	assert(aes_xts->aes_key2 != NULL);
+	assert(aes_xts->key_set == 1);
+
+	off1 = AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize);
+	memcpy(aes_xts->param_km + off1, iv, 16);
+	rc = 0;
+
 	return rc;
 }
 
