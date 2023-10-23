@@ -55,6 +55,26 @@ int zpc_aes_xts_set_key(struct zpc_aes_xts *ctx, struct zpc_aes_key *key1,
 __attribute__((visibility("default")))
 int zpc_aes_xts_set_iv(struct zpc_aes_xts *ctx, const unsigned char *iv);
 /**
+ * Get the intermediate initialization vector to be used in the context
+ * of an AES-XTS operation.
+ * \param[in,out] ctx AES-XTS context
+ * \param[out] iv application provided buffer with 16 bytes size to
+ * receive the 16 byte intermediate iv 
+ * \return 0 on success. Otherwise, a non-zero error code is returned.
+ */
+__attribute__((visibility("default")))
+int zpc_aes_xts_get_intermediate_iv(struct zpc_aes_xts *ctx, unsigned char iv[16]);
+/**
+ * Set the intermediate initialization vector to be used in the context
+ * of an AES-XTS operation. An initial iv must be set before via
+ * zpc_aes_xts_set_iv.
+ * \param[in,out] ctx AES-XTS context
+ * \param[in] iv 16 byte intermediate iv
+ * \return 0 on success. Otherwise, a non-zero error code is returned.
+ */
+__attribute__((visibility("default")))
+int zpc_aes_xts_set_intermediate_iv(struct zpc_aes_xts *ctx, const unsigned char iv[16]);
+/**
  * Do an AES-XTS encryption operation.
  * \param[in,out] ctx AES-XTS context
  * \param[out] ct ciphertext

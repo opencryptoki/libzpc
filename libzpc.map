@@ -84,3 +84,12 @@ global:
 local: *;
 } ZPC_1.0;
 
+ZPC_1.2.0 {
+global:
+	zpc_aes_xts_get_intermediate_iv;
+	zpc_aes_xts_set_intermediate_iv;
+
+local: *;
+} ZPC_1.1.0;
+
+
