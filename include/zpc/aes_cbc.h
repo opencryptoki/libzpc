@@ -53,6 +53,26 @@ int zpc_aes_cbc_set_key(struct zpc_aes_cbc *ctx, struct zpc_aes_key *key);
 __attribute__((visibility("default")))
 int zpc_aes_cbc_set_iv(struct zpc_aes_cbc *ctx, const unsigned char *iv);
 /**
+ * Get the intermediate initialization vector to be used in the context
+ * of an AES-CBC operation.
+ * \param[in,out] ctx AES-CBC context
+ * \param[out] iv application provided buffer with 16 bytes size to
+ * receive the 16 byte intermediate iv
+ * \return 0 on success. Otherwise, a non-zero error code is returned.
+ */
+__attribute__((visibility("default")))
+int zpc_aes_cbc_get_intermediate_iv(struct zpc_aes_cbc *ctx, unsigned char iv[16]);
+/**
+ * Set the intermediate initialization vector to be used in the context
+ * of an AES-CBC operation. An initial iv must be set before via
+ * zpc_aes_cbc_set_iv.
+ * \param[in,out] ctx AES-CBC context
+ * \param[in] iv 16 byte intermediate iv
+ * \return 0 on success. Otherwise, a non-zero error code is returned.
+ */
+__attribute__((visibility("default")))
+int zpc_aes_cbc_set_intermediate_iv(struct zpc_aes_cbc *ctx, const unsigned char iv[16]);
+/**
  * Do an AES-CBC encryption operation.
  * \param[in,out] ctx AES-CBC context
  * \param[out] ct ciphertext

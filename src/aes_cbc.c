@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void __aes_cbc_set_iv(struct zpc_aes_cbc *, const u8 *);
+static void __aes_cbc_set_iv(struct zpc_aes_cbc *, const u8 iv[16]);
 static int __aes_cbc_crypt(struct zpc_aes_cbc *, u8 *, const u8 *, size_t,
     unsigned long);
 static void __aes_cbc_reset(struct zpc_aes_cbc *);
@@ -180,6 +180,83 @@ zpc_aes_cbc_set_iv(struct zpc_aes_cbc *aes_cbc, const u8 * iv)
 
 	__aes_cbc_set_iv(aes_cbc, iv);
 	DEBUG("aes-cbc context at %p: iv set", aes_cbc);
+	aes_cbc->iv_set = 1;
+	rc = 0;
+ret:
+	DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+	return rc;
+}
+
+int
+zpc_aes_cbc_get_intermediate_iv(struct zpc_aes_cbc *aes_cbc, unsigned char iv[16])
+{
+	int rc;
+
+	if (pkeyfd < 0) {
+		rc = ZPC_ERROR_DEVPKEY;
+		goto ret;
+	}
+	if (!hwcaps.aes_cbc) {
+		rc = ZPC_ERROR_HWCAPS;
+		goto ret;
+	}
+	if (aes_cbc == NULL) {
+		rc = ZPC_ERROR_ARG1NULL;
+		goto ret;
+	}
+
+	if (iv == NULL) {
+		rc = ZPC_ERROR_ARG2NULL;
+		goto ret;
+	}
+
+	if (aes_cbc->iv_set != 1) {
+		rc = ZPC_ERROR_IVNOTSET;
+		goto ret;
+	}
+
+	memcpy(iv, aes_cbc->param.cv, 16);
+	rc = 0;
+
+ret:
+	DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+	return rc;
+}
+
+int
+zpc_aes_cbc_set_intermediate_iv(struct zpc_aes_cbc *aes_cbc, const unsigned char iv[16])
+{
+	int rc;
+
+	if (pkeyfd < 0) {
+		rc = ZPC_ERROR_DEVPKEY;
+		goto ret;
+	}
+	if (!hwcaps.aes_cbc) {
+		rc = ZPC_ERROR_HWCAPS;
+		goto ret;
+	}
+	if (aes_cbc == NULL) {
+		rc = ZPC_ERROR_ARG1NULL;
+		goto ret;
+	}
+	if (iv == NULL) {
+		rc = ZPC_ERROR_ARG2NULL;
+		goto ret;
+	}
+
+	if (aes_cbc->key_set != 1) {
+		rc = ZPC_ERROR_KEYNOTSET;
+		goto ret;
+	}
+
+	if (aes_cbc->iv_set != 1) {
+		rc = ZPC_ERROR_IVNOTSET;
+		goto ret;
+	}
+
+	__aes_cbc_set_iv(aes_cbc, iv);
+	DEBUG("aes-cbc context at %p: intermediate iv set", aes_cbc);
 	aes_cbc->iv_set = 1;
 	rc = 0;
 ret:
@@ -392,7 +469,7 @@ zpc_aes_cbc_free(struct zpc_aes_cbc **aes_cbc)
 }
 
 static void
-__aes_cbc_set_iv(struct zpc_aes_cbc *aes_cbc, const u8 * iv)
+__aes_cbc_set_iv(struct zpc_aes_cbc *aes_cbc, const u8 iv[16])
 {
 	assert(aes_cbc != NULL);
 	assert(iv != NULL);
