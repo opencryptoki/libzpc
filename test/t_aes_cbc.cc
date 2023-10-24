@@ -690,6 +690,128 @@ TEST(aes_cbc, stream_inplace_kat2)
 	free(ct);
 }
 
+TEST(aes_cbc, stream_inplace_kat3)
+{
+	TESTLIB_ENV_AES_KEY_CHECK();
+
+	TESTLIB_AES_CBC_HW_CAPS_CHECK();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK();
+
+	size_t keylen, ivlen, msglen, ctlen;
+	unsigned char buf[4096], iv2[16];
+	const char *mkvp, *apqns[257];
+	struct zpc_aes_key *aes_key;
+	struct zpc_aes_cbc *aes_cbc1, *aes_cbc2;
+	unsigned int flags;
+	int type, rc;
+
+	const char *keystr = "b6f9afbfe5a1562bba1368fc72ac9d9c";
+	const char *ivstr = "3f9d5ebe250ee7ce384b0d00ee849322";
+	const char *msgstr = "db397ec22718dbffb9c9d13de0efcd4611bf792be4fce0dc5f25d4f577ed8cdbd4eb9208d593dda3d4653954ab64f05676caa3ce9bfa795b08b67ceebc923fdc89a8c431188e9e482d8553982cf304d1";
+	const char *ctstr = "10ea27b19e16b93af169c4a88e06e35c99d8b420980b058e34b4b8f132b13766f72728202b089f428fecdb41c79f8aa0d0ef68f5786481cca29e2126f69bc14160f1ae2187878ba5c49cf3961e1b7ee9";
+
+	type = testlib_env_aes_key_type();
+	flags = testlib_env_aes_key_flags();
+	mkvp = testlib_env_aes_key_mkvp();
+	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	u8 *key = testlib_hexstr2buf(keystr, &keylen);
+	ASSERT_NE(key, nullptr);
+	u8 *iv = testlib_hexstr2buf(ivstr, &ivlen);
+	ASSERT_NE(iv, nullptr);
+	u8 *msg = testlib_hexstr2buf(msgstr, &msglen);
+	ASSERT_NE(msg, nullptr);
+	u8 *ct = testlib_hexstr2buf(ctstr, &ctlen);
+	ASSERT_NE(ct, nullptr);
+
+	rc = zpc_aes_key_alloc(&aes_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_alloc(&aes_cbc1);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_alloc(&aes_cbc2);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_key_set_type(aes_key, type);
+	EXPECT_EQ(rc, 0);
+	if (mkvp != NULL) {
+		rc = zpc_aes_key_set_mkvp(aes_key, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = zpc_aes_key_set_apqns(aes_key, apqns);
+		EXPECT_EQ(rc, 0);
+	}
+	rc = zpc_aes_key_set_flags(aes_key, flags);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_key_set_size(aes_key, keylen * 8);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_key_import_clear(aes_key, key);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_aes_cbc_set_key(aes_cbc1, aes_key);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_set_key(aes_cbc2, aes_key);
+	EXPECT_EQ(rc, 0);
+
+	/* Encrypt first chunk with first ctx */
+	memcpy(buf, msg, msglen);
+	rc = zpc_aes_cbc_set_iv(aes_cbc1, iv);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_encrypt(aes_cbc1, buf, buf, 16);
+	EXPECT_EQ(rc, 0);
+
+	/* Get intermediate iv from first ctx */
+	rc = zpc_aes_cbc_get_intermediate_iv(aes_cbc1, iv2);
+	EXPECT_EQ(rc, 0);
+
+	/* Encrypt a 2nd chunk with 2nd ctx */
+	rc = zpc_aes_cbc_set_iv(aes_cbc2, iv);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_set_intermediate_iv(aes_cbc2, iv2);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_encrypt(aes_cbc2, buf + 16, buf + 16, msglen - 16);
+	EXPECT_EQ(rc, 0);
+
+	EXPECT_TRUE(memcmp(buf, ct, ctlen) == 0);
+
+	/* Decrypt first chunk with first ctx */
+	memcpy(buf, ct, ctlen);
+	rc = zpc_aes_cbc_set_iv(aes_cbc1, iv);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_decrypt(aes_cbc1, buf, buf, 16);
+	EXPECT_EQ(rc, 0);
+
+	/* Get intermediate iv from first ctx */
+	rc = zpc_aes_cbc_get_intermediate_iv(aes_cbc1, iv2);
+	EXPECT_EQ(rc, 0);
+
+	/* Decrypt remaining chunk with 2nd ctx */
+	rc = zpc_aes_cbc_set_iv(aes_cbc2, iv);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_set_intermediate_iv(aes_cbc2, iv2);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_aes_cbc_decrypt(aes_cbc2, buf + 16, buf + 16, msglen - 16);
+	EXPECT_EQ(rc, 0);
+
+	EXPECT_TRUE(memcmp(buf, msg, msglen) == 0);
+
+	zpc_aes_cbc_free(&aes_cbc1);
+	EXPECT_EQ(aes_cbc1, nullptr);
+	zpc_aes_cbc_free(&aes_cbc2);
+	EXPECT_EQ(aes_cbc2, nullptr);
+	zpc_aes_key_free(&aes_key);
+	EXPECT_EQ(aes_key, nullptr);
+
+	free(key);
+	free(iv);
+	free(msg);
+	free(ct);
+}
+
 TEST(aes_cbc, nist_kat)
 {
 	TESTLIB_ENV_AES_KEY_CHECK();
