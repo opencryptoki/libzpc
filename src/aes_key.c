@@ -483,9 +483,12 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 
 	aes_key->cur.seclen = clr2seck2.keylen;
 
-	rc = aes_key_sec2prot(aes_key, AES_KEY_SEC_CUR);
+	rc = aes_key_clr2prot(aes_key, key, aes_key->keysize / 8);
 	if (rc) {
-		goto ret;
+		rc = aes_key_sec2prot(aes_key, AES_KEY_SEC_CUR);
+		if (rc) {
+			goto ret;
+		}
 	}
 
 	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
@@ -1099,6 +1102,47 @@ int aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 	}
 
 	return aes_key_sec2prot_without_header(aes_key, sec);
+}
+
+int aes_key_clr2prot(struct zpc_aes_key *aes_key, const unsigned char *key,
+					unsigned int keylen)
+{
+	struct pkey_kblob2pkey3 io;
+	unsigned char buf[sizeof(struct clearkeytoken) + 32];
+	struct clearkeytoken *clrtok = (struct clearkeytoken *)&buf;
+	int rc;
+
+	memset(buf, 0, sizeof(buf));
+	clrtok->version = 0x02;
+	switch (keylen) {
+	case 16:
+		clrtok->keytype = PKEY_KEYTYPE_AES_128;
+		break;
+	case 24:
+		clrtok->keytype = PKEY_KEYTYPE_AES_192;
+		break;
+	default:
+		clrtok->keytype = PKEY_KEYTYPE_AES_256;
+		break;
+	}
+	memcpy(clrtok->clearkey, key, keylen);
+	clrtok->len = keylen;
+
+	memset(&io, 0, sizeof(io));
+	io.key = buf;
+	io.keylen = sizeof(struct clearkeytoken) + keylen;
+	io.apqns = aes_key->apqns;
+	io.apqn_entries = aes_key->napqns;
+	io.pkeytype = aes_key->type;
+	io.pkeylen = sizeof(aes_key->prot.protkey);
+	io.pkey = (unsigned char *)&aes_key->prot.protkey;
+
+	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK3, &io);
+	if (rc != 0) {
+		return ZPC_ERROR_IOCTLBLOB2PROTK3;
+	}
+
+	return 0;
 }
 
 int

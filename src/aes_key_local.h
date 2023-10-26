@@ -62,5 +62,7 @@ struct zpc_aes_key {
 
 int aes_key_sec2prot(struct zpc_aes_key *, enum aes_key_sec sec);
 int aes_key_check(const struct zpc_aes_key *);
+int aes_key_clr2prot(struct zpc_aes_key *, const unsigned char *key,
+			unsigned int keylen);
 
 #endif
