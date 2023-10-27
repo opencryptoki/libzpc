@@ -173,7 +173,7 @@ zpc_aes_gcm_create_iv(struct zpc_aes_gcm *aes_gcm, u8 *iv, size_t ivlen)
 	}
 
 	/* 12 <= iv bit-length <= 2^64 - 1, iv bit-length % 8 == 0 */
-	if (ivlen < GCM_RECOMMENDED_IV_LENGTH || ivlen > SIZE_MAX - 16) {
+	if (ivlen < GCM_RECOMMENDED_IV_LENGTH || ivlen > GCM_MAX_IV_LENGTH) {
 		rc = ZPC_ERROR_IVSIZE;
 		goto ret;
 	}
@@ -241,7 +241,7 @@ zpc_aes_gcm_set_iv(struct zpc_aes_gcm *aes_gcm, const u8 * iv, size_t ivlen)
 		goto ret;
 	}
 	/* 1 <= iv bit-length <= 2^64 - 1, iv bit-length % 8 == 0 */
-	if (ivlen < 1 || ivlen > SIZE_MAX - 16) {
+	if (ivlen < 1 || ivlen > GCM_MAX_IV_LENGTH) {
 		rc = ZPC_ERROR_IVSIZE;
 		goto ret;
 	}
@@ -348,7 +348,7 @@ zpc_aes_gcm_encrypt(struct zpc_aes_gcm *aes_gcm, u8 * c, u8 * tag,
 		rc = ZPC_ERROR_ARG5NULL;
 		goto ret;
 	}
-	if (aadlen > (2ULL << 61) - 1) {
+	if (aes_gcm->param.taadl / 8 + aadlen > GCM_MAX_TOTAL_AAD_LENGTH) {
 		rc = ZPC_ERROR_AADLEN;
 		goto ret;
 	}
@@ -361,7 +361,7 @@ zpc_aes_gcm_encrypt(struct zpc_aes_gcm *aes_gcm, u8 * c, u8 * tag,
 		rc = ZPC_ERROR_ARG7NULL;
 		goto ret;
 	}
-	if (mlen > (2ULL << 36) - 256) {
+	if (aes_gcm->param.tpcl / 8 + mlen > GCM_MAX_TOTAL_PLAINTEXT_LENGTH) {
 		rc = ZPC_ERROR_MLEN;
 		goto ret;
 	}
@@ -477,7 +477,7 @@ zpc_aes_gcm_decrypt(struct zpc_aes_gcm *aes_gcm, u8 * m, const u8 * tag,
 		rc = ZPC_ERROR_ARG5NULL;
 		goto ret;
 	}
-	if (aadlen > (2ULL << 61) - 1) {
+	if (aes_gcm->param.taadl / 8 + aadlen > GCM_MAX_TOTAL_AAD_LENGTH) {
 		rc = ZPC_ERROR_AADLEN;
 		goto ret;
 	}
@@ -490,7 +490,7 @@ zpc_aes_gcm_decrypt(struct zpc_aes_gcm *aes_gcm, u8 * m, const u8 * tag,
 		rc = ZPC_ERROR_ARG7NULL;
 		goto ret;
 	}
-	if (clen > (2ULL << 36) - 256) {
+	if (aes_gcm->param.tpcl / 8 + clen > GCM_MAX_TOTAL_PLAINTEXT_LENGTH) {
 		rc = ZPC_ERROR_CLEN;
 		goto ret;
 	}
