@@ -1,6 +1,6 @@
 arch:     s390x
 os:       linux
-dist:     bionic
+dist:     focal
 language: cpp
 sudo:     required
 env:      |
