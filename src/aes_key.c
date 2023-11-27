@@ -418,7 +418,7 @@ int
 zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 {
 	struct pkey_clr2seck2 clr2seck2;
-	unsigned int flags;
+	unsigned int flags, hdr_to_add = 0;
 	int rc, rv;
 
 	UNUSED(rv);
@@ -469,16 +469,37 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 	clr2seck2.apqns = aes_key->apqns;
 	clr2seck2.apqn_entries = aes_key->napqns;
 	clr2seck2.type = aes_key->type;
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11)
+		clr2seck2.type = TOKVER_EP11_AES_WITH_HEADER; /* 0x06 */
 	clr2seck2.size = aes_key->keysize;
 	clr2seck2.keygenflags = flags;
 	memcpy(&clr2seck2.clrkey, key, aes_key->keysize / 8);
 	clr2seck2.key = aes_key->cur.sec;
 	clr2seck2.keylen = sizeof(aes_key->cur.sec);
 
+	/*
+	 * If it's an EP11 key, we first try to import the clear key as a type 6 key
+	 * (TOKVER_EP11_AES_WITH_HEADER). This may fail on older kernels. If it
+	 * fails, we try to import as a type 3 (TOKVER_EP11_AES) key and add the
+	 * type 6 header manually below. If successful, we end up with a type 6
+	 * key in both cases.
+	 */
 	rc = ioctl(pkeyfd, PKEY_CLR2SECK2, &clr2seck2);
+	DEBUG("ioctl PKEY_CLR2SECK2 as aes ep11 type 6 key returned %d", rc);
 	if (rc != 0) {
-		rc = ZPC_ERROR_IOCTLCLR2SECK2;
-		goto ret;
+		if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+			/* Retry with a type 3 key */
+			clr2seck2.type = TOKVER_EP11_AES; /* 0x03 */
+			rc = ioctl(pkeyfd, PKEY_CLR2SECK2, &clr2seck2);
+			if (rc != 0) {
+				rc = ZPC_ERROR_IOCTLCLR2SECK2;
+				goto ret;
+			}
+			hdr_to_add = 1;
+		} else {
+			rc = ZPC_ERROR_IOCTLCLR2SECK2;
+			goto ret;
+		}
 	}
 
 	aes_key->cur.seclen = clr2seck2.keylen;
@@ -491,7 +512,7 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 		}
 	}
 
-	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11 && hdr_to_add) {
 		rc = aes_key_add_ep11_header(aes_key);
 		if (rc)
 			goto ret;
@@ -659,7 +680,7 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 {
 	struct pkey_genseck2 genseck2;
 	struct pkey_genprotk genprotk;
-	unsigned int flags;
+	unsigned int flags, hdr_to_add = 0;
 	int rc, rv;
 
 	UNUSED(rv);
@@ -736,15 +757,36 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 	genseck2.apqns = aes_key->apqns;
 	genseck2.apqn_entries = aes_key->napqns;
 	genseck2.type = aes_key->type;
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11)
+		genseck2.type = TOKVER_EP11_AES_WITH_HEADER; /* 0x06 */
 	genseck2.size = aes_key->keysize;
 	genseck2.keygenflags = flags;
 	genseck2.key = aes_key->cur.sec;
 	genseck2.keylen = sizeof(aes_key->cur.sec);
 
+	/*
+	 * If it's an EP11 key, we first try to generate a type 6 key
+	 * (TOKVER_EP11_AES_WITH_HEADER). This may fail on older kernels. If it
+	 * fails, we try to generate a type 3 (TOKVER_EP11_AES) key and add the
+	 * type 6 header manually below. If successful, we end up with a type 6
+	 * key in both cases.
+	 */
 	rc = ioctl(pkeyfd, PKEY_GENSECK2, &genseck2);
+	DEBUG("ioctl PKEY_GENSECK2 as aes ep11 type 6 key returned %d", rc);
 	if (rc != 0) {
-		rc = ZPC_ERROR_IOCTLGENSECK2;
-		goto ret;
+		if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+			/* Retry to generate a type 3 key */
+			genseck2.type = TOKVER_EP11_AES; /* 0x03 */;
+			rc = ioctl(pkeyfd, PKEY_GENSECK2, &genseck2);
+			if (rc != 0) {
+				rc = ZPC_ERROR_IOCTLGENSECK2;
+				goto ret;
+			}
+			hdr_to_add = 1;
+		} else {
+			rc = ZPC_ERROR_IOCTLGENSECK2;
+			goto ret;
+		}
 	}
 
 	aes_key->cur.seclen = genseck2.keylen;
@@ -753,7 +795,7 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 	if (rc)
 		goto ret;
 
-	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11 && hdr_to_add) {
 		rc = aes_key_add_ep11_header(aes_key);
 		if (rc)
 			goto ret;
@@ -1242,6 +1284,7 @@ static int aes_key_add_ep11_header(struct zpc_aes_key *aes_key)
 	ep11hdr = (struct ep11kblob_header *)aes_key->cur.sec;
 	ep11hdr->len = sizeof(struct ep11kblob_header) + aes_key->cur.seclen;
 	ep11hdr->version = TOKVER_EP11_AES_WITH_HEADER;
+	ep11hdr->bitlen = aes_key->keysize;
 	aes_key->cur.seclen = ep11hdr->len;
 
 	return 0;
