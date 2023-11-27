@@ -628,7 +628,8 @@ TEST(aes_key, import_old)
 {
 	struct zpc_aes_key *aes_key, *aes_key2;
 	u8 buf[1000], buf2[1000], buf3[1000];
-	unsigned int flags;
+	u8 session[32];
+	unsigned int flags, key_had_a_session = 0;
 	const char *apqns[257];
 	int rc, size, type;
 	size_t buflen = sizeof(buf);
@@ -692,15 +693,27 @@ TEST(aes_key, import_old)
 	rc = zpc_aes_key_export(aes_key, buf, &buflen);
 	EXPECT_EQ(rc, 0);
 
+	/* Check if the key contains a session id. In this case let's save the
+	 * session before converting the blob into an "old style" key. */
+	memset(session, 0, 32);
+	ep11hdr = (struct ep11kblob_header *)buf;
+	if (ep11hdr->version == 0x06 &&
+		memcmp(buf + sizeof(struct ep11kblob_header), session, 32) != 0) {
+		memcpy(session, buf + sizeof(struct ep11kblob_header), 32);
+		key_had_a_session = 1;
+	}
+
 	/* Convert blob into an "old style" TOKVER_EP11_AES without header. For
 	 * backward compatibility such keys are still accepted, but internally
 	 * converted into "new style" keys with header. */
 	memset(buf3, 0, sizeof(buf3));
 	buf3len = buflen - sizeof(struct ep11kblob_header);
 	memcpy(buf3, buf + sizeof(struct ep11kblob_header), buf3len);
+	memset(buf3, 0, 32);
 	ep11hdr = (struct ep11kblob_header *)buf3;
 	ep11hdr->version = 0x03; /* TOKVER_EP11_AES */
 	ep11hdr->len = buf3len;
+	ep11hdr->bitlen = size;
 
 	/* Import "old style" key */
 	rc = zpc_aes_key_import(aes_key2, buf3, buf3len);
@@ -711,13 +724,17 @@ TEST(aes_key, import_old)
 	rc = zpc_aes_key_export(aes_key2, buf2, &buf2len);
 	EXPECT_EQ(rc, 0);
 
+	/* If the original key had a session id, restore it now */
+	if (key_had_a_session)
+		memcpy(buf2 + sizeof(struct ep11kblob_header), session, 32);
+
 	EXPECT_EQ(buf2len, buflen);
 	EXPECT_TRUE(memcmp(buf2, buf, buflen) == 0);
 
 	/* Now try a TOKVER_EP11_AES key that has an overlayed header, but the
 	 * remaining 16 bytes of the session id field are not zero. This key
 	 * is considered as corrupted. */
-	memset(buf3 + 16, 0x5c, 16);
+	memset(buf3 + 16, 0x5c, sizeof(struct ep11kblob_header));
 	rc = zpc_aes_key_import(aes_key2, buf3, buf3len);
 	EXPECT_EQ(rc, ZPC_ERROR_AES_NO_EP11_SECUREKEY_TOKEN);
 
