@@ -30,6 +30,7 @@ static int aes_key_blob_has_valid_mkvp(struct zpc_aes_key *aes_key,
 static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key,
 								const unsigned char *buf, size_t buflen);
 static int aes_key_add_ep11_header(struct zpc_aes_key *aes_key);
+static int aes_key_blob_has_a_session(struct zpc_aes_key *aes_key);
 
 int
 zpc_aes_key_alloc(struct zpc_aes_key **aes_key)
@@ -488,9 +489,11 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 	DEBUG("ioctl PKEY_CLR2SECK2 as aes ep11 type 6 key returned %d", rc);
 	if (rc != 0) {
 		if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+			DEBUG("ioctl PKEY_CLR2SECK2 as aes ep11 type 6 key returned %d", rc);
 			/* Retry with a type 3 key */
 			clr2seck2.type = TOKVER_EP11_AES; /* 0x03 */
 			rc = ioctl(pkeyfd, PKEY_CLR2SECK2, &clr2seck2);
+			DEBUG("ioctl PKEY_CLR2SECK2 as aes ep11 type 3 key returned %d", rc);
 			if (rc != 0) {
 				rc = ZPC_ERROR_IOCTLCLR2SECK2;
 				goto ret;
@@ -517,6 +520,11 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 		if (rc)
 			goto ret;
 	}
+
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11 && aes_key_blob_has_a_session(aes_key))
+		DEBUG("This aes ep11 key has a session id");
+	else
+		DEBUG("This aes ep11 key has no session id");
 
 	DEBUG("aes key at %p: key set", aes_key);
 	aes_key->key_set = 1;
@@ -775,9 +783,11 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 	DEBUG("ioctl PKEY_GENSECK2 as aes ep11 type 6 key returned %d", rc);
 	if (rc != 0) {
 		if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+			DEBUG("ioctl PKEY_GENSECK2 as aes ep11 type 6 key returned %d", rc);
 			/* Retry to generate a type 3 key */
 			genseck2.type = TOKVER_EP11_AES; /* 0x03 */;
 			rc = ioctl(pkeyfd, PKEY_GENSECK2, &genseck2);
+			DEBUG("ioctl PKEY_GENSECK2 as aes ep11 type 3 key returned %d", rc);
 			if (rc != 0) {
 				rc = ZPC_ERROR_IOCTLGENSECK2;
 				goto ret;
@@ -800,6 +810,11 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 		if (rc)
 			goto ret;
 	}
+
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11 && aes_key_blob_has_a_session(aes_key))
+		DEBUG("This aes ep11 key has a session id");
+	else
+		DEBUG("This aes ep11 key has no session id");
 
 	DEBUG("aes key at %p: key set to generated secure key", aes_key);
 	aes_key->key_set = 1;
@@ -1288,4 +1303,14 @@ static int aes_key_add_ep11_header(struct zpc_aes_key *aes_key)
 	aes_key->cur.seclen = ep11hdr->len;
 
 	return 0;
+}
+
+static int aes_key_blob_has_a_session(struct zpc_aes_key *aes_key)
+{
+	u8 session[32] = { 0, };
+
+	if (memcmp(aes_key->cur.sec + sizeof(struct ep11kblob_header), session, 32) == 0)
+		return 0;
+
+	return 1;
 }
