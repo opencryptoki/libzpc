@@ -1,6 +1,13 @@
 Changelog {#changes}
 ===
 
+**Version 1.2.0**
+
+- Support for get/set intermediate iv for CBC and XTS
+- Support for internal iv for GCM
+- Fix AES EP11 version 6 key support for generate and import_clear
+- Exploit KBLOB2PROTK3 ioctl for clear AES and EC keys
+
 **Version 1.1.1**
 
 - Exploit PKEY_KBLOB2PROTK2 for AES EP11 version 6 keys
