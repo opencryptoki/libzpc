@@ -94,7 +94,7 @@ zpc_error_string(int err)
 		"The given buffer does not contain a valid CCA datakey token",
 		"The given buffer does not contain a valid CCA cipherkey token",
 		"Error creating random bytes",
-		"Invalid usage of a gcm context with an internally created iv"
+		"Invalid usage of a gcm context with an internally created iv",
 		"LAST"
 	};
 	const char *rc;
