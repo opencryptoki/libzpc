@@ -486,14 +486,14 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 	 * key in both cases.
 	 */
 	rc = ioctl(pkeyfd, PKEY_CLR2SECK2, &clr2seck2);
-	DEBUG("ioctl PKEY_CLR2SECK2 as aes ep11 type 6 key returned %d", rc);
 	if (rc != 0) {
+		DEBUG("ioctl PKEY_CLR2SECK2 for %s key returned %d",
+			aes_key->type == ZPC_AES_KEY_TYPE_EP11 ? "ep11 aes type 6" : "cca", rc);
 		if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
-			DEBUG("ioctl PKEY_CLR2SECK2 as aes ep11 type 6 key returned %d", rc);
 			/* Retry with a type 3 key */
 			clr2seck2.type = TOKVER_EP11_AES; /* 0x03 */
 			rc = ioctl(pkeyfd, PKEY_CLR2SECK2, &clr2seck2);
-			DEBUG("ioctl PKEY_CLR2SECK2 as aes ep11 type 3 key returned %d", rc);
+			DEBUG("ioctl PKEY_CLR2SECK2 for aes ep11 type 3 key returned %d", rc);
 			if (rc != 0) {
 				rc = ZPC_ERROR_IOCTLCLR2SECK2;
 				goto ret;
@@ -780,14 +780,14 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 	 * key in both cases.
 	 */
 	rc = ioctl(pkeyfd, PKEY_GENSECK2, &genseck2);
-	DEBUG("ioctl PKEY_GENSECK2 as aes ep11 type 6 key returned %d", rc);
 	if (rc != 0) {
+		DEBUG("ioctl PKEY_GENSECK2 for %s key returned %d",
+			aes_key->type == ZPC_AES_KEY_TYPE_EP11 ? "ep11 aes type 6" : "cca", rc);
 		if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
-			DEBUG("ioctl PKEY_GENSECK2 as aes ep11 type 6 key returned %d", rc);
 			/* Retry to generate a type 3 key */
 			genseck2.type = TOKVER_EP11_AES; /* 0x03 */;
 			rc = ioctl(pkeyfd, PKEY_GENSECK2, &genseck2);
-			DEBUG("ioctl PKEY_GENSECK2 as aes ep11 type 3 key returned %d", rc);
+			DEBUG("ioctl PKEY_GENSECK2 for aes ep11 type 3 key returned %d", rc);
 			if (rc != 0) {
 				rc = ZPC_ERROR_IOCTLGENSECK2;
 				goto ret;
