@@ -235,6 +235,8 @@ TEST(aes_key, import_clear_1)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
+
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
 
@@ -297,6 +299,8 @@ TEST(aes_key, import_clear_2)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
+
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
 
@@ -341,6 +345,8 @@ TEST(aes_key, generate_1)
 	flags= testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -400,6 +406,8 @@ TEST(aes_key, generate_2)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
+
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
 
@@ -446,6 +454,8 @@ TEST(aes_key, reencipher)
 	(void)testlib_env_aes_key_apqns(apqns);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
@@ -498,6 +508,8 @@ TEST(aes_key, export)
 	flags= testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
 
 	rc = zpc_aes_key_export(NULL, NULL, NULL);
 	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
@@ -559,6 +571,8 @@ TEST(aes_key, import)
 	flags= testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -653,6 +667,8 @@ TEST(aes_key, import_old)
 	flags= testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
 
 	if (type != ZPC_AES_KEY_TYPE_EP11)
 		GTEST_SKIP_("Skipping old style import test. Only supported for EP11 type keys.");

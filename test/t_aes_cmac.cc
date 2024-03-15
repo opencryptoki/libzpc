@@ -90,6 +90,8 @@ TEST(aes_cmac, set_key)
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
+
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_cmac_alloc(&aes_cmac);
@@ -154,6 +156,8 @@ TEST(aes_cmac, sign)
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
+
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_cmac_alloc(&aes_cmac);
@@ -210,6 +214,8 @@ TEST(aes_cmac, verifyzpc_aes_cmac_verify)
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
+
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_cmac_alloc(&aes_cmac);
@@ -264,6 +270,8 @@ TEST(aes_cmac, pc)
 	(void)testlib_env_aes_key_apqns(apqns);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
 
 	rc = zpc_aes_key_alloc(&aes_key1);
 	EXPECT_EQ(rc, 0);
@@ -403,6 +411,8 @@ TEST(aes_cmac, stream_inplace_kat1)
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
+
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
 	u8 *msg = testlib_hexstr2buf(msgstr, &msglen);
@@ -494,6 +504,8 @@ TEST(aes_cmac, stream_inplace_kat2)
 	(void)testlib_env_aes_key_apqns(apqns);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
 
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
@@ -592,6 +604,8 @@ static void __run_json(const char *json)
 	(void)testlib_env_aes_key_apqns(apqns);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
 
 	rc = zpc_aes_key_alloc(&aes_key);
 	EXPECT_EQ(rc, 0);
@@ -804,6 +818,8 @@ TEST(aes_cmac, rederive_protected_key2)
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
+
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
 	u8 *msg = testlib_hexstr2buf(msgstr, &msglen);
@@ -915,6 +931,8 @@ TEST(aes_cmac, reencipher)
 	(void)testlib_env_aes_key_apqns(apqns);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
@@ -1089,6 +1107,8 @@ TEST(aes_cmac, threads)
 	(void)testlib_env_aes_key_apqns(apqns);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
