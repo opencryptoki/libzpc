@@ -207,6 +207,15 @@ struct ep11keytoken {
 #define AESCIPHER_KEY_SIZE	sizeof(struct aescipherkeytoken)
 #define EP11_KEY_SIZE		sizeof(struct ep11keytoken)
 
+/*
+ * CCA Application Programmer's Guide, AES CIPHER variable-length symmetric
+ * key token:
+ *   - Encrypted V0 payload: 120 bytes
+ *   - Encrypted V1 payload: 136 bytes
+ */
+#define AESCIPHER_KEY_SIZE_ENCR_V0		AESCIPHER_KEY_SIZE - 16
+#define AESCIPHER_KEY_SIZE_ENCR_V1		AESCIPHER_KEY_SIZE
+
 /* MAX/MIN from zt_common.h produces warnings for variable length arrays */
 #define _MIN(a, b)  ((a) < (b) ? (a) : (b))
 #define _MAX(a, b)  ((a) > (b) ? (a) : (b))

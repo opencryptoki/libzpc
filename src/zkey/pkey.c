@@ -66,7 +66,7 @@ bool is_cca_aes_cipher_key(const u8 *key, size_t key_size)
 {
 	struct aescipherkeytoken *cipherkey = (struct aescipherkeytoken *)key;
 
-	if (key == NULL || key_size < AESCIPHER_KEY_SIZE)
+	if (key == NULL || key_size < AESCIPHER_KEY_SIZE_ENCR_V0)
 		return false;
 
 	if (cipherkey->type != TOKEN_TYPE_CCA_INTERNAL)
