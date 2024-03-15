@@ -111,7 +111,7 @@ struct aescipherkeytoken {
 	u16 pl;       /* payload bit length */
 	u8  res5;
 	u8  at;       /* algorithm type, should be 0x02 (AES) */
-	u16 kt;       /* key type, should be 0x001 (CIPHER) */
+	u16 kt;       /* key type, should be 0x0001 (CIPHER) */
 	u8  kufc;     /* key usage field count */
 	u16 kuf1;     /* key usage field 1 */
 	u16 kuf2;     /* key usage field 2 */
