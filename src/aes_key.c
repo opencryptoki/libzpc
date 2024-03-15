@@ -811,10 +811,12 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 			goto ret;
 	}
 
-	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11 && aes_key_blob_has_a_session(aes_key))
-		DEBUG("This aes ep11 key has a session id");
-	else
-		DEBUG("This aes ep11 key has no session id");
+	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
+		if (aes_key_blob_has_a_session(aes_key))
+			DEBUG("This aes ep11 key has a session id");
+		else
+			DEBUG("This aes ep11 key has no session id");
+	}
 
 	DEBUG("aes key at %p: key set to generated secure key", aes_key);
 	aes_key->key_set = 1;
