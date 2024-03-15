@@ -409,7 +409,13 @@ do {                                                                           \
             }                                                                  \
         } else {                                                               \
             rc = zpc_ec_key_set_apqns(ec_key, apqns);                          \
-            if (rc != 0) {                                                     \
+            switch (rc) {                                                      \
+            case 0:                                                            \
+                break;                                                         \
+            case ZPC_ERROR_APQNS_INVALID_VERSION:                              \
+                zpc_ec_key_free(&ec_key);                                      \
+                GTEST_SKIP_("KERNEL_CAPS check (EC): probably card older than CEX7."); \
+            default:                                                           \
                 zpc_ec_key_free(&ec_key);                                      \
                 GTEST_SKIP_("KERNEL_CAPS check (EC): error setting apqns.");   \
             }                                                                  \
@@ -478,6 +484,39 @@ do {                                                                           \
             GTEST_SKIP_("NEW_MK check (EC): new MK not set for this APQN/MKVP."); \
         }                                                                      \
         zpc_ec_key_free(&ec_key);                                              \
+} while (0)
+
+# define TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags)               \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_key *aes_key;                                           \
+        const u8 key[32] = {0};                                                \
+                                                                               \
+        rc = zpc_aes_key_alloc(&aes_key);                                      \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("APQN_CAPS check: Cannot allocate key object.");       \
+        rc = zpc_aes_key_set_type(aes_key, type);                              \
+        rc += zpc_aes_key_set_size(aes_key, size);                             \
+        rc += zpc_aes_key_set_flags(aes_key, flags);                           \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("APQN_CAPS check: Cannot set type, size, and flags."); \
+        if (apqns != NULL)                                                     \
+            rc = zpc_aes_key_set_apqns(aes_key, apqns);                        \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("APQN_CAPS check: Cannot set apqns.");                 \
+        if (mkvp != NULL)                                                      \
+            rc = zpc_aes_key_set_mkvp(aes_key, mkvp);                          \
+        if (rc != 0)                                                           \
+            GTEST_SKIP_("APQN_CAPS check: Cannot set mkvp.");                  \
+        rc = zpc_aes_key_import_clear(aes_key, key);                           \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_IOCTLCLR2SECK2:                                         \
+            GTEST_SKIP_("APQN_CAPS check: Cannot create a protected key, "     \
+                        "probably card older than CEX7.");                     \
+        default:                                                               \
+            break;                                                             \
+        }                                                                      \
+        zpc_aes_key_free(&aes_key);                                            \
 } while (0)
 
 typedef unsigned char u8;
