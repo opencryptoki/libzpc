@@ -6,6 +6,7 @@
  */
 
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "zpc/ecc_key.h"
 #include "zpc/error.h"
@@ -1252,7 +1253,7 @@ int ec_key_sec2prot(struct zpc_ec_key *ec_key, enum ec_key_sec sec)
 	struct pkey_kblob2pkey3 io;
 	struct ec_key *key = NULL;
 	unsigned int keybuf_len;
-	int rc;
+	int rc, i;
 
 	assert(sec == EC_KEY_SEC_OLD || sec == EC_KEY_SEC_CUR);
 
@@ -1276,7 +1277,13 @@ int ec_key_sec2prot(struct zpc_ec_key *ec_key, enum ec_key_sec sec)
 	io.pkeylen = sizeof(ec_key->prot.protkey);
 	io.pkey = (unsigned char *)&ec_key->prot.protkey;
 
-	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK3, &io);
+	for (i = 0; i < 10; i++) {
+		rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK3, &io);
+		if (rc == 0 || (errno != -EBUSY && errno != -EAGAIN))
+			break;
+		sleep(1);
+	}
+
 	if (rc != 0) {
 		return ZPC_ERROR_IOCTLBLOB2PROTK3;
 	}

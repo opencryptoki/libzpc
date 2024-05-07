@@ -6,6 +6,7 @@
  */
 
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "zpc/aes_key.h"
 #include "zpc/error.h"
@@ -1041,7 +1042,7 @@ int aes_key_sec2prot_without_header(struct zpc_aes_key *aes_key, enum aes_key_se
 {
 	struct pkey_kblob2pkey2 io;
 	struct aes_key *key = NULL;
-	int rc;
+	int rc, i;
 
 	assert(sec == AES_KEY_SEC_OLD || sec == AES_KEY_SEC_CUR);
 
@@ -1057,7 +1058,13 @@ int aes_key_sec2prot_without_header(struct zpc_aes_key *aes_key, enum aes_key_se
 	io.apqns = aes_key->apqns;
 	io.apqn_entries = aes_key->napqns;
 
-	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+	for (i = 0; i < 10; i++) {
+		rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+		if (rc == 0 || (errno != -EBUSY && errno != -EAGAIN))
+			break;
+		sleep(1);
+	}
+
 	if (rc != 0)
 		return ZPC_ERROR_IOCTLBLOB2PROTK2;
 
@@ -1074,7 +1081,7 @@ int aes_key_sec2prot_with_header(struct zpc_aes_key *aes_key, enum aes_key_sec s
 {
 	struct pkey_kblob2pkey2 io;
 	struct aes_key *key = NULL;
-	int rc;
+	int rc, i;
 	unsigned char temp[sizeof(struct ep11kblob_header)];
 	struct ep11kblob_header *hdr;
 
@@ -1096,7 +1103,12 @@ int aes_key_sec2prot_with_header(struct zpc_aes_key *aes_key, enum aes_key_sec s
 	io.apqns = aes_key->apqns;
 	io.apqn_entries = aes_key->napqns;
 
-	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+	for (i = 0; i < 10; i++) {
+		rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+		if (rc == 0 || (errno != -EBUSY && errno != -EAGAIN))
+			break;
+		sleep(1);
+	}
 	if (rc == 0)
 		goto done;
 
@@ -1126,7 +1138,12 @@ int aes_key_sec2prot_with_header(struct zpc_aes_key *aes_key, enum aes_key_sec s
 	io.apqns = aes_key->apqns;
 	io.apqn_entries = aes_key->napqns;
 
-	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+	for (i = 0; i < 10; i++) {
+		rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK2, &io);
+		if (rc == 0 || (errno != -EBUSY && errno != -EAGAIN))
+			break;
+		sleep(1);
+	}
 
 	memcpy(key->sec + 16, temp, 16); // restore session id in any case
 
