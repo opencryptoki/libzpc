@@ -41,14 +41,14 @@ cpacf_km(unsigned long fc, void *param, u8 * out, const u8 * in,
     unsigned long inlen)
 {
         /* *INDENT-OFF* */
-	register unsigned long r0 asm("0") = (unsigned long) fc;
-	register unsigned long r1 asm("1") = (unsigned long) param;
-	register unsigned long r2 asm("2") = (unsigned long) in;
-	register unsigned long r3 asm("3") = (unsigned long) inlen;
-	register unsigned long r4 asm("4") = (unsigned long) out;
+	register unsigned long r0 __asm__("0") = (unsigned long) fc;
+	register unsigned long r1 __asm__("1") = (unsigned long) param;
+	register unsigned long r2 __asm__("2") = (unsigned long) in;
+	register unsigned long r3 __asm__("3") = (unsigned long) inlen;
+	register unsigned long r4 __asm__("4") = (unsigned long) out;
 	u8 cc;
 
-	asm volatile(
+	__asm__ volatile(
 		"0:	.insn	rre,%[opc] << 16,%[out],%[in]\n"
 		"	brc	1,0b\n" /* handle partial completion */
                 "       ipm     %[cc]\n"
@@ -80,14 +80,14 @@ static inline int
 cpacf_kmc(unsigned long fc, void *param, u8 * out, const u8 * in, long inlen)
 {
         /* *INDENT-OFF* */
-	register unsigned long r0 asm("0") = (unsigned long) fc;
-	register unsigned long r1 asm("1") = (unsigned long) param;
-	register unsigned long r2 asm("2") = (unsigned long) in;
-	register unsigned long r3 asm("3") = (unsigned long) inlen;
-	register unsigned long r4 asm("4") = (unsigned long) out;
+	register unsigned long r0 __asm__("0") = (unsigned long) fc;
+	register unsigned long r1 __asm__("1") = (unsigned long) param;
+	register unsigned long r2 __asm__("2") = (unsigned long) in;
+	register unsigned long r3 __asm__("3") = (unsigned long) inlen;
+	register unsigned long r4 __asm__("4") = (unsigned long) out;
 	u8 cc;
 
-	asm volatile(
+	__asm__ volatile(
 		"0:	.insn	rre,%[opc] << 16,%[out],%[in]\n"
 		"	brc	1,0b\n" /* handle partial completion */
                 "       ipm     %[cc]\n"
@@ -119,13 +119,13 @@ static inline int
 cpacf_kmac(unsigned long fc, void *param, const u8 * in, unsigned long inlen)
 {
         /* *INDENT-OFF* */
-	register unsigned long r0 asm("0") = (unsigned long)fc;
-	register unsigned long r1 asm("1") = (unsigned long)param;
-	register unsigned long r2 asm("2") = (unsigned long)in;
-	register unsigned long r3 asm("3") = (unsigned long)inlen;
+	register unsigned long r0 __asm__("0") = (unsigned long)fc;
+	register unsigned long r1 __asm__("1") = (unsigned long)param;
+	register unsigned long r2 __asm__("2") = (unsigned long)in;
+	register unsigned long r3 __asm__("3") = (unsigned long)inlen;
 	u8 cc;
 
-	asm volatile(
+	__asm__ volatile(
 		"0:	.insn	rre,%[opc] << 16,0,%[in]\n"
 		"	brc	1,0b\n" /* handle partial completion */
         "   ipm     %[cc]\n"
@@ -182,7 +182,7 @@ cpacf_pcc(unsigned long fc, void *param)
 	u8 cc;
 
 	/* *INDENT-OFF* */
-	asm volatile(
+	__asm__ volatile(
 		"0:     .insn   rre,%[opc] << 16,0,0\n" /* PCC opcode */
 		"       brc     1,0b\n" /* handle partial completion */
     	"       ipm     %[cc]\n"
