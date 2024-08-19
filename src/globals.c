@@ -215,7 +215,7 @@ static void zpc_init(void)
 		DEBUG("detected message-security-assist");
 
 		memset(status_word, 0, sizeof(status_word));
-		cpacf_km(CPACF_KM_QUERY, &status_word, NULL, NULL, 0);
+		cpacf_km(CPACF_KM_QUERY, &status_word, NULL, NULL, 0, NULL);
 		DEBUG("status word km: 0x%016llx:0x%016llx", status_word[0],
 		    status_word[1]);
 
@@ -241,7 +241,7 @@ static void zpc_init(void)
 		}
 
 		memset(status_word, 0, sizeof(status_word));
-		cpacf_kmc(CPACF_KMC_QUERY, &status_word, NULL, NULL, 0);
+		cpacf_kmc(CPACF_KMC_QUERY, &status_word, NULL, NULL, 0, NULL);
 		DEBUG("status word kmc: 0x%016llx:0x%016llx", status_word[0],
 		    status_word[1]);
 
@@ -314,7 +314,7 @@ static void zpc_init(void)
 
 		memset(status_word, 0, sizeof(status_word));
 		cpacf_kma(CPACF_KMA_QUERY, &status_word, NULL, NULL, 0, NULL,
-		    0);
+		    0, NULL);
 		DEBUG("status word kma: 0x%016llx:0x%016llx", status_word[0],
 		    status_word[1]);
 
