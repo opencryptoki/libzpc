@@ -54,7 +54,7 @@ struct cpacf_km_xts_full_aes_256_param {
 
 static inline int
 cpacf_km(unsigned long fc, void *param, u8 * out, const u8 * in,
-    unsigned long inlen)
+    unsigned long inlen, unsigned long *bytes_processed)
 {
         /* *INDENT-OFF* */
 	register unsigned long r0 __asm__("0") = (unsigned long) fc;
@@ -76,6 +76,9 @@ cpacf_km(unsigned long fc, void *param, u8 * out, const u8 * in,
 	);
         /* *INDENT-ON* */
 
+	if (bytes_processed != NULL)
+		*bytes_processed = fc ? inlen - r3 : r3;
+
 	return cc;
 }
 
@@ -93,7 +96,8 @@ struct cpacf_kmc_aes_param {
 };
 
 static inline int
-cpacf_kmc(unsigned long fc, void *param, u8 * out, const u8 * in, long inlen)
+cpacf_kmc(unsigned long fc, void *param, u8 * out, const u8 * in, long inlen,
+          unsigned long *bytes_processed)
 {
         /* *INDENT-OFF* */
 	register unsigned long r0 __asm__("0") = (unsigned long) fc;
@@ -114,6 +118,9 @@ cpacf_kmc(unsigned long fc, void *param, u8 * out, const u8 * in, long inlen)
 		: "cc", "memory"
 	);
         /* *INDENT-ON* */
+
+	if (bytes_processed != NULL)
+		*bytes_processed = fc ? inlen - r3 : r3;
 
 	return cc;
 }
@@ -263,7 +270,8 @@ struct cpacf_kma_gcm_aes_param {
 /*  KMA (cipher message with authentication) */
 static inline int
 cpacf_kma(unsigned long fc, void *param, u8 * out, const u8 * aad,
-    unsigned long aadlen, const u8 * in, unsigned long inlen)
+    unsigned long aadlen, const u8 * in, unsigned long inlen,
+    unsigned long *bytes_processed)
 {
         /* *INDENT-OFF* */
         register unsigned long r0 __asm__("0") = (unsigned long)fc;
@@ -287,6 +295,9 @@ cpacf_kma(unsigned long fc, void *param, u8 * out, const u8 * aad,
                 : "cc", "memory"
         );
         /* *INDENT-ON* */
+
+	if (bytes_processed != NULL)
+		*bytes_processed = fc ? inlen - r3 : r3;
 
 	return cc;
 }
