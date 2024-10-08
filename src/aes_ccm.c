@@ -33,10 +33,10 @@ struct aes_ccm_flags {
 
 static void __aes_ccm_set_iv(struct zpc_aes_ccm *, const u8 *, size_t);
 static int __aes_ccm_crypt(struct zpc_aes_ccm *, u8 *, u8 *, size_t, const u8 *,
-    size_t, const u8 *, size_t, unsigned long);
+    size_t, const u8 *, size_t, unsigned long, int);
 static int __aes_ccm_cbcmac(struct zpc_aes_ccm *, const u8 *, size_t);
 static int __aes_ccm_ctr(struct zpc_aes_ccm *, u8[16], u8 *, const u8 *,
-    size_t);
+    size_t, int);
 static void __aes_ccm_reset(struct zpc_aes_ccm *);
 static void __aes_ccm_reset_iv(struct zpc_aes_ccm *);
 
@@ -281,7 +281,7 @@ zpc_aes_ccm_encrypt(struct zpc_aes_ccm *aes_ccm, u8 * c, u8 * tag,
 
 		for (;;) {
 			rc = __aes_ccm_crypt(aes_ccm, c, tag, taglen, aad,
-			    aadlen, m, mlen, flags);
+			    aadlen, m, mlen, flags, i);
 			if (rc == 0) {
 				break;
 			} else {
@@ -391,7 +391,7 @@ zpc_aes_ccm_decrypt(struct zpc_aes_ccm *aes_ccm, u8 * m, const u8 * tag,
 		for (;;) {
 			memcpy(tmp, tag, taglen);
 			rc = __aes_ccm_crypt(aes_ccm, m, tmp, taglen, aad,
-			    aadlen, c, clen, flags);
+			    aadlen, c, clen, flags, i);
 			if (rc == 0 || rc == ZPC_ERROR_TAGMISMATCH) {
 				break;
 			} else {
@@ -471,7 +471,7 @@ __aes_ccm_set_iv(struct zpc_aes_ccm *aes_ccm, const u8 * iv, size_t ivlen)
 static int
 __aes_ccm_crypt(struct zpc_aes_ccm *aes_ccm, u8 * out, u8 * tag, size_t taglen,
     const u8 * aad, size_t aadlen, const u8 * in, size_t inlen,
-    unsigned long flags)
+    unsigned long flags, int key_sec)
 {
 	struct aes_ccm_flags b0flags;
 	u8 b01[32], tmp[16];
@@ -567,7 +567,7 @@ __aes_ccm_crypt(struct zpc_aes_ccm *aes_ccm, u8 * out, u8 * tag, size_t taglen,
 		rc = __aes_ccm_cbcmac(aes_ccm, in, inlen);
 		if (rc)
 			goto ret;
-		rc = __aes_ccm_ctr(aes_ccm, tmp, out, in, inlen);
+		rc = __aes_ccm_ctr(aes_ccm, tmp, out, in, inlen, key_sec);
 		if (rc)
 			goto ret;
 		for (i = 0; i < 16; i++)
@@ -575,7 +575,7 @@ __aes_ccm_crypt(struct zpc_aes_ccm *aes_ccm, u8 * out, u8 * tag, size_t taglen,
 		memcpy(tag, tmp, taglen);
 	} else {
 		/* decrypt-then-mac */
-		rc = __aes_ccm_ctr(aes_ccm, tmp, out, in, inlen);
+		rc = __aes_ccm_ctr(aes_ccm, tmp, out, in, inlen, key_sec);
 		if (rc)
 			goto ret;
 		rc = __aes_ccm_cbcmac(aes_ccm, out, inlen);
@@ -642,13 +642,21 @@ ret:
 
 static int
 __aes_ccm_ctr(struct zpc_aes_ccm *aes_ccm, u8 tagkey[16], u8 * out,
-    const u8 * in, size_t inlen)
+    const u8 * in, size_t inlen, int key_sec)
 {
 	struct aes_ccm_flags aflags;
 	unsigned int flags;
 	u8 a[16];
 	int rc, cc;
 	u32 ctr;
+	u8 *in_pos = (u8 *)in;
+	u8 *out_pos = out;
+	size_t len = inlen;
+	size_t bytes_processed, dummy;
+	struct cpacf_kma_gcm_aes_param *param_kma;
+	struct cpacf_kmac_aes_param *param_kmac;
+	struct pkey_protkey *protkey;
+	int rv;
 
 	flags = CPACF_KMA_LAAD | CPACF_KMA_HS;
 
@@ -673,7 +681,7 @@ __aes_ccm_ctr(struct zpc_aes_ccm *aes_ccm, u8 tagkey[16], u8 * out,
 	memset(tagkey, 0, 16);
 
 	cc = cpacf_kma(aes_ccm->fc | flags, &aes_ccm->param_kma, tagkey, NULL,
-	    0, tagkey, 16);
+	    0, tagkey, 16, &dummy);
 	/* Either incomplete processing or WKaVP mismatch. */
 	assert(cc == 0 || cc == 2 || cc == 1);
 	if (cc == 1) {
@@ -681,13 +689,57 @@ __aes_ccm_ctr(struct zpc_aes_ccm *aes_ccm, u8 tagkey[16], u8 * out,
 		goto ret;
 	}
 
-	cc = cpacf_kma(aes_ccm->fc | flags | CPACF_KMA_LPC, &aes_ccm->param_kma,
-	    out, NULL, 0, in, inlen);
-	/* Either incomplete processing or WKaVP mismatch. */
-	assert(cc == 0 || cc == 2 || cc == 1);
-	if (cc == 1) {
-		rc = ZPC_ERROR_WKVPMISMATCH;
-		goto ret;
+	for (;;) {
+		flags = len > 16 ? flags : flags | CPACF_KMA_LPC;
+
+		cc = cpacf_kma(aes_ccm->fc | flags, &aes_ccm->param_kma,
+			out_pos, NULL, 0, in_pos, len, &bytes_processed);
+
+		/* Either incomplete processing or WKaVP mismatch. */
+		assert(cc == 0 || cc == 2 || cc == 1);
+		switch (cc) {
+		case 0:
+		case 2:
+			/* No wkvp mismatch, but some rest may be left over because lpc not yet set */
+			if (bytes_processed == len) {
+				rc = 0;
+				goto ret;
+			}
+			in_pos += bytes_processed;
+			out_pos += bytes_processed;
+			len -= bytes_processed;
+			break;
+		case 1:
+			/* wkvp mismatch, rederive protkey and continue */
+			if (aes_ccm->aes_key->rand_protk) {
+				rc = ZPC_ERROR_PROTKEYONLY;
+				goto ret;
+			}
+
+			rv = pthread_mutex_lock(&aes_ccm->aes_key->lock);
+			assert(rv == 0);
+			DEBUG
+				("aes-ccm context at %p: re-derive protected key from %s secure key from aes key at %p",
+				aes_ccm, key_sec == 0 ? "current" : "old",
+				aes_ccm->aes_key);
+			rc = aes_key_sec2prot(aes_ccm->aes_key, key_sec);
+			param_kma = &aes_ccm->param_kma;
+			param_kmac = &aes_ccm->param_kmac;
+			protkey = &aes_ccm->aes_key->prot;
+			memcpy(param_kma->protkey, protkey->protkey, sizeof(param_kma->protkey));
+			memcpy(param_kmac->protkey, protkey->protkey, sizeof(param_kmac->protkey));
+			rv = pthread_mutex_unlock(&aes_ccm->aes_key->lock);
+			assert(rv == 0);
+
+			in_pos += bytes_processed;
+			out_pos += bytes_processed;
+			inlen -= bytes_processed;
+			len = inlen;
+			break;
+		default:
+			/* Cannot occur */
+			break;
+		}
 	}
 
 	rc = 0;
