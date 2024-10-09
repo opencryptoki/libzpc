@@ -25,7 +25,7 @@
 #include <string.h>
 
 static int __aes_gcm_set_iv(struct zpc_aes_gcm *, const u8 *, size_t);
-static int __aes_gcm_crypt(struct zpc_aes_gcm *, u8 *, u8 *, size_t, const u8 *,
+static int __aes_gcm_crypt(struct zpc_aes_gcm *, u8 *, u8 *, u8 *, size_t, const u8 *,
     size_t, const u8 *, size_t, unsigned long);
 static void __aes_gcm_reset(struct zpc_aes_gcm *);
 static void __aes_gcm_reset_iv(struct zpc_aes_gcm *);
@@ -373,8 +373,6 @@ zpc_aes_gcm_encrypt(struct zpc_aes_gcm *aes_gcm, u8 * c, u8 * tag,
 
 	if ((m != NULL && c != NULL) || tag != NULL) {
 		flags |= CPACF_KMA_LAAD;
-		if (tag != NULL)
-			flags |= CPACF_KMA_LPC;
 	}
 	aes_gcm->param.taadl += (aadlen * 8);
 	aes_gcm->param.tpcl += (mlen * 8);
@@ -387,7 +385,7 @@ zpc_aes_gcm_encrypt(struct zpc_aes_gcm *aes_gcm, u8 * c, u8 * tag,
 		param = &aes_gcm->param;
 
 		for (;;) {
-			rc = __aes_gcm_crypt(aes_gcm, c, tag, taglen, aad,
+			rc = __aes_gcm_crypt(aes_gcm, c, tag, tag, taglen, aad,
 			    aadlen, m, mlen, flags);
 			if (rc == 0) {
 				break;
@@ -501,8 +499,6 @@ zpc_aes_gcm_decrypt(struct zpc_aes_gcm *aes_gcm, u8 * m, const u8 * tag,
 
 	if ((m != NULL && c != NULL) || tag != NULL) {
 		flags |= CPACF_KMA_LAAD;
-		if (tag != NULL)
-			flags |= CPACF_KMA_LPC;
 	}
 	aes_gcm->param.taadl += (aadlen * 8);
 	aes_gcm->param.tpcl += (clen * 8);
@@ -515,7 +511,7 @@ zpc_aes_gcm_decrypt(struct zpc_aes_gcm *aes_gcm, u8 * m, const u8 * tag,
 		param = &aes_gcm->param;
 
 		for (;;) {
-			rc = __aes_gcm_crypt(aes_gcm, m, tmp, sizeof(tmp), aad,
+			rc = __aes_gcm_crypt(aes_gcm, m, (u8 *)tag, tmp, sizeof(tmp), aad,
 			    aadlen, c, clen, flags);
 			if (rc == 0) {
 				rc = memcmp_consttime(tmp, tag, taglen);
@@ -581,6 +577,7 @@ __aes_gcm_set_iv(struct zpc_aes_gcm *aes_gcm, const u8 * iv, size_t ivlen)
 	size_t ivpadlen;
 	u64 *ivpad = NULL;
 	int rc, cc;
+	unsigned long dummy;
 
 	assert(aes_gcm != NULL);
 	assert(iv != NULL);
@@ -613,7 +610,8 @@ __aes_gcm_set_iv(struct zpc_aes_gcm *aes_gcm, const u8 * iv, size_t ivlen)
 
 		memset(param->j0, 0, sizeof(param->j0));
 
-		cc = cpacf_kma(aes_gcm->fc, param, NULL, (u8 *) ivpad, ivpadlen, NULL, 0);
+		cc = cpacf_kma(aes_gcm->fc, param, NULL, (u8 *) ivpad, ivpadlen,
+		    NULL, 0, &dummy);
 		/* Either incomplete processing or WKaVP mismatch. */
 		assert(cc == 2 || cc == 1);
 		if (cc == 1) {
@@ -634,25 +632,142 @@ ret:
 }
 
 static int
-__aes_gcm_crypt(struct zpc_aes_gcm *aes_gcm, u8 * out, u8 * tag, size_t taglen,
+__aes_kma_crypt(struct zpc_aes_gcm *aes_gcm, u8 * out, const u8 *ori_tag,
+			const u8 * aad, size_t aadlen,
+			u8 * in, size_t inlen, unsigned long flags)
+{
+	struct cpacf_kma_gcm_aes_param *param;
+	struct pkey_protkey *protkey;
+	int rc, cc, lpc_set = 0;
+	u8 *in_pos = in;
+	u8 *out_pos = out;
+	size_t len = inlen;
+	unsigned long bytes_processed;
+	int key_sec = AES_KEY_SEC_CUR;
+	int rv;
+
+	param = &aes_gcm->param;
+	protkey = &aes_gcm->aes_key->prot;
+
+	/*
+	 * Process AAD before data. In case of an LGR this can be retried as a
+	 * whole, as there are no possibly overlapping in and out buffers. This
+	 * retry can be done via the old code.
+	 */
+	for (;;) {
+		if (aadlen == 0)
+			break;
+
+		cc = cpacf_kma(aes_gcm->fc | flags, param, NULL, aad, aadlen, NULL, 0, &bytes_processed);
+		assert(cc == 0 || cc == 1 || cc == 2);
+		if (cc == 1) {
+			rc = ZPC_ERROR_WKVPMISMATCH;
+			goto ret;
+		} else {
+			break;
+		}
+	}
+
+	/*
+	 * At this point all AAD have been processed correctly. Now process data
+	 * with possibly overlapping in and out buffers. Note that even with a zero
+	 * data length this code must be executed for a correct tag.
+	 */
+	for (;;) {
+
+		if (len <= 16 && ori_tag != NULL) {
+			if (in_pos != NULL && out_pos != NULL) {
+				flags |= CPACF_KMA_LPC;
+				lpc_set = 1;
+			}
+		}
+
+		cc = cpacf_kma(aes_gcm->fc | flags, param, out_pos, NULL, 0, in_pos, len, &bytes_processed);
+
+		/* Either incomplete processing or WKaVP mismatch. */
+		assert(cc == 0 || cc == 2 || cc == 1);
+		switch (cc) {
+		case 0:
+		case 2:
+			/* No wkvp mismatch, but some rest may be left over because lpc not yet set */
+			if (bytes_processed == len) {
+				rc = 0;
+				if (!lpc_set) {
+					/* If data was a multiple of 16, we didn't set lpc above */
+					if (ori_tag != NULL) {
+						flags |= CPACF_KMA_LPC;
+						cc = cpacf_kma(aes_gcm->fc | flags, param, NULL, NULL, 0, NULL, 0, &bytes_processed);
+					}
+				}
+				goto ret;
+			}
+			in_pos += bytes_processed;
+			out_pos += bytes_processed;
+			len -= bytes_processed;
+			break;
+		case 1:
+			/* wkvp mismatch, rederive protkey and continue */
+			if (aes_gcm->aes_key->rand_protk) {
+				rc = ZPC_ERROR_PROTKEYONLY;
+				goto ret;
+			}
+
+			rc = -1;
+			rv = pthread_mutex_lock(&aes_gcm->aes_key->lock);
+			assert(rv == 0);
+			for (;;) {
+				DEBUG
+					("aes-gcm context at %p: re-derive protected key from %s secure key from aes key at %p",
+					aes_gcm, key_sec == 0 ? "current" : "old",
+					aes_gcm->aes_key);
+				rc = aes_key_sec2prot(aes_gcm->aes_key, key_sec);
+				if (rc == ZPC_ERROR_IOCTLBLOB2PROTK2) {
+					key_sec = key_sec == AES_KEY_SEC_CUR ? AES_KEY_SEC_OLD : AES_KEY_SEC_CUR;
+					continue;
+				} else {
+					break;
+				}
+			}
+			memcpy(param->protkey, protkey->protkey, sizeof(param->protkey));
+			rv = pthread_mutex_unlock(&aes_gcm->aes_key->lock);
+			assert(rv == 0);
+
+			in_pos += bytes_processed;
+			out_pos += bytes_processed;
+			inlen -= bytes_processed;
+			len = inlen;
+			break;
+		default:
+			/* Cannot occur */
+			break;
+		}
+	}
+
+	rc = 0;
+
+ret:
+	return rc;
+}
+
+static int
+__aes_gcm_crypt(struct zpc_aes_gcm *aes_gcm, u8 * out, u8 *ori_tag, u8 * tag, size_t taglen,
     const u8 * aad, size_t aadlen, const u8 * in, size_t inlen,
     unsigned long flags)
 {
 	struct cpacf_kma_gcm_aes_param *param;
-	int rc, cc;
+	int rc;
 
 	param = &aes_gcm->param;
 
-	cc = cpacf_kma(aes_gcm->fc | flags, param, out, aad, aadlen, in, inlen);
-	assert(cc == 0 || cc == 1 || cc == 2);
-	if (cc == 1) {
-		rc = ZPC_ERROR_WKVPMISMATCH;
+	rc = __aes_kma_crypt(aes_gcm, out, ori_tag, aad, aadlen, (u8 *)in, inlen, flags);
+	if (rc != 0) {
 		goto err;
 	}
 	aes_gcm->fc |= CPACF_KMA_HS;
 
-	memcpy(tag, param->t, taglen);
-	rc = 0;
+	if (tag != NULL)
+		memcpy(tag, param->t, taglen);
+
 err:
 	return rc;
 }
