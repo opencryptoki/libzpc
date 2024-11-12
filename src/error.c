@@ -95,6 +95,10 @@ zpc_error_string(int err)
 		"The given buffer does not contain a valid CCA cipherkey token",
 		"Error creating random bytes",
 		"Invalid usage of a gcm context with an internally created iv",
+		"Support for UV retrievable secrets is not available, but required for this function.",
+		"The given pvsecret type is not supported by libzpc.",
+		"The given pvsecret ID does not belong to a secret on this system.",
+		"PKEY_VERIFYKEY2 ioctl failed.",
 		"LAST"
 	};
 	const char *rc;

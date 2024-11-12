@@ -470,6 +470,30 @@ extern "C" {
 # define ZPC_ERROR_GCM_IV_CREATED_INTERNALLY  77
 
 /**
+ * \def ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE
+ * \brief support for UV retrievable secrets is not available, but required for this function.
+ */
+# define ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE          78
+
+/**
+ * \def ZPC_ERROR_PVSECRET_TYPE_NOT_SUPPORTED
+ * \brief the given pvsecret type is not supported by libzpc.
+ */
+# define ZPC_ERROR_PVSECRET_TYPE_NOT_SUPPORTED         79
+
+/**
+ * \def ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV
+ * \brief the given pvsecret ID does not belong to a secret on this system.
+ */
+# define ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV         80
+
+/**
+ * \def ZPC_ERROR_IOCTLVERIFYKEY2
+ * \brief PKEY_VERIFYKEY2 ioctl failed.
+ */
+# define ZPC_ERROR_IOCTLVERIFYKEY2                     81
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
