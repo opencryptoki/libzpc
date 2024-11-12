@@ -11,6 +11,8 @@
 # include <stdbool.h>
 # include <pthread.h>
 
+# include "pvsecrets.h"
+
 # include "zkey/cca.h"
 # include "zkey/ep11.h"
 
@@ -27,6 +29,7 @@ struct hwcaps {
 struct swcaps {
 	int aes_cca;
 	int aes_ep11;
+	int uv_pvsecrets;
 	int ecdsa_cca;
 	int ecdsa_ep11;
 };
