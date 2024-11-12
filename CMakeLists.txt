@@ -63,6 +63,7 @@ set(ZPC_SOURCES
     src/aes_gcm.c
     src/ecc_key.c
     src/ecdsa_ctx.c
+    src/pvsecrets.c
 
     src/zkey/utils.c
     src/zkey/pkey.c

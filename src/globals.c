@@ -120,6 +120,7 @@ static void zpc_init(void)
 	int aes_xts_km = 0, aes_xts_pcc = 0;
 	int ecc_kdsa = 0;
 	int aes_cca = 0, aes_ep11 = 0, ecdsa_cca = 0, ecdsa_ep11 = 0;
+	int uv_pvsecrets = 0;
 	char *env;
 
 	if (init != 1)
@@ -175,6 +176,14 @@ static void zpc_init(void)
 	rc = pthread_mutex_unlock(&ep11lock);
 	assert(rc == 0);
 
+	/*
+	 * Check if we are running in a Secure Execution guest with retrievable
+	 * secret support
+	 */
+	if (running_in_se_guest() && max_secrets() > 0)
+		uv_pvsecrets = 1;
+
+	/* Open pkey device */
 	pkeyfd = open("/dev/pkey", O_RDWR);
 	if (pkeyfd < 0) {
 		DEBUG("opening /dev/pkey failed");
@@ -366,6 +375,12 @@ static void zpc_init(void)
 	if (aes_ep11 == 1) {
 		swcaps.aes_ep11 = 1;
 		DEBUG("detected aes via ep11 host lib software capability");
+	}
+	if (uv_pvsecrets == 1) {
+		swcaps.uv_pvsecrets = 1;
+		DEBUG("detected UV retrievable secrets capability");
+	} else {
+		DEBUG("UV retrievable secrets capability not available");
 	}
 	if (ecdsa_cca == 1) {
 		swcaps.ecdsa_cca = 1;
