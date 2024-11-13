@@ -180,6 +180,8 @@ struct eccpubtoken {
 #define TOKVER_EP11_AES                 0x03 /* EP11 AES key blob (old style) */
 #define TOKVER_EP11_AES_WITH_HEADER     0x06 /* EP11 AES key blob with hdr */
 #define TOKVER_EP11_ECC_WITH_HEADER     0x07 /* EP11 ECC key blob with hdr */
+/* 0x08 is reserved for internal use */
+#define TOKVER_UV_SECRET                0x09 /* UV retrievable secret */
 
 struct ep11keytoken {
 	union {
@@ -207,6 +209,19 @@ struct ep11keytoken {
 #define AESCIPHER_KEY_SIZE	sizeof(struct aescipherkeytoken)
 #define EP11_KEY_SIZE		sizeof(struct ep11keytoken)
 
+#define UV_SECRET_ID_LEN            32
+
+/* Inside view of an UV retrievable secret key token */
+struct uvrsecrettoken {
+	u8 type; /* 0x00 - Non-CCA key token */
+	u8 res0[3];
+	u8 version; /* 0x09 - UV retrievable secret */
+	u8 res1[3];
+	u16 secret_type; /* the secret type as the UV told us */
+	u16 secret_len; /* length in bytes of the secret */
+	u8 secret_id[UV_SECRET_ID_LEN]; /* the secret id for this secret */
+} __packed;
+
 /*
  * CCA Application Programmer's Guide, AES CIPHER variable-length symmetric
  * key token:
@@ -225,9 +240,10 @@ struct ep11keytoken {
 #define MAX_EC_BLOB_SIZE		2048
 
 #define MAX_SECURE_KEY_SIZE	_MAX(EP11_KEY_SIZE, \
-				     _MAX(AESDATA_KEY_SIZE, AESCIPHER_KEY_SIZE))
+			_MAX(AESDATA_KEY_SIZE, _MAX(AESCIPHER_KEY_SIZE, UV_SECRET_ID_LEN)))
+
 #define MIN_SECURE_KEY_SIZE	_MIN(EP11_KEY_SIZE, \
-				     _MIN(AESDATA_KEY_SIZE, AESCIPHER_KEY_SIZE))
+			_MIN(AESDATA_KEY_SIZE, _MAX(AESCIPHER_KEY_SIZE, UV_SECRET_ID_LEN)))
 
 #define MAXPROTKEYSIZE	64	/* a protected key blob may be up to 64 bytes */
 
