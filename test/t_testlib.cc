@@ -19,7 +19,7 @@ TEST(testlib, env_aes_key_mkvp)
 	const char *oldenv = NULL, *mkvp;
 	int rc;
 
-	/* Safe envoronment. */
+	/* Save environment. */
 	oldenv = getenv("ZPC_TEST_AES_KEY_MKVP");
 
 	rc = setenv("ZPC_TEST_AES_KEY_MKVP", "abcde", 1);
@@ -47,7 +47,7 @@ TEST(testlib, env_aes_key_apqns)
 	const char *apqns[257];
 	int rc;
 
-	/* Safe envoronment. */
+	/* Save environment. */
 	oldenv = getenv("ZPC_TEST_AES_KEY_APQNS");
 
 	rc = setenv("ZPC_TEST_AES_KEY_APQNS", "abcde fg\nhi\tj,k \n\t, l", 1);
@@ -134,7 +134,7 @@ TEST(testlib, env_aes_key_size)
 		}
 	};
 
-	/* Safe envoronment. */
+	/* Save environment. */
 	oldenv = getenv("ZPC_TEST_AES_KEY_SIZE");
 
 	for (i = 0; i < NMEMB(kat); i++)  {
@@ -161,7 +161,7 @@ TEST(testlib, env_aes_key_type)
 	const char *oldenv = NULL;
 	int rc, type;
 
-	/* Safe envoronment. */
+	/* Save environment. */
 	oldenv = getenv("ZPC_TEST_AES_KEY_TYPE");
 
 	rc = setenv("ZPC_TEST_AES_KEY_TYPE", "abcde", 1);
@@ -259,7 +259,7 @@ TEST(testlib, env_aes_key_flags)
 		}
 	};
 
-	/* Safe envoronment. */
+	/* Save environment. */
 	oldenv = getenv("ZPC_TEST_AES_KEY_FLAGS");
 
 	for (i = 0; i < NMEMB(kat); i++)  {
