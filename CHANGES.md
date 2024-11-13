@@ -1,6 +1,12 @@
 Changelog {#changes}
 ===
 
+**Version 1.3.0**
+
+- Support for Ultravisor retrievable secrets
+- Handle CCA cipher key token with Encrypted V0 payload
+- bug fixes
+
 **Version 1.2.0**
 
 - Support for get/set intermediate iv for CBC and XTS

@@ -2,7 +2,7 @@
 set(ZPC_NAME          "libzpc"                            )
 set(ZPC_DESCRIPTION   "IBM Z Protected-key Crypto library")
 set(ZPC_VERSION_MAJOR 1                                   )
-set(ZPC_VERSION_MINOR 2                                   )
+set(ZPC_VERSION_MINOR 3                                   )
 set(ZPC_VERSION_PATCH 0                                   )
 ###########################################################
 

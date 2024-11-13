@@ -1,5 +1,5 @@
 Name:		libzpc
-Version:	1.2.0
+Version:	1.3.0
 Release:	1%{?dist}
 Summary:	Open Source library for the IBM Z Protected-key crypto feature
 
@@ -88,6 +88,9 @@ The %{name}-static package contains the static library of %{name}.
 
 
 %changelog
+* Fri Feb 07 2025 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.3.0
+- Support for UV retrievable secrets.
+
 * Thu Dec 07 2023 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.2.0
 - Support for get/set intermediate iv for CBC and XTS.
 - Support for internal iv for GCM.
