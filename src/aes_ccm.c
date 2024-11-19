@@ -117,8 +117,7 @@ zpc_aes_ccm_set_key(struct zpc_aes_ccm *aes_ccm, struct zpc_aes_key *aes_key)
 		goto ret;
 
 	if (aes_ccm->aes_key == aes_key) {
-		DEBUG("aes-ccm context at %p: key at %p already set", aes_ccm,
-		    aes_key);
+		DEBUG("aes-ccm context at %p: key at %p already set", aes_ccm, aes_key);
 		rc = 0; /* nothing to do */
 		goto ret;
 	}
@@ -136,8 +135,7 @@ zpc_aes_ccm_set_key(struct zpc_aes_ccm *aes_ccm, struct zpc_aes_key *aes_key)
 	/* Set new key. */
 	assert(!aes_ccm->key_set);
 
-	DEBUG("aes-ccm context at %p: key at %p set, iv unset", aes_ccm,
-	    aes_key);
+	DEBUG("aes-ccm context at %p: key at %p set, iv unset", aes_ccm, aes_key);
 
 	memcpy(aes_ccm->param_kma.protkey, aes_key->prot.protkey,
 	    sizeof(aes_ccm->param_kma.protkey));
@@ -146,8 +144,7 @@ zpc_aes_ccm_set_key(struct zpc_aes_ccm *aes_ccm, struct zpc_aes_key *aes_key)
 
 	/* The corresponding KMAC function codes are the same as the KMA
 	 * function codes. */
-	aes_ccm->fc =
-	    CPACF_KMA_GCM_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
+	aes_ccm->fc = CPACF_KMA_GCM_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
 
 	aes_ccm->aes_key = aes_key;
 	aes_ccm->key_set = 1;
@@ -293,22 +290,15 @@ zpc_aes_ccm_encrypt(struct zpc_aes_ccm *aes_ccm, u8 * c, u8 * tag,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_ccm->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_ccm->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-ccm context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_ccm, i == 0 ? "current" : "old",
-					    aes_ccm->aes_key);
-					rc = aes_key_sec2prot(aes_ccm->aes_key,
-					    i);
-					memcpy(param_kma->protkey,
-					    protkey->protkey,
-					    sizeof(param_kma->protkey));
-					memcpy(param_kmac->protkey,
-					    protkey->protkey,
-					    sizeof(param_kmac->protkey));
+					    aes_ccm, i == 0 ? "current" : "old", aes_ccm->aes_key);
+					rc = aes_key_sec2prot(aes_ccm->aes_key, i);
+					memcpy(param_kma->protkey, protkey->protkey, sizeof(param_kma->protkey));
+					memcpy(param_kmac->protkey, protkey->protkey, sizeof(param_kmac->protkey));
 
 					rv = pthread_mutex_unlock(&aes_ccm->
 					    aes_key->lock);
@@ -410,25 +400,17 @@ zpc_aes_ccm_decrypt(struct zpc_aes_ccm *aes_ccm, u8 * m, const u8 * tag,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_ccm->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_ccm->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-ccm context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_ccm, i == 0 ? "current" : "old",
-					    aes_ccm->aes_key);
-					rc = aes_key_sec2prot(aes_ccm->aes_key,
-					    i);
-					memcpy(param_kma->protkey,
-					    protkey->protkey,
-					    sizeof(param_kma->protkey));
-					memcpy(param_kmac->protkey,
-					    protkey->protkey,
-					    sizeof(param_kmac->protkey));
+					    aes_ccm, i == 0 ? "current" : "old", aes_ccm->aes_key);
+					rc = aes_key_sec2prot(aes_ccm->aes_key, i);
+					memcpy(param_kma->protkey, protkey->protkey, sizeof(param_kma->protkey));
+					memcpy(param_kmac->protkey, protkey->protkey, sizeof(param_kmac->protkey));
 
-					rv = pthread_mutex_unlock(&aes_ccm->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_ccm->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)

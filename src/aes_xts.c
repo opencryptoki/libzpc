@@ -157,8 +157,7 @@ zpc_aes_xts_set_key(struct zpc_aes_xts *aes_xts, struct zpc_aes_key *aes_key1,
 	    AES_XTS_PROTKEYLEN(aes_key2->keysize));
 
 	/* PCC uses the same function codes for 128 resp. 256 bit keys. */
-	aes_xts->fc =
-	    CPACF_KM_XTS_ENCRYPTED_AES_128 + (aes_key1->keysize - 128) / 64;
+	aes_xts->fc = CPACF_KM_XTS_ENCRYPTED_AES_128 + (aes_key1->keysize - 128) / 64;
 
 	aes_xts->aes_key1 = aes_key1;
 	aes_xts->aes_key2 = aes_key2;
@@ -226,23 +225,17 @@ zpc_aes_xts_set_iv(struct zpc_aes_xts *aes_xts, const u8 * iv)
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock
-					    (&aes_xts->aes_key2->lock);
+					rv = pthread_mutex_lock(&aes_xts->aes_key2->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-xts context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_xts, i == 0 ? "current" : "old",
-					    aes_xts->aes_key2);
-					rc = aes_key_sec2prot(aes_xts->aes_key2,
-					    i);
+					    aes_xts, i == 0 ? "current" : "old", aes_xts->aes_key2);
+					rc = aes_key_sec2prot(aes_xts->aes_key2, i);
 
-					memcpy(param, protkey->protkey,
-					    AES_XTS_PROTKEYLEN
-					    (aes_xts->aes_key2->keysize));
+					memcpy(param, protkey->protkey, AES_XTS_PROTKEYLEN(aes_xts->aes_key2->keysize));
 
-					rv = pthread_mutex_unlock
-					    (&aes_xts->aes_key2->lock);
+					rv = pthread_mutex_unlock(&aes_xts->aes_key2->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -404,23 +397,17 @@ zpc_aes_xts_encrypt(struct zpc_aes_xts *aes_xts, u8 * c, const u8 * m,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock
-					    (&aes_xts->aes_key1->lock);
+					rv = pthread_mutex_lock(&aes_xts->aes_key1->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-xts context at %p: re-derive protected key"
 						" from %s secure key from aes key at %p",
-					    aes_xts, i == 0 ? "current" : "old",
-					    aes_xts->aes_key1);
-					rc = aes_key_sec2prot(aes_xts->aes_key1,
-					    i);
-					memcpy(param, protkey->protkey,
-					    AES_XTS_PROTKEYLEN
-					    (aes_xts->aes_key1->keysize));
+					    aes_xts, i == 0 ? "current" : "old", aes_xts->aes_key1);
+					rc = aes_key_sec2prot(aes_xts->aes_key1, i);
+					memcpy(param, protkey->protkey, AES_XTS_PROTKEYLEN(aes_xts->aes_key1->keysize));
 
-					rv = pthread_mutex_unlock
-					    (&aes_xts->aes_key1->lock);
+					rv = pthread_mutex_unlock(&aes_xts->aes_key1->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -497,23 +484,17 @@ zpc_aes_xts_decrypt(struct zpc_aes_xts *aes_xts, u8 * m, const u8 * c,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock
-					    (&aes_xts->aes_key1->lock);
+					rv = pthread_mutex_lock(&aes_xts->aes_key1->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-xts context at %p: re-derive protected key"
 					    " from %s secure key from aes key at %p",
-					    aes_xts, i == 0 ? "current" : "old",
-					    aes_xts->aes_key1);
-					rc = aes_key_sec2prot(aes_xts->aes_key1,
-					    i);
-					memcpy(param, protkey->protkey,
-					    AES_XTS_PROTKEYLEN
-					    (aes_xts->aes_key1->keysize));
+					    aes_xts, i == 0 ? "current" : "old", aes_xts->aes_key1);
+					rc = aes_key_sec2prot(aes_xts->aes_key1, i);
+					memcpy(param, protkey->protkey, AES_XTS_PROTKEYLEN(aes_xts->aes_key1->keysize));
 
-					rv = pthread_mutex_unlock
-					    (&aes_xts->aes_key1->lock);
+					rv = pthread_mutex_unlock(&aes_xts->aes_key1->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -615,8 +596,7 @@ __aes_xts_crypt(struct zpc_aes_xts *aes_xts, u8 * out, const u8 * in,
 	inlen &= ~(size_t)0xf;
 
 	if (rem == 0) {
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in,
-		    inlen);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in, inlen);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -630,8 +610,7 @@ __aes_xts_crypt(struct zpc_aes_xts *aes_xts, u8 * out, const u8 * in,
 
 	if (!(flags & CPACF_M)) {
 		/* ciphertext-stealing (encrypt) */
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in,
-		    inlen + 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in, inlen + 16);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -642,8 +621,7 @@ __aes_xts_crypt(struct zpc_aes_xts *aes_xts, u8 * out, const u8 * in,
 		memcpy(tmp + rem, out + inlen + rem, 16 - rem);
 		memcpy(out + inlen + 16, out + inlen, rem);
 
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km,
-		    out + inlen, tmp, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen, tmp, 16);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -654,8 +632,7 @@ __aes_xts_crypt(struct zpc_aes_xts *aes_xts, u8 * out, const u8 * in,
 	u8 xtsparam[16], buf[16];
 
 		if (inlen) {
-			cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km,
-			    out, in, inlen);
+			cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in, inlen);
 			assert(cc == 0 || cc == 2 || cc == 1);
 			if (cc == 1) {
 				rc = ZPC_ERROR_WKVPMISMATCH;
@@ -663,19 +640,15 @@ __aes_xts_crypt(struct zpc_aes_xts *aes_xts, u8 * out, const u8 * in,
 			}
 		}
 
-		memcpy(xtsparam,
-		    aes_xts->param_km +
-		    AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize), 16);
+		memcpy(xtsparam, aes_xts->param_km + AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize), 16);
 
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, buf,
-		    in + inlen, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, buf, in + inlen, 16);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
 			goto ret;
 		}
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km,
-		    out + inlen, in + inlen, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen, in + inlen, 16);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -686,12 +659,9 @@ __aes_xts_crypt(struct zpc_aes_xts *aes_xts, u8 * out, const u8 * in,
 		memcpy(tmp + rem, out + inlen + rem, 16 - rem);
 		memcpy(out + inlen + 16, out + inlen, rem);
 
-		memcpy(aes_xts->param_km +
-		    AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize), xtsparam,
-		    16);
+		memcpy(aes_xts->param_km + AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize), xtsparam, 16);
 
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km,
-		    out + inlen, tmp, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen, tmp, 16);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -733,11 +703,9 @@ __aes_xts_reset_iv(struct zpc_aes_xts *aes_xts)
 		assert(aes_xts->aes_key1 != NULL);
 		assert(aes_xts->aes_key2 != NULL);
 
-		memset(aes_xts->param_km +
-		    AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize), 0, 1 * 16);
+		memset(aes_xts->param_km + AES_XTS_KM_XTSPARAM(aes_xts->aes_key1->keysize), 0, 1 * 16);
 		/* zero i, j, t, xtsparam */
-		memset(aes_xts->param_pcc +
-		    AES_XTS_PCC_I(aes_xts->aes_key2->keysize), 0, 4 * 16);
+		memset(aes_xts->param_pcc + AES_XTS_PCC_I(aes_xts->aes_key2->keysize), 0, 4 * 16);
 	}
 	aes_xts->iv_set = 0;
 }

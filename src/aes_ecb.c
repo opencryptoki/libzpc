@@ -105,8 +105,7 @@ zpc_aes_ecb_set_key(struct zpc_aes_ecb *aes_ecb, struct zpc_aes_key *aes_key)
 		goto ret;
 
 	if (aes_ecb->aes_key == aes_key) {
-		DEBUG("aes-ecb context at %p: key at %p already set", aes_ecb,
-		    aes_key);
+		DEBUG("aes-ecb context at %p: key at %p already set", aes_ecb, aes_key);
 		rc = 0; /* nothing to do */
 		goto ret;
 	}
@@ -129,8 +128,7 @@ zpc_aes_ecb_set_key(struct zpc_aes_ecb *aes_ecb, struct zpc_aes_key *aes_key)
 	memcpy(aes_ecb->param.protkey, aes_key->prot.protkey,
 	    sizeof(aes_ecb->param.protkey));
 
-	aes_ecb->fc =
-	    CPACF_KM_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
+	aes_ecb->fc = CPACF_KM_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
 
 	aes_ecb->aes_key = aes_key;
 	aes_ecb->key_set = 1;
@@ -201,21 +199,16 @@ zpc_aes_ecb_encrypt(struct zpc_aes_ecb *aes_ecb, u8 * c, const u8 * m,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_ecb->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_ecb->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-ecb context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_ecb, i == 0 ? "current" : "old",
-					    aes_ecb->aes_key);
-					rc = aes_key_sec2prot(aes_ecb->aes_key,
-					    i);
-					memcpy(param->protkey, protkey->protkey,
-					    sizeof(param->protkey));
+					    aes_ecb, i == 0 ? "current" : "old", aes_ecb->aes_key);
+					rc = aes_key_sec2prot(aes_ecb->aes_key, i);
+					memcpy(param->protkey, protkey->protkey, sizeof(param->protkey));
 
-					rv = pthread_mutex_unlock(&aes_ecb->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_ecb->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -288,21 +281,16 @@ zpc_aes_ecb_decrypt(struct zpc_aes_ecb *aes_ecb, u8 * m, const u8 * c,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_ecb->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_ecb->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-ecb context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_ecb, i == 0 ? "current" : "old",
-					    aes_ecb->aes_key);
-					rc = aes_key_sec2prot(aes_ecb->aes_key,
-					    i);
-					memcpy(param->protkey, protkey->protkey,
-					    sizeof(param->protkey));
+					    aes_ecb, i == 0 ? "current" : "old", aes_ecb->aes_key);
+					rc = aes_key_sec2prot(aes_ecb->aes_key, i);
+					memcpy(param->protkey, protkey->protkey, sizeof(param->protkey));
 
-					rv = pthread_mutex_unlock(&aes_ecb->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_ecb->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)

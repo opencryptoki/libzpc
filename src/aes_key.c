@@ -71,8 +71,7 @@ zpc_aes_key_alloc(struct zpc_aes_key **aes_key)
 		goto ret;
 	}
 	new_aes_key->refcount = 1;
-	DEBUG("aes key at %p: refcount %llu", new_aes_key,
-	    new_aes_key->refcount);
+	DEBUG("aes key at %p: refcount %llu", new_aes_key, new_aes_key->refcount);
 
 	*aes_key = new_aes_key;
 	rc = 0;
@@ -183,8 +182,7 @@ zpc_aes_key_set_type(struct zpc_aes_key *aes_key, int type)
 	if (aes_key->type_set == 1 && aes_key->type != type
 	    && aes_key->mkvp_set == 1) {
 		/* Update mkvp-based apqn choices in case of type change. */
-		DEBUG("aes key at %p: update apqns to match type %d", aes_key,
-		    type);
+		DEBUG("aes key at %p: update apqns to match type %d", aes_key, type);
 		free(aes_key->apqns);
 		aes_key->apqns = NULL;
 		aes_key->napqns = 0;
@@ -315,8 +313,7 @@ zpc_aes_key_set_mkvp(struct zpc_aes_key *aes_key, const char *mkvp)
 	if (rc != 0)
 		goto ret;
 
-	DEBUG("aes key at %p: mkvp and %lu apqns set", aes_key,
-	    aes_key->napqns);
+	DEBUG("aes key at %p: mkvp and %lu apqns set", aes_key, aes_key->napqns);
 	memcpy(aes_key->mkvp, mkvpbuf, mkvpbuflen);
 	aes_key->apqns_set = 1;
 	aes_key->mkvp_set = 1;
@@ -743,10 +740,8 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 			goto ret;
 		}
 
-		DEBUG("aes key at %p: key set to generated protected key",
-		    aes_key);
-		memcpy(&aes_key->prot, &genprotk.protkey,
-		    sizeof(aes_key->prot));
+		DEBUG("aes key at %p: key set to generated protected key", aes_key);
+		memcpy(&aes_key->prot, &genprotk.protkey, sizeof(aes_key->prot));
 		aes_key->rand_protk = 1;
 		aes_key->key_set = 1;
 		rc = 0;
