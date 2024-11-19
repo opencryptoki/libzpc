@@ -107,8 +107,7 @@ zpc_aes_gcm_set_key(struct zpc_aes_gcm *aes_gcm, struct zpc_aes_key *aes_key)
 		goto ret;
 
 	if (aes_gcm->aes_key == aes_key) {
-		DEBUG("aes-gcm context at %p: key at %p already set", aes_gcm,
-		    aes_key);
+		DEBUG("aes-gcm context at %p: key at %p already set", aes_gcm, aes_key);
 		rc = 0; /* nothing to do */
 		goto ret;
 	}
@@ -126,14 +125,12 @@ zpc_aes_gcm_set_key(struct zpc_aes_gcm *aes_gcm, struct zpc_aes_key *aes_key)
 	/* Set new key. */
 	assert(!aes_gcm->key_set);
 
-	DEBUG("aes-gcm context at %p: key at %p set, iv unset", aes_gcm,
-	    aes_key);
+	DEBUG("aes-gcm context at %p: key at %p set, iv unset", aes_gcm, aes_key);
 
 	memcpy(aes_gcm->param.protkey, aes_key->prot.protkey,
 	    sizeof(aes_gcm->param.protkey));
 
-	aes_gcm->fc =
-	    CPACF_KMA_GCM_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
+	aes_gcm->fc = CPACF_KMA_GCM_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
 
 	aes_gcm->aes_key = aes_key;
 	aes_gcm->key_set = 1;
@@ -272,22 +269,17 @@ zpc_aes_gcm_set_iv(struct zpc_aes_gcm *aes_gcm, const u8 * iv, size_t ivlen)
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_gcm->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_gcm->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-gcm context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_gcm, i == 0 ? "current" : "old",
-					    aes_gcm->aes_key);
-					rc = aes_key_sec2prot(aes_gcm->aes_key,
-					    i);
+					    aes_gcm, i == 0 ? "current" : "old", aes_gcm->aes_key);
+					rc = aes_key_sec2prot(aes_gcm->aes_key, i);
 
-					memcpy(param->protkey, protkey->protkey,
-					    sizeof(param->protkey));
+					memcpy(param->protkey, protkey->protkey, sizeof(param->protkey));
 
-					rv = pthread_mutex_unlock(&aes_gcm->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_gcm->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -405,21 +397,16 @@ zpc_aes_gcm_encrypt(struct zpc_aes_gcm *aes_gcm, u8 * c, u8 * tag,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_gcm->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_gcm->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-gcm context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_gcm, i == 0 ? "current" : "old",
-					    aes_gcm->aes_key);
-					rc = aes_key_sec2prot(aes_gcm->aes_key,
-					    i);
-					memcpy(param->protkey, protkey->protkey,
-					    sizeof(param->protkey));
+					    aes_gcm, i == 0 ? "current" : "old", aes_gcm->aes_key);
+					rc = aes_key_sec2prot(aes_gcm->aes_key, i);
+					memcpy(param->protkey, protkey->protkey, sizeof(param->protkey));
 
-					rv = pthread_mutex_unlock(&aes_gcm->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_gcm->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -541,21 +528,16 @@ zpc_aes_gcm_decrypt(struct zpc_aes_gcm *aes_gcm, u8 * m, const u8 * tag,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_gcm->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_gcm->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-gcm context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_gcm, i == 0 ? "current" : "old",
-					    aes_gcm->aes_key);
-					rc = aes_key_sec2prot(aes_gcm->aes_key,
-					    i);
-					memcpy(param->protkey, protkey->protkey,
-					    sizeof(param->protkey));
+					    aes_gcm, i == 0 ? "current" : "old", aes_gcm->aes_key);
+					rc = aes_key_sec2prot(aes_gcm->aes_key, i);
+					memcpy(param->protkey, protkey->protkey, sizeof(param->protkey));
 
-					rv = pthread_mutex_unlock(&aes_gcm->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_gcm->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -631,8 +613,7 @@ __aes_gcm_set_iv(struct zpc_aes_gcm *aes_gcm, const u8 * iv, size_t ivlen)
 
 		memset(param->j0, 0, sizeof(param->j0));
 
-		cc = cpacf_kma(aes_gcm->fc, param, NULL, (u8 *) ivpad, ivpadlen,
-		    NULL, 0);
+		cc = cpacf_kma(aes_gcm->fc, param, NULL, (u8 *) ivpad, ivpadlen, NULL, 0);
 		/* Either incomplete processing or WKaVP mismatch. */
 		assert(cc == 2 || cc == 1);
 		if (cc == 1) {

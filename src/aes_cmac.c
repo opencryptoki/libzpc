@@ -107,8 +107,7 @@ zpc_aes_cmac_set_key(struct zpc_aes_cmac *aes_cmac, struct zpc_aes_key *aes_key)
 
 	if (aes_cmac->aes_key == aes_key) {
 		__aes_cmac_reset_state(aes_cmac);
-		DEBUG("aes-cmac context at %p: key at %p already set", aes_cmac,
-		    aes_key);
+		DEBUG("aes-cmac context at %p: key at %p already set", aes_cmac, aes_key);
 		rc = 0;
 		goto ret;
 	}
@@ -126,8 +125,7 @@ zpc_aes_cmac_set_key(struct zpc_aes_cmac *aes_cmac, struct zpc_aes_key *aes_key)
 	/* Set new key. */
 	assert(!aes_cmac->key_set);
 
-	DEBUG("aes-cmac context at %p: key at %p set, iv unset", aes_cmac,
-	    aes_key);
+	DEBUG("aes-cmac context at %p: key at %p set, iv unset", aes_cmac, aes_key);
 
 	memset(&aes_cmac->param_kmac, 0, sizeof(aes_cmac->param_kmac));
 	memset(&aes_cmac->param_pcc, 0, sizeof(aes_cmac->param_pcc));
@@ -136,8 +134,7 @@ zpc_aes_cmac_set_key(struct zpc_aes_cmac *aes_cmac, struct zpc_aes_key *aes_key)
 	memcpy(aes_cmac->param_pcc.protkey, aes_key->prot.protkey,
 	    sizeof(aes_cmac->param_pcc.protkey));
 
-	aes_cmac->fc =
-	    CPACF_KMAC_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
+	aes_cmac->fc = CPACF_KMAC_ENCRYPTED_AES_128 + (aes_key->keysize - 128) / 64;
 
 	aes_cmac->aes_key = aes_key;
 	aes_cmac->key_set = 1;
@@ -204,8 +201,7 @@ zpc_aes_cmac_sign(struct zpc_aes_cmac *aes_cmac, u8 * tag, size_t taglen,
 		param_pcc = &aes_cmac->param_pcc;
 
 		for (;;) {
-			rc = __aes_cmac_crypt(aes_cmac, tag, taglen, m, mlen,
-			    flags);
+			rc = __aes_cmac_crypt(aes_cmac, tag, taglen, m, mlen, flags);
 			if (rc == 0) {
 				break;
 			} else {
@@ -214,26 +210,17 @@ zpc_aes_cmac_sign(struct zpc_aes_cmac *aes_cmac, u8 * tag, size_t taglen,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_cmac->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_cmac->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-cmac context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_cmac,
-					    i == 0 ? "current" : "old",
-					    aes_cmac->aes_key);
-					rc = aes_key_sec2prot(aes_cmac->aes_key,
-					    i);
-					memcpy(param_kmac->protkey,
-					    protkey->protkey,
-					    sizeof(param_kmac->protkey));
-					memcpy(param_pcc->protkey,
-					    protkey->protkey,
-					    sizeof(param_pcc->protkey));
+					    aes_cmac, i == 0 ? "current" : "old", aes_cmac->aes_key);
+					rc = aes_key_sec2prot(aes_cmac->aes_key, i);
+					memcpy(param_kmac->protkey, protkey->protkey, sizeof(param_kmac->protkey));
+					memcpy(param_pcc->protkey, protkey->protkey, sizeof(param_pcc->protkey));
 
-					rv = pthread_mutex_unlock(&aes_cmac->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_cmac->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -318,26 +305,17 @@ zpc_aes_cmac_verify(struct zpc_aes_cmac *aes_cmac, const u8 * tag,
 					goto ret;
 				}
 				if (rc == ZPC_ERROR_WKVPMISMATCH) {
-					rv = pthread_mutex_lock(&aes_cmac->
-					    aes_key->lock);
+					rv = pthread_mutex_lock(&aes_cmac->aes_key->lock);
 					assert(rv == 0);
 
 					DEBUG
 					    ("aes-cmac context at %p: re-derive protected key from %s secure key from aes key at %p",
-					    aes_cmac,
-					    i == 0 ? "current" : "old",
-					    aes_cmac->aes_key);
-					rc = aes_key_sec2prot(aes_cmac->aes_key,
-					    i);
-					memcpy(param_kmac->protkey,
-					    protkey->protkey,
-					    sizeof(param_kmac->protkey));
-					memcpy(param_pcc->protkey,
-					    protkey->protkey,
-					    sizeof(param_pcc->protkey));
+					    aes_cmac, i == 0 ? "current" : "old", aes_cmac->aes_key);
+					rc = aes_key_sec2prot(aes_cmac->aes_key, i);
+					memcpy(param_kmac->protkey, protkey->protkey, sizeof(param_kmac->protkey));
+					memcpy(param_pcc->protkey, protkey->protkey, sizeof(param_pcc->protkey));
 
-					rv = pthread_mutex_unlock(&aes_cmac->
-					    aes_key->lock);
+					rv = pthread_mutex_unlock(&aes_cmac->aes_key->lock);
 					assert(rv == 0);
 				}
 				if (rc)
@@ -390,8 +368,7 @@ __aes_cmac_crypt(struct zpc_aes_cmac *aes_cmac, u8 * tag, size_t taglen,
 		rem += 16;
 	}
 	if (inlen) {
-		cc = cpacf_kmac(aes_cmac->fc | flags, &aes_cmac->param_kmac, in,
-		    inlen);
+		cc = cpacf_kmac(aes_cmac->fc | flags, &aes_cmac->param_kmac, in, inlen);
 		assert(cc == 0 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -445,7 +422,6 @@ __aes_cmac_reset_state(struct zpc_aes_cmac *aes_cmac)
 
 	memset(aes_cmac->param_kmac.icv, 0, sizeof(aes_cmac->param_kmac.icv));
 	memset(&aes_cmac->param_pcc.icv, 0, sizeof(aes_cmac->param_pcc.icv));
-	memset(&aes_cmac->param_pcc.message, 0,
-	    sizeof(aes_cmac->param_pcc.message));
+	memset(&aes_cmac->param_pcc.message, 0, sizeof(aes_cmac->param_pcc.message));
 	aes_cmac->param_pcc.ml = 0;
 }
