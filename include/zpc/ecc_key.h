@@ -28,6 +28,8 @@ extern "C" {
  */
 #define ZPC_EC_KEY_TYPE_CCA                       0x1f
 #define ZPC_EC_KEY_TYPE_EP11                      7
+#define ZPC_EC_KEY_TYPE_PVSECRET                  9
+   
 
 #define ZPC_EC_KEY_REENCIPHER_OLD_TO_CURRENT      1
 #define ZPC_EC_KEY_REENCIPHER_CURRENT_TO_NEW      2
@@ -41,6 +43,16 @@ typedef enum {
 	ZPC_EC_CURVE_ED25519,
 	ZPC_EC_CURVE_ED448
 } zpc_ec_curve_t;
+
+typedef enum {
+	ZPC_EC_SECRET_TYPE_NOT_SET = -2,
+	ZPC_EC_SECRET_TYPE_INVALID = -1,
+	ZPC_EC_SECRET_ECDSA_P256 = 0x0011, /* architected key types, also below */
+	ZPC_EC_SECRET_ECDSA_P384 = 0x0012,
+	ZPC_EC_SECRET_ECDSA_P521 = 0x0013,
+	ZPC_EC_SECRET_EDDSA_ED25519 = 0x0014,
+	ZPC_EC_SECRET_EDDSA_ED448 = 0x0015,
+} zpc_ecsecret_type_t;
 
 struct zpc_ec_key;
 
@@ -83,7 +95,8 @@ int zpc_ec_key_set_flags(struct zpc_ec_key *key, unsigned int flags);
  * Set the EC key Master Key Verification Pattern.
  * \param[in,out] key EC key
  * \param[in] mkvp master key verification pattern (8 bytes for CCA keys, 16
- * or 32 bytes for EP11 keys, only the first 16 bytes are relevant)
+ * or 32 bytes for EP11 keys, only the first 16 bytes are relevant).
+ * This function has no effect for keys of type PVSECRET.
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))
@@ -93,6 +106,7 @@ int zpc_ec_key_set_mkvp(struct zpc_ec_key *key, const char *mkvp);
  * Set the EC key APQNs
  * \param[in,out] key EC key
  * \param[in] apqns NULL-terminated APQN list
+ * This function has no effect for keys of type PVSECRET.
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))
@@ -124,6 +138,9 @@ int zpc_ec_key_import(struct zpc_ec_key *key, const unsigned char *seckey,
  * application is responsible for providing valid key parts or pairs.
  * Public keys are considered to be the concatenated X and Y values without
  * a leading 0x04 byte that would indicate an uncompressed public key.
+ * For PVSECRET type keys it is possible to add the public key to the key object
+ * by importing the clear public key. The privkey parm must be NULL and privlen
+ * must be 0 when doing this.
  * \param[in,out] key EC key
  * \param[in] pubkey an uncompressed EC public key (can be NULL)
  * \param[in] publen EC public key length [bytes]
@@ -178,6 +195,8 @@ int zpc_ec_key_generate(struct zpc_ec_key *key);
  * \param[in,out] key EC key
  * \param[in] reenc ZPC_EC_KEY_REENCIPHER_OLD_TO_CURRENT
  *     or ZPC_EC_KEY_REENCIPHER_CURRENT_TO_NEW
+ * This function is not applicable for pvsecret-type keys and returns
+ * ZPC_ERROR_KEYTYPE when called for such keys.
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))

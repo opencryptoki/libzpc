@@ -33,6 +33,14 @@ extern const size_t curve2macedspkilen[];
 extern const size_t curve2rawspkilen[];
 extern const u32 curve2pkey_keytype[];
 
+const u16 curve2pvsecret_type[] = {
+	ZPC_EC_SECRET_ECDSA_P256,
+	ZPC_EC_SECRET_ECDSA_P384,
+	ZPC_EC_SECRET_ECDSA_P521,
+	ZPC_EC_SECRET_EDDSA_ED25519,
+	ZPC_EC_SECRET_EDDSA_ED448,
+};
+
 static void __ec_key_reset(struct zpc_ec_key *);
 static int ec_key_check_ep11_spki(const struct zpc_ec_key *ec_key,
 						const unsigned char *spki, unsigned int spki_len);
@@ -47,6 +55,9 @@ static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key,
 static int ec_key_blob_is_pkey_extractable(struct zpc_ec_key *ec_key,
 						const unsigned char *buf);
 static int ec_key_apqns_have_valid_version(struct zpc_ec_key *ec_key);
+int ec_key_pvsec2prot(struct zpc_ec_key *ec_key);
+int ec_key_blob_is_valid_pvsecret_id(struct zpc_ec_key *ec_key,
+						const unsigned char *id);
 
 
 int zpc_ec_key_alloc(struct zpc_ec_key **ec_key)
@@ -179,6 +190,7 @@ int zpc_ec_key_set_type(struct zpc_ec_key *ec_key, int type)
 	switch (type) {
 	case ZPC_EC_KEY_TYPE_CCA:        /* fall-through */
 	case ZPC_EC_KEY_TYPE_EP11:
+	case ZPC_EC_KEY_TYPE_PVSECRET:
 		break;
 	default:
 		rc = ZPC_ERROR_KEYTYPE;
@@ -190,6 +202,8 @@ int zpc_ec_key_set_type(struct zpc_ec_key *ec_key, int type)
 		return ZPC_ERROR_CCA_HOST_LIB_NOT_AVAILABLE;
 	else if (!swcaps.ecdsa_ep11 && type == ZPC_EC_KEY_TYPE_EP11)
 		return ZPC_ERROR_EP11_HOST_LIB_NOT_AVAILABLE;
+	else if (!swcaps.uv_pvsecrets && type == ZPC_EC_KEY_TYPE_PVSECRET)
+		return ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE;
 
 	rv = pthread_mutex_lock(&ec_key->lock);
 	assert(rv == 0);
@@ -331,6 +345,11 @@ int zpc_ec_key_set_mkvp(struct zpc_ec_key *ec_key, const char *mkvp)
 	ec_key->napqns = 0;
 	ec_key->apqns_set = 0;
 
+	if (ec_key->type == ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = 0; /* function has no effect */
+		goto ret;
+	}
+
 	rc = alloc_apqns_from_mkvp(pkeyfd, &(ec_key->apqns), &(ec_key->napqns),
 							mkvpbuf, ec_key->type);
 	if (rc != 0)
@@ -389,6 +408,11 @@ int zpc_ec_key_set_apqns(struct zpc_ec_key *ec_key, const char *apqns[])
 		ec_key->napqns = 0;
 		ec_key->apqns_set = 0;
 		rc = 0;
+		goto ret;
+	}
+
+	if (ec_key->type == ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = 0; /* function has no effect */
 		goto ret;
 	}
 
@@ -601,16 +625,24 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 		return ZPC_ERROR_ARG2NULL;
 	}
 
-	if (buflen < MIN_EC_BLOB_SIZE || buflen > MAX_EC_BLOB_SIZE) {
-		return ZPC_ERROR_ARG3RANGE;
-	}
-
 	rv = pthread_mutex_lock(&ec_key->lock);
 	assert(rv == 0);
 
 	if (ec_key->refcount != 1) {
 		rc = ZPC_ERROR_OBJINUSE;
 		goto ret;
+	}
+
+	if (ec_key->type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		if (buflen < MIN_EC_BLOB_SIZE || buflen > MAX_EC_BLOB_SIZE) {
+			rc = ZPC_ERROR_ARG3RANGE;
+			goto ret;
+		}
+	} else {
+		if (buflen != UV_SECRET_ID_LEN) {
+			rc = ZPC_ERROR_ARG3RANGE;
+			goto ret;
+		}
 	}
 
 	if (ec_key->curve_set != 1) {
@@ -632,14 +664,23 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 		goto ret;
 	}
 
-	if (!ec_key_blob_has_valid_mkvp(ec_key, buf)) {
-		rc = ZPC_ERROR_WKVPMISMATCH;
-		goto ret;
+	if (ec_key->type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		if (!ec_key_blob_has_valid_mkvp(ec_key, buf)) {
+			rc = ZPC_ERROR_WKVPMISMATCH;
+			goto ret;
+		}
+
+		if (!ec_key_blob_is_pkey_extractable(ec_key, buf)) {
+			rc = ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE;
+			goto ret;
+		}
 	}
 
-	if (!ec_key_blob_is_pkey_extractable(ec_key, buf)) {
-		rc = ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE;
-		goto ret;
+	if (ec_key->type == ZPC_EC_KEY_TYPE_PVSECRET) {
+		if (ec_key_blob_is_valid_pvsecret_id(ec_key, buf) != 0) {
+			rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV;
+			goto ret;
+		}
 	}
 
 	/* In case of ep11, the imported buffer may contain the actual secure key
@@ -673,7 +714,7 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 		assert(rv == 0);
 		if (rc != 0 || ec_key->pub.publen == 0)
 			ec_key->pubkey_set = 0;
-	} else {
+	} else if (ec_key->type == ZPC_EC_KEY_TYPE_EP11){
 		if (!swcaps.ecdsa_ep11) {
 			rc = 0;
 			goto ret;
@@ -699,6 +740,11 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 		assert(rv == 0);
 		if (rc != 0 || ec_key->pub.publen == 0)
 			ec_key->pubkey_set = 0;
+	} else {
+		/* PVSECRET: not possible to calculate public key from secret */
+		ec_key->pubkey_set = 0;
+		rc = 0;
+		goto ret;
 	}
 
 	/* At this point the secure key blob is imported.
@@ -777,17 +823,16 @@ int zpc_ec_key_import_clear(struct zpc_ec_key *ec_key, const unsigned char *pubk
 		rc = ZPC_ERROR_OBJINUSE;
 		goto ret;
 	}
-
-	if (ec_key->apqns_set != 1) {
-		rc = ZPC_ERROR_APQNSNOTSET;
-		goto ret;
-	}
 	if (ec_key->curve_set != 1) {
 		rc = ZPC_ERROR_EC_CURVE_NOTSET;
 		goto ret;
 	}
 	if (ec_key->type_set != 1) {
 		rc = ZPC_ERROR_KEYTYPENOTSET;
+		goto ret;
+	}
+	if (ec_key->type != ZPC_EC_KEY_TYPE_PVSECRET && ec_key->apqns_set != 1) {
+		rc = ZPC_ERROR_APQNSNOTSET;
 		goto ret;
 	}
 	flags = ec_key->flags_set == 1 ? ec_key->flags : 0;
@@ -905,6 +950,11 @@ int zpc_ec_key_generate(struct zpc_ec_key *ec_key)
 
 	if (ec_key->refcount != 1) {
 		rc = ZPC_ERROR_OBJINUSE;
+		goto ret;
+	}
+
+	if (ec_key->type == ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = ZPC_ERROR_KEYTYPE;
 		goto ret;
 	}
 
@@ -1033,6 +1083,11 @@ int zpc_ec_key_reencipher(struct zpc_ec_key *ec_key, unsigned int method)
 	}
 	if (ec_key->type_set == 0) {
 		rc = ZPC_ERROR_KEYTYPENOTSET;
+		goto ret;
+	}
+	if (ec_key->type == ZPC_EC_KEY_TYPE_PVSECRET) {
+		/* reencipher not applicable for pvsecrets */
+		rc = ZPC_ERROR_KEYTYPE;
 		goto ret;
 	}
 	if (ec_key->apqns_set == 0 || ec_key->napqns == 0) {
@@ -1194,6 +1249,92 @@ static void __ec_key_reset(struct zpc_ec_key *ec_key)
 	ec_key->refcount = 1;
 }
 
+u16 ecprotkeylen_from_pvsectype(u16 pvsectype)
+{
+	switch (pvsectype) {
+	case ZPC_EC_SECRET_ECDSA_P256:
+		return 32 + 32;
+	case ZPC_EC_SECRET_ECDSA_P384:
+		return 48 + 32;
+	case ZPC_EC_SECRET_ECDSA_P521:
+		return 80 + 32;
+	case ZPC_EC_SECRET_EDDSA_ED25519:
+		return 32 + 32;
+	case ZPC_EC_SECRET_EDDSA_ED448:
+		return 64 + 32;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+void ec_key_make_uvrsecrettoken(struct zpc_ec_key *ec_key, const unsigned char *id,
+				unsigned char *buf)
+{
+	struct uvrsecrettoken *clrtok = (struct uvrsecrettoken *)buf;
+
+	clrtok->version = TOKVER_UV_SECRET;
+	clrtok->secret_type = curve2pvsecret_type[ec_key->curve];
+	clrtok->secret_len = ecprotkeylen_from_pvsectype(clrtok->secret_type);
+	memcpy(clrtok->secret_id, id, UV_SECRET_ID_LEN);
+}
+
+/*
+ * Verify that a given pvsecret ID is a valid ID on this system, i.e. an UV
+ * secret exists with this ID and has the expected key length.
+ */
+int ec_key_blob_is_valid_pvsecret_id(struct zpc_ec_key *ec_key, const unsigned char *id)
+{
+	struct pkey_verifykey2 io;
+	unsigned char buf[sizeof(struct uvrsecrettoken)] = { 0, };
+	int rc;
+
+	ec_key_make_uvrsecrettoken(ec_key, id, buf);
+
+	memset(&io, 0, sizeof(io));
+	io.key = buf;
+	io.keylen = sizeof(struct uvrsecrettoken);
+
+	errno = 0;
+	rc = ioctl(pkeyfd, PKEY_VERIFYKEY2, &io);
+	if (rc != 0) {
+		DEBUG("ec key at %p: PKEY_VERIFYKEY2 ioctl failed, errno = %d", ec_key, errno);
+		return ZPC_ERROR_IOCTLVERIFYKEY2;
+	}
+
+	return 0;
+}
+
+/*
+ * (Re)derive protected key from a retrievable secret ID.
+ * Caller must hold aes_key's wr lock.
+ */
+int ec_key_pvsec2prot(struct zpc_ec_key *ec_key)
+{
+	struct pkey_kblob2pkey3 io;
+	unsigned char buf[sizeof(struct uvrsecrettoken)] = { 0, };
+	int rc;
+
+	ec_key_make_uvrsecrettoken(ec_key, ec_key->cur.sec, buf);
+
+	memset(&io, 0, sizeof(io));
+	io.key = buf;
+	io.keylen = sizeof(struct uvrsecrettoken);
+	io.pkeytype = ec_key->type;
+	io.pkeylen = sizeof(ec_key->prot.protkey);
+	io.pkey = (unsigned char *)&ec_key->prot.protkey;
+
+	errno = 0;
+	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK3, &io);
+	if (rc != 0) {
+		DEBUG("ec key at %p: PKEY_VERIFYKEY2 ioctl failed, errno = %d", ec_key, errno);
+		return ZPC_ERROR_IOCTLBLOB2PROTK3;
+	}
+
+	return 0;
+}
+
 int ec_key_clr2sec(struct zpc_ec_key *ec_key, unsigned int flags,
 			const unsigned char *pubkey, unsigned int publen,
 			const unsigned char *privkey, unsigned int privlen)
@@ -1263,7 +1404,9 @@ int ec_key_sec2prot(struct zpc_ec_key *ec_key, enum ec_key_sec sec)
 		key = &ec_key->old;
 	assert(key != NULL);
 
-	if (ec_key->type == ZPC_EC_KEY_TYPE_EP11)
+	if (ec_key->type == ZPC_EC_KEY_TYPE_PVSECRET)
+		return ec_key_pvsec2prot(ec_key);
+	else if (ec_key->type == ZPC_EC_KEY_TYPE_EP11)
 		keybuf_len = key->seclen + sizeof(struct ep11kblob_header);
 	else
 		keybuf_len = key->seclen;
