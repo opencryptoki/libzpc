@@ -32,6 +32,9 @@ static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key,
 								const unsigned char *buf, size_t buflen);
 static int aes_key_add_ep11_header(struct zpc_aes_key *aes_key);
 static int aes_key_blob_has_a_session(struct zpc_aes_key *aes_key);
+int aes_key_pvsec2prot(struct zpc_aes_key *aes_key);
+int aes_key_blob_is_valid_pvsecret_id(struct zpc_aes_key *aes_key,
+								const unsigned char *id);
 
 int
 zpc_aes_key_alloc(struct zpc_aes_key **aes_key)
@@ -164,6 +167,13 @@ zpc_aes_key_set_type(struct zpc_aes_key *aes_key, int type)
 	case ZPC_AES_KEY_TYPE_CCA_DATA:        /* fall-through */
 	case ZPC_AES_KEY_TYPE_CCA_CIPHER:      /* fall-through */
 	case ZPC_AES_KEY_TYPE_EP11:
+		break;
+	case ZPC_AES_KEY_TYPE_PVSECRET:
+		if (!swcaps.uv_pvsecrets) {
+			rc = ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE;
+			DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+			return rc;
+		}
 		break;
 	default:
 		rc = ZPC_ERROR_KEYTYPE;
@@ -308,6 +318,11 @@ zpc_aes_key_set_mkvp(struct zpc_aes_key *aes_key, const char *mkvp)
 	aes_key->napqns = 0;
 	aes_key->apqns_set = 0;
 
+	if (aes_key->type == ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = 0; /* function has no effect */
+		goto ret;
+	}
+
 	rc = alloc_apqns_from_mkvp(pkeyfd, &(aes_key->apqns), &(aes_key->napqns),
 							mkvpbuf, aes_key->type);
 	if (rc != 0)
@@ -357,6 +372,11 @@ zpc_aes_key_set_apqns(struct zpc_aes_key *aes_key, const char *apqns[])
 		aes_key->napqns = 0;
 		aes_key->apqns_set = 0;
 		rc = 0;
+		goto ret;
+	}
+
+	if (aes_key->type == ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = 0; /* function has no effect */
 		goto ret;
 	}
 
@@ -456,6 +476,10 @@ zpc_aes_key_import_clear(struct zpc_aes_key *aes_key, const unsigned char *key)
 	}
 	if (aes_key->type_set != 1) {
 		rc = ZPC_ERROR_KEYTYPENOTSET;
+		goto ret;
+	}
+	if (aes_key->type == ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = ZPC_ERROR_KEYTYPE;
 		goto ret;
 	}
 	flags = aes_key->flags_set == 1 ? aes_key->flags : 0;
@@ -614,9 +638,6 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 	if (buf == NULL) {
 		return ZPC_ERROR_ARG2NULL;
 	}
-	if (buflen < MIN_SECURE_KEY_SIZE || buflen > MAX_SECURE_KEY_SIZE) {
-		return ZPC_ERROR_ARG3RANGE;
-	}
 
 	rv = pthread_mutex_lock(&aes_key->lock);
 	assert(rv == 0);
@@ -625,7 +646,17 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 		rc = ZPC_ERROR_OBJINUSE;
 		goto ret;
 	}
-
+	if (aes_key->type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		if (buflen < MIN_SECURE_KEY_SIZE || buflen > MAX_SECURE_KEY_SIZE) {
+			rc = ZPC_ERROR_ARG3RANGE;
+			goto ret;
+		}
+	} else {
+		if (buflen != UV_SECRET_ID_LEN) {
+			rc = ZPC_ERROR_ARG3RANGE;
+			goto ret;
+		}
+	}
 	if (aes_key->keysize_set != 1) {
 		rc = ZPC_ERROR_KEYSIZENOTSET;
 		goto ret;
@@ -652,14 +683,21 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 		goto ret;
 	}
 
-	if (!aes_key_blob_has_valid_mkvp(aes_key, buf, buflen)) {
-		rc = ZPC_ERROR_WKVPMISMATCH;
-		goto ret;
-	}
+	if (aes_key->type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		if (!aes_key_blob_has_valid_mkvp(aes_key, buf, buflen)) {
+			rc = ZPC_ERROR_WKVPMISMATCH;
+			goto ret;
+		}
 
-	if (!aes_key_blob_is_pkey_extractable(aes_key, buf, buflen)) {
-		rc = ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE;
-		goto ret;
+		if (!aes_key_blob_is_pkey_extractable(aes_key, buf, buflen)) {
+			rc = ZPC_ERROR_BLOB_NOT_PKEY_EXTRACTABLE;
+			goto ret;
+		}
+	} else {
+		if (aes_key_blob_is_valid_pvsecret_id(aes_key, buf) != 0) {
+			rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV;
+			goto ret;
+		}
 	}
 
 	memset(aes_key->cur.sec, 0, sizeof(aes_key->cur.sec));
@@ -707,6 +745,11 @@ zpc_aes_key_generate(struct zpc_aes_key *aes_key)
 
 	if (aes_key->refcount != 1) {
 		rc = ZPC_ERROR_OBJINUSE;
+		goto ret;
+	}
+
+	if (aes_key->type == ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = ZPC_ERROR_KEYTYPE;
 		goto ret;
 	}
 
@@ -869,6 +912,11 @@ zpc_aes_key_reencipher(struct zpc_aes_key *aes_key, int method)
 		rc = ZPC_ERROR_KEYTYPENOTSET;
 		goto ret;
 	}
+	if (aes_key->type == ZPC_AES_KEY_TYPE_PVSECRET) {
+		/* reencipher not applicable for pvsecrets */
+		rc = ZPC_ERROR_KEYTYPE;
+		goto ret;
+	}
 	if (aes_key->apqns_set == 0 || aes_key->napqns == 0) {
 		rc = ZPC_ERROR_APQNSNOTSET;
 		goto ret;
@@ -1029,6 +1077,98 @@ __aes_key_reset(struct zpc_aes_key *aes_key)
 	aes_key->refcount = 1;
 }
 
+u16 aesprotkeylen_from_pvsectype(u16 pvsectype)
+{
+	switch (pvsectype) {
+	case ZPC_AES_SECRET_AES_128:
+		return 16 + 32;
+	case ZPC_AES_SECRET_AES_192:
+		return 24 + 32;
+	case ZPC_AES_SECRET_AES_256:
+		return 32 + 32;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+void aes_key_make_uvrsecrettoken(struct zpc_aes_key *aes_key, const unsigned char *id,
+				unsigned char *buf)
+{
+	struct uvrsecrettoken *clrtok = (struct uvrsecrettoken *)buf;
+
+	clrtok->version = TOKVER_UV_SECRET;
+	switch (aes_key->keysize) {
+	case 128:
+		clrtok->secret_type = ZPC_AES_SECRET_AES_128;
+		break;
+	case 192:
+		clrtok->secret_type = ZPC_AES_SECRET_AES_192;
+		break;
+	default:
+		clrtok->secret_type = ZPC_AES_SECRET_AES_256;
+		break;
+	}
+	clrtok->secret_len = aesprotkeylen_from_pvsectype(clrtok->secret_type);
+	memcpy(clrtok->secret_id, id, UV_SECRET_ID_LEN);
+}
+
+/*
+ * Verify that a given pvsecret ID is a valid ID on this system, i.e. an UV
+ * secret exists with this ID and has the expected key length.
+ */
+int aes_key_blob_is_valid_pvsecret_id(struct zpc_aes_key *aes_key, const unsigned char *id)
+{
+	struct pkey_verifykey2 io;
+	unsigned char buf[sizeof(struct uvrsecrettoken)] = { 0, };
+	int rc;
+
+	aes_key_make_uvrsecrettoken(aes_key, id, buf);
+
+	memset(&io, 0, sizeof(io));
+	io.key = buf;
+	io.keylen = sizeof(struct uvrsecrettoken);
+
+	errno = 0;
+	rc = ioctl(pkeyfd, PKEY_VERIFYKEY2, &io);
+	if (rc != 0) {
+		DEBUG("aes key at %p: PKEY_VERIFYKEY2 ioctl failed, errno = %d", aes_key, errno);
+		return ZPC_ERROR_IOCTLVERIFYKEY2;
+	}
+
+	return 0;
+}
+
+/*
+ * (Re)derive protected key from a retrievable secret ID.
+ * Caller must hold aes_key's wr lock.
+ */
+int aes_key_pvsec2prot(struct zpc_aes_key *aes_key)
+{
+	struct pkey_kblob2pkey3 io;
+	unsigned char buf[sizeof(struct uvrsecrettoken)] = { 0, };
+	int rc;
+
+	aes_key_make_uvrsecrettoken(aes_key, aes_key->cur.sec, buf);
+
+	memset(&io, 0, sizeof(io));
+	io.key = buf;
+	io.keylen = sizeof(struct uvrsecrettoken);
+	io.pkeytype = aes_key->type;
+	io.pkeylen = sizeof(aes_key->prot.protkey);
+	io.pkey = (unsigned char *)&aes_key->prot.protkey;
+
+	errno = 0;
+	rc = ioctl(pkeyfd, PKEY_KBLOB2PROTK3, &io);
+	if (rc != 0) {
+		DEBUG("aes key at %p: PKEY_KBLOB2PROTK3 ioctl failed, errno = %d", aes_key, errno);
+		return ZPC_ERROR_IOCTLBLOB2PROTK3;
+	}
+
+	return 0;
+}
+
 /*
  * (Re)derive protected key from a secure key.
  * Caller must hold aes_key's wr lock.
@@ -1156,9 +1296,11 @@ done:
  */
 int aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 {
-	if (aes_key->type == ZPC_AES_KEY_TYPE_EP11) {
-		struct aes_key *key = NULL;
-		size_t keylen;
+	struct aes_key *key = NULL;
+	size_t keylen;
+
+	switch (aes_key->type) {
+	case ZPC_AES_KEY_TYPE_EP11:
 		assert(sec == AES_KEY_SEC_OLD || sec == AES_KEY_SEC_CUR);
 		if (sec == AES_KEY_SEC_CUR) {
 			key = &aes_key->cur;
@@ -1170,9 +1312,13 @@ int aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 		assert(key != NULL);
 		if (is_ep11_aes_key_with_header(key->sec, keylen))
 			return aes_key_sec2prot_with_header(aes_key, sec);
+		else
+			return aes_key_sec2prot_without_header(aes_key, sec);
+	case ZPC_AES_KEY_TYPE_PVSECRET:
+		return aes_key_pvsec2prot(aes_key);
+	default:
+		return aes_key_sec2prot_without_header(aes_key, sec);
 	}
-
-	return aes_key_sec2prot_without_header(aes_key, sec);
 }
 
 int aes_key_clr2prot(struct zpc_aes_key *aes_key, const unsigned char *key,

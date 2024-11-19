@@ -29,9 +29,18 @@ extern "C" {
 # define ZPC_AES_KEY_TYPE_CCA_DATA     1
 # define ZPC_AES_KEY_TYPE_CCA_CIPHER   2
 # define ZPC_AES_KEY_TYPE_EP11         3
+# define ZPC_AES_KEY_TYPE_PVSECRET     9 
 
 # define ZPC_AES_KEY_REENCIPHER_OLD_TO_CURRENT    1
 # define ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW    2
+
+typedef enum {
+	ZPC_AES_SECRET_TYPE_NOT_SET = -2,
+	ZPC_AES_SECRET_TYPE_INVALID = -1,
+	ZPC_AES_SECRET_AES_128 = 0x04, /* architected key types, also below */
+	ZPC_AES_SECRET_AES_192 = 0x05,
+	ZPC_AES_SECRET_AES_256 = 0x06,
+} zpc_aessecret_type_t;
 
 struct zpc_aes_key;
 
@@ -53,8 +62,8 @@ int zpc_aes_key_set_size(struct zpc_aes_key *key, int size);
 /**
  * Set the AES key type. 
  * \param[in,out] key AES key
- * \param[in] type ZPC_AES_KEY_TYPE_CCA_DATA, ZPC_AES_KEY_TYPE_CCA_CIPHER
- *     or  ZPC_AES_KEY_TYPE_EP11
+ * \param[in] type ZPC_AES_KEY_TYPE_CCA_DATA, ZPC_AES_KEY_TYPE_CCA_CIPHER,
+ *     ZPC_AES_KEY_TYPE_EP11, or ZPC_AES_KEY_TYPE_PVSECRET
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))
@@ -71,6 +80,7 @@ int zpc_aes_key_set_flags(struct zpc_aes_key *key, unsigned int flags);
  * Set the AES key Master Key Verification Pattern. 
  * \param[in,out] key AES key
  * \param[in] mkvp master key verification pattern
+ * This function has no effect for keys of type PVSECRET.
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))
@@ -79,6 +89,7 @@ int zpc_aes_key_set_mkvp(struct zpc_aes_key *key, const char *mkvp);
  * Set the AES key APQNs 
  * \param[in,out] key AES key
  * \param[in] apqns NULL-terminated APQN list
+ * This function has no effect for keys of type PVSECRET.
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))
@@ -124,6 +135,8 @@ int zpc_aes_key_generate(struct zpc_aes_key *key);
  * \param[in,out] key AES key
  * \param[in] reenc ZPC_AES_KEY_REENCIPHER_OLD_TO_CURRENT
  *     or ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW
+ * This function is not applicable for keys of type PVSECRET and returns
+ * ZPC_ERROR_KEYTYPE when called for such keys.
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))
