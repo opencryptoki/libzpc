@@ -151,8 +151,14 @@ TEST(ecdsa_ctx, set_key)
 	rc = zpc_ec_key_set_flags(ec_key, flags);
 	EXPECT_EQ(rc, 0);
 
-	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
 
 	rc = zpc_ecdsa_ctx_set_key(NULL, NULL);
 	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
@@ -164,6 +170,7 @@ TEST(ecdsa_ctx, set_key)
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx, ec_key);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_ecdsa_ctx_free(&ec_ctx);
 	EXPECT_EQ(ec_ctx, nullptr);
 	zpc_ec_key_free(&ec_key);
@@ -214,8 +221,15 @@ TEST(ecdsa_ctx, sign)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_ec_key_set_flags(ec_key, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_generate(ec_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_generate(ec_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
 
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx, ec_key);
 	EXPECT_EQ(rc, 0);
@@ -232,6 +246,7 @@ TEST(ecdsa_ctx, sign)
 	rc = zpc_ecdsa_sign(ec_ctx, msg, msg_len, signature, &sig_len);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_ecdsa_ctx_free(&ec_ctx);
 	EXPECT_EQ(ec_ctx, nullptr);
 	zpc_ec_key_free(&ec_key);
@@ -294,8 +309,15 @@ TEST(ecdsa_ctx, verify)
 	rc = zpc_ec_key_set_flags(ec_key, flags);
 	EXPECT_EQ(rc, 0);
 
-	rc = zpc_ec_key_generate(ec_key);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_generate(ec_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
+
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx, ec_key);
 	EXPECT_EQ(rc, 0);
 
@@ -359,6 +381,7 @@ TEST(ecdsa_ctx, verify)
 	rc = zpc_ecdsa_verify(ec_ctx, hash, hash_len, sig, sig_len);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_ecdsa_ctx_free(&ec_ctx);
 	EXPECT_EQ(ec_ctx, nullptr);
 	zpc_ec_key_free(&ec_key);
@@ -426,8 +449,16 @@ TEST(ecdsa_ctx, sv)
 	}
 	rc = zpc_ec_key_set_flags(ec_key1, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_import_clear(ec_key1, pubkey, pubkeylen, privkey, privkeylen);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_import_clear(ec_key1, pubkey, pubkeylen, privkey, privkeylen);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key1, type, curve);
+		if (rc)
+			goto ret;
+	}
+
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx1, ec_key1);
 	EXPECT_EQ(rc, 0);
 
@@ -445,8 +476,16 @@ TEST(ecdsa_ctx, sv)
 	}
 	rc = zpc_ec_key_set_flags(ec_key2, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_import_clear(ec_key2, pubkey, pubkeylen, privkey, privkeylen);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_import_clear(ec_key2, pubkey, pubkeylen, privkey, privkeylen);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key2, type, curve);
+		if (rc)
+			goto ret;
+	}
+
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx2, ec_key2);
 	EXPECT_EQ(rc, 0);
 
@@ -459,12 +498,15 @@ TEST(ecdsa_ctx, sv)
 	/* Verify created signature with 2nd key */
 	rc = zpc_ecdsa_verify(ec_ctx2, hash, hash_len, sigbuf, sig_len);
 	EXPECT_EQ(rc, 0);
-	/* Verify known signature from test vector with 1st key */
-	rc = zpc_ecdsa_verify(ec_ctx1, hash, hash_len, sig, sig_len);
-	EXPECT_EQ(rc, 0);
-	/* Verify known signature from test vector with 2nd key */
-	rc = zpc_ecdsa_verify(ec_ctx2, hash, hash_len, sig, sig_len);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		/* Verify known signature from test vector with 1st key */
+		rc = zpc_ecdsa_verify(ec_ctx1, hash, hash_len, sig, sig_len);
+		EXPECT_EQ(rc, 0);
+		/* Verify known signature from test vector with 2nd key */
+		rc = zpc_ecdsa_verify(ec_ctx2, hash, hash_len, sig, sig_len);
+		EXPECT_EQ(rc, 0);
+	}
 
 	/* Create a random key. Note that random EC protected keys are not possible,
 	 * because, unlike AES, we always have to create a secure key first via
@@ -475,8 +517,16 @@ TEST(ecdsa_ctx, sv)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_ec_key_set_curve(ec_key1, curve);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_generate(ec_key1);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_generate(ec_key1);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key1, type, curve);
+		if (rc)
+			goto ret;
+	}
+
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx1, ec_key1);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx2, ec_key1);
@@ -494,6 +544,7 @@ TEST(ecdsa_ctx, sv)
 	rc = zpc_ecdsa_verify(ec_ctx1, hash, hash_len, sigbuf, sig_len);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_ec_key_free(&ec_key1);
 	EXPECT_EQ(ec_key1, nullptr);
 	zpc_ec_key_free(&ec_key2);
@@ -506,7 +557,16 @@ TEST(ecdsa_ctx, sv)
 
 TEST(ecdsa_ctx, wycheproof_kat)
 {
+	int type;
+
 	TESTLIB_ENV_EC_KEY_CHECK();
+
+	type = testlib_env_ec_key_type();
+	
+	TESTLIB_EC_SW_CAPS_CHECK(type);
+
+	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping wycheproof_kat test. KATs cannot be performed with UV secrets.");
 
 	__run_json("wycheproof/src/wycheproof/testvectors/ecdsa_webcrypto_test.json");
 	__run_json("wycheproof/src/wycheproof/testvectors/eddsa_test.json");
@@ -515,7 +575,16 @@ TEST(ecdsa_ctx, wycheproof_kat)
 
 TEST(ecdsa_ctx, nist_kat)
 {
+	int type;
+
 	TESTLIB_ENV_EC_KEY_CHECK();
+
+	type = testlib_env_ec_key_type();
+	
+	TESTLIB_EC_SW_CAPS_CHECK(type);
+
+	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping nist_kat test. KATs cannot be performed with UV secrets.");
 
 	__run_json("nist_ecdsa.json");
 	__run_json("nist_eddsa.json");
@@ -1099,8 +1168,14 @@ TEST(ecdsa_ctx, rederive_protected_key)
 	EXPECT_EQ(rc, 0);
 
 	/* Import test key: creates the secure and protected key internally */
-	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
 	rc = zpc_ecdsa_ctx_set_key(ec_ctx, ec_key);
 	EXPECT_EQ(rc, 0);
 
@@ -1112,14 +1187,17 @@ TEST(ecdsa_ctx, rederive_protected_key)
 	EXPECT_EQ(rc, 0);
 
 	/* Verify locally created signature */
-	memcpy(buf, sig, sig_len);
-	rc = zpc_ecdsa_verify(ec_ctx, msg, msg_len, buf, sig_len);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		memcpy(buf, sig, sig_len);
+		rc = zpc_ecdsa_verify(ec_ctx, msg, msg_len, buf, sig_len);
+		EXPECT_EQ(rc, 0);
 
-	/* Verify known signature from NIST vector */
-	rc = zpc_ecdsa_verify(ec_ctx, msg, msg_len, sig, sig_len);
-	EXPECT_EQ(rc, 0);
+		/* Verify known signature from NIST vector */
+		rc = zpc_ecdsa_verify(ec_ctx, msg, msg_len, sig, sig_len);
+		EXPECT_EQ(rc, 0);
+	}
 
+ret:
 	zpc_ecdsa_ctx_free(&ec_ctx);
 	EXPECT_EQ(ec_ctx, nullptr);
 	zpc_ec_key_free(&ec_key);
@@ -1152,6 +1230,9 @@ TEST(ecdsa_ctx, reencipher)
 	TESTLIB_EC_KERNEL_CAPS_CHECK(type, mkvp, apqns);
 
 	TESTLIB_EC_NEW_MK_CHECK(type, mkvp, apqns);
+
+	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping reencipher test. Not applicable for UV secrets.");
 
 	const u8 *pubkey = ec_tv[curve].pubkey;
 	const u8 *privkey = ec_tv[curve].privkey;
@@ -1243,6 +1324,9 @@ TEST(ecdsa_ctx, use_existing)
 
 	TESTLIB_EC_NEW_MK_CHECK(type, mkvp, apqns);
 
+	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping use_existing test. KATs cannot be performed with UV secrets.");
+
 	const u8 *pubkey = ec_tv[curve].pubkey;
 	const u8 *privkey = ec_tv[curve].privkey;
 	const u8 *msg = ec_tv[curve].msg;
@@ -1332,6 +1416,162 @@ TEST(ecdsa_ctx, use_existing)
 	EXPECT_EQ(ec_key2, nullptr);
 }
 
+/*
+ * This test assumes that the tester added the clear public/private key
+ * manually to the pvsecret list file, for example:
+ *
+ * 12 EC-ED25519-PRIVATE-KEY:
+ *  0x3d5f4f95cdb1cdfc71014efa1a669fd42599a0c ...   <- pvsecret ID
+ *  0xf898c8e1ba10b2aadc787a713d70a787b ...         <- clear public key
+ *  0x3fecd5c7cb294bd89b68a5959cc ...               <- clear private key
+ * 13 EC-ED448-PRIVATE-KEY:
+ *  0x4015944 ...
+ *  ...
+ *
+ * The test creates one pvsecret-type key and one CCA or EP11 type key to
+ * compare signatures. The specified APQN(s) decide if the 2nd key is CCA or
+ * EP11.
+ */
+TEST(ecdsa_ctx, pvsecret_kat)
+{
+	unsigned char sig1[132], sig2[132], pubkey[200], msg[32];
+	unsigned int sig1_len = sizeof(sig1), sig2_len = sizeof(sig2);
+	unsigned int msg_len = sizeof(msg), publen = sizeof(pubkey);
+	const char *mkvp, *apqns[257];
+	struct zpc_ec_key *ec_key1, *ec_key2;
+	struct zpc_ecdsa_ctx *ec_ctx1, *ec_ctx2;
+	unsigned int flags;
+	int type, type2, rc;
+	zpc_ec_curve_t curve;
+
+	TESTLIB_ENV_EC_KEY_CHECK();
+
+	TESTLIB_EC_HW_CAPS_CHECK();
+
+	curve = testlib_env_ec_key_curve();
+	type = testlib_env_ec_key_type();
+	flags = testlib_env_ec_key_flags();
+	mkvp = testlib_env_ec_key_mkvp();
+	(void)testlib_env_ec_key_apqns(apqns);
+
+	TESTLIB_EC_SW_CAPS_CHECK(type);
+
+	TESTLIB_EC_KERNEL_CAPS_CHECK(type, mkvp, apqns);
+
+	TESTLIB_EC_NEW_MK_CHECK(type, mkvp, apqns);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping pvsecret_kat test. Only applicable for UV secrets.");
+
+	rc = zpc_ec_key_alloc(&ec_key1);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ec_key_alloc(&ec_key2);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ecdsa_ctx_alloc(&ec_ctx1);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ecdsa_ctx_alloc(&ec_ctx2);
+	EXPECT_EQ(rc, 0);
+
+	/*
+	 * key1 contains private key from pvsecret and public key from list file
+	 * if the tester added the clear public key to the list file.
+	 */
+	rc = zpc_ec_key_set_type(ec_key1, type);
+	EXPECT_EQ(rc, 0);
+	if (mkvp != NULL) {
+		rc = zpc_ec_key_set_mkvp(ec_key1, mkvp);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = zpc_ec_key_set_apqns(ec_key1, apqns);
+		EXPECT_EQ(rc, 0);
+	}
+
+	rc = zpc_ec_key_set_flags(ec_key1, flags);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ec_key_set_curve(ec_key1, curve);
+	EXPECT_EQ(rc, 0);
+
+	rc = testlib_set_ec_key_from_pvsecret(ec_key1, type, curve);
+	if (rc)
+		goto ret;
+
+	rc = zpc_ec_key_export_public(ec_key1, pubkey, &publen);
+	if (rc != 0 || publen == 0)
+		goto ret;
+
+	rc = zpc_ecdsa_ctx_set_key(ec_ctx1, ec_key1);
+	EXPECT_EQ(rc, 0);
+
+	/*
+	 * key2 contains both key parts from list file if the tester added them
+	 * to the list file. We first try to create a CCA type key with the given
+	 * APQN(s), if this fails we retry with EP11.
+	 */
+	type2 = ZPC_EC_KEY_TYPE_CCA;
+	while (1) {
+		rc = zpc_ec_key_set_type(ec_key2, type2);
+		EXPECT_EQ(rc, 0);
+		if (mkvp != NULL) {
+			rc = zpc_ec_key_set_mkvp(ec_key2, mkvp);
+			EXPECT_EQ(rc, 0);
+		} else {
+			rc = zpc_ec_key_set_apqns(ec_key2, apqns);
+			EXPECT_EQ(rc, 0);
+		}
+
+		rc = zpc_ec_key_set_flags(ec_key2, flags);
+		EXPECT_EQ(rc, 0);
+
+		rc = zpc_ec_key_set_curve(ec_key2, curve);
+		EXPECT_EQ(rc, 0);
+
+		rc = testlib_set_ec_key_from_file(ec_key2, type2, curve);
+		if (rc == ZPC_ERROR_EC_KEY_PARTS_INCONSISTENT) {
+			type2 = ZPC_EC_KEY_TYPE_EP11;
+			continue;
+		}
+		if (rc)
+			goto ret;
+		else
+			break;
+	}
+
+	rc = zpc_ecdsa_ctx_set_key(ec_ctx2, ec_key2);
+	EXPECT_EQ(rc, 0);
+
+	/* Now sign with key1 and verify with both, key1 and key2 */
+	rc = zpc_ecdsa_sign(ec_ctx1, msg, msg_len, sig1, &sig1_len);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ecdsa_verify(ec_ctx1, msg, msg_len, sig1, sig1_len);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ecdsa_verify(ec_ctx2, msg, msg_len, sig1, sig1_len);
+	EXPECT_EQ(rc, 0);
+
+	/* Now sign with key2 and verify with key1 and key2 */
+	rc = zpc_ecdsa_sign(ec_ctx2, msg, msg_len, sig2, &sig2_len);
+	EXPECT_EQ(rc, 0);
+
+	EXPECT_TRUE(sig1_len == sig2_len);
+	if (curve == ZPC_EC_CURVE_ED25519 || curve == ZPC_EC_CURVE_ED448) {
+		EXPECT_TRUE(memcmp(sig1, sig2, sig1_len) == 0);
+	}
+
+	rc = zpc_ecdsa_verify(ec_ctx1, msg, msg_len, sig2, sig2_len);
+	EXPECT_EQ(rc, 0);
+	rc = zpc_ecdsa_verify(ec_ctx2, msg, msg_len, sig1, sig1_len);
+	EXPECT_EQ(rc, 0);
+
+ret:
+	zpc_ecdsa_ctx_free(&ec_ctx1);
+	EXPECT_EQ(ec_ctx1, nullptr);
+	zpc_ecdsa_ctx_free(&ec_ctx2);
+	EXPECT_EQ(ec_ctx2, nullptr);
+	zpc_ec_key_free(&ec_key1);
+	EXPECT_EQ(ec_key1, nullptr);
+	zpc_ec_key_free(&ec_key2);
+	EXPECT_EQ(ec_key2, nullptr);
+}
+
 static void __task(struct zpc_ec_key *ec_key)
 {
 	struct zpc_ecdsa_ctx *ec_ctx;
@@ -1359,17 +1599,19 @@ static void __task(struct zpc_ec_key *ec_key)
 		/* All curves: Verify against created signature and known signature
 		 * from NIST test vector. We cannot specify the random-value for prime
 		 * curves, so we never get to the NIST result by signing here. */
-		rc = zpc_ecdsa_verify(ec_ctx, msg, msglen, sigbuf, siglen);
-		EXPECT_EQ(rc, 0);
-		rc = zpc_ecdsa_verify(ec_ctx, msg, msglen, sig, siglen);
-		EXPECT_EQ(rc, 0);
+		if (ec_key->type != ZPC_EC_KEY_TYPE_PVSECRET) {
+			rc = zpc_ecdsa_verify(ec_ctx, msg, msglen, sigbuf, siglen);
+			EXPECT_EQ(rc, 0);
+			rc = zpc_ecdsa_verify(ec_ctx, msg, msglen, sig, siglen);
+			EXPECT_EQ(rc, 0);
 
-		/* Edwards curves do not use a random value when signing, so we can
-		 * check if the locally created signature matches the known
-		 * signature. */
-		if (ec_key->curve == ZPC_EC_CURVE_ED25519 ||
-			ec_key->curve == ZPC_EC_CURVE_ED448) {
-			EXPECT_TRUE(memcmp(sigbuf, sig, siglen) == 0);
+			/* Edwards curves do not use a random value when signing, so we can
+			 * check if the locally created signature matches the known
+			 * signature. */
+			if (ec_key->curve == ZPC_EC_CURVE_ED25519 ||
+				ec_key->curve == ZPC_EC_CURVE_ED448) {
+				EXPECT_TRUE(memcmp(sigbuf, sig, siglen) == 0);
+			}
 		}
 	}
 
@@ -1426,17 +1668,25 @@ TEST(ecdsa_ctx, threads)
 	rc = zpc_ec_key_set_curve(ec_key, curve);
 	EXPECT_EQ(rc, 0);
 
-	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
 
 	for (i = 0; i < 500; i++) {
 		t[i] = new std::thread(__task, ec_key);
 	}
 
 	/* Do something with key object while threads are working with it. */
-	rc = zpc_ec_key_reencipher(ec_key, ZPC_EC_KEY_REENCIPHER_CURRENT_TO_NEW);
-	EXPECT_EQ(rc, 0);
-	memset(&ec_key->cur, 0, sizeof(ec_key->cur)); /* destroy current secure key */
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_reencipher(ec_key, ZPC_EC_KEY_REENCIPHER_CURRENT_TO_NEW);
+		EXPECT_EQ(rc, 0);
+		memset(&ec_key->cur, 0, sizeof(ec_key->cur)); /* destroy current secure key */
+	}
 
 	for (i = 0; i < 500; i++) {
 		memset(&ec_key->prot, 0, sizeof(ec_key->prot)); /* destroy cached protected key */
@@ -1448,6 +1698,7 @@ TEST(ecdsa_ctx, threads)
 		delete t[i];
 	}
 
+ret:
 	zpc_ec_key_free(&ec_key);
 	EXPECT_EQ(ec_key, nullptr);
 }

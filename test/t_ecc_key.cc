@@ -162,6 +162,41 @@ TEST(ec_key, set_type_ep11)
 	EXPECT_EQ(ec_key, nullptr);
 }
 
+TEST(ec_key, set_type_pvsecret)
+{
+	struct zpc_ec_key *ec_key;
+	int rc;
+
+	TESTLIB_ENV_EC_KEY_CHECK();
+
+	TESTLIB_EC_SW_CAPS_CHECK(ZPC_EC_KEY_TYPE_PVSECRET);
+
+	rc = zpc_ec_key_alloc(&ec_key);
+	EXPECT_EQ(rc, 0);
+
+	rc = zpc_ec_key_set_type(NULL, -1);
+	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
+	rc = zpc_ec_key_set_type(NULL, 0);
+	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
+	rc = zpc_ec_key_set_type(NULL, ZPC_EC_KEY_TYPE_PVSECRET);
+	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
+	rc = zpc_ec_key_set_type(NULL, 4);
+	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
+
+	rc = zpc_ec_key_set_type(ec_key, -1);
+	EXPECT_EQ(rc, ZPC_ERROR_KEYTYPE);
+	rc = zpc_ec_key_set_type(ec_key, 0);
+	EXPECT_EQ(rc, ZPC_ERROR_KEYTYPE);
+	rc = zpc_ec_key_set_type(ec_key, ZPC_EC_KEY_TYPE_PVSECRET + 1);
+	EXPECT_EQ(rc, ZPC_ERROR_KEYTYPE);
+
+	rc = zpc_ec_key_set_type(ec_key, ZPC_EC_KEY_TYPE_PVSECRET);
+	EXPECT_EQ(rc, 0);
+
+	zpc_ec_key_free(&ec_key);
+	EXPECT_EQ(ec_key, nullptr);
+}
+
 TEST(ec_key, set_flags)
 {
 	struct zpc_ec_key *ec_key;
@@ -286,8 +321,10 @@ TEST(ec_key, import_clear)
 
 	rc = zpc_ec_key_import_clear(ec_key, NULL, 0, NULL, 0);
 	EXPECT_EQ(rc, ZPC_ERROR_EC_NO_KEY_PARTS);
-	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-	EXPECT_EQ(rc, ZPC_ERROR_APQNSNOTSET);
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
+		EXPECT_EQ(rc, ZPC_ERROR_APQNSNOTSET);
+	}
 
 	if (mkvp == NULL) {
 		rc = zpc_ec_key_set_apqns(ec_key, apqns);
@@ -319,8 +356,14 @@ TEST(ec_key, import_clear)
 	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, 5);
 	EXPECT_EQ(rc, ZPC_ERROR_EC_PRIVKEY_LENGTH);
 
-	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
+		EXPECT_EQ(rc, 0);
+	} else {
+		/* Only public keys can be imported/added for pvsecret-type keys */
+		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, NULL, 0);
+		EXPECT_EQ(rc, 0);
+	}
 
 	zpc_ec_key_free(&ec_key);
 	EXPECT_EQ(ec_key, nullptr);
@@ -380,8 +423,14 @@ TEST(ec_key, generate)
 	}
 	rc = zpc_ec_key_set_flags(ec_key, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_generate(ec_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_generate(ec_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = zpc_ec_key_generate(ec_key);
+		EXPECT_EQ(rc, ZPC_ERROR_KEYTYPE);
+	}
 
 	zpc_ec_key_free(&ec_key);
 	EXPECT_EQ(ec_key, nullptr);
@@ -409,6 +458,9 @@ TEST(ec_key, reencipher)
 	TESTLIB_EC_KERNEL_CAPS_CHECK(type, mkvp, apqns);
 
 	TESTLIB_EC_NEW_MK_CHECK(type, mkvp, apqns);
+
+	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping reencipher test. Not applicable for UV secrets.");
 
 	rc = zpc_ec_key_alloc(&ec_key);
 	EXPECT_EQ(rc, 0);
@@ -489,8 +541,15 @@ TEST(ec_key, export)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_ec_key_set_curve(ec_key, curve);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_generate(ec_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_generate(ec_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
 
 	buflen = 0;
 	rc = zpc_ec_key_export(ec_key, buf, &buflen);
@@ -520,6 +579,7 @@ TEST(ec_key, export)
 	EXPECT_EQ(buflen, buflen2);
 	EXPECT_TRUE(memcmp(buf2, buf, buflen) == 0);
 
+ret:
 	zpc_ec_key_free(&ec_key);
 	EXPECT_EQ(ec_key, nullptr);
 	zpc_ec_key_free(&ec_key2);
@@ -573,8 +633,15 @@ TEST(ec_key, export_public)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_ec_key_set_curve(ec_key, curve);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_generate(ec_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_generate(ec_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
 
 	buflen = 0;
 	rc = zpc_ec_key_export_public(ec_key, buf, &buflen);
@@ -587,6 +654,7 @@ TEST(ec_key, export_public)
 	rc = zpc_ec_key_export_public(ec_key, buf, &buflen);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_ec_key_free(&ec_key);
 	EXPECT_EQ(ec_key, nullptr);
 }
@@ -658,12 +726,20 @@ TEST(ec_key, import)
 
 	rc = zpc_ec_key_import(ec_key, buf, 333);
 	EXPECT_TRUE(rc == ZPC_ERROR_EC_NO_CCA_SECUREKEY_TOKEN ||
-				rc == ZPC_ERROR_EC_NO_EP11_SECUREKEY_TOKEN);
+				rc == ZPC_ERROR_EC_NO_EP11_SECUREKEY_TOKEN ||
+				rc == ZPC_ERROR_ARG3RANGE);
 
 	rc = zpc_ec_key_set_flags(ec_key, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_ec_key_generate(ec_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
+		rc = zpc_ec_key_generate(ec_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_ec_key_from_pvsecret(ec_key, type, curve);
+		if (rc)
+			goto ret;
+	}
 
 	rc = zpc_ec_key_export(ec_key, buf, &buflen);
 	EXPECT_EQ(rc, 0);
@@ -676,6 +752,7 @@ TEST(ec_key, import)
 	EXPECT_EQ(buf2len, buflen);
 	EXPECT_TRUE(memcmp(buf2, buf, buflen) == 0);
 
+ret:
 	zpc_ec_key_free(&ec_key);
 	EXPECT_EQ(ec_key, nullptr);
 	zpc_ec_key_free(&ec_key2);
