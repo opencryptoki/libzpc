@@ -27,6 +27,19 @@
 #define ENV_EC_KEY_TYPE		"ZPC_TEST_EC_KEY_TYPE"
 #define ENV_EC_KEY_FLAGS	"ZPC_TEST_EC_KEY_FLAGS"
 
+/*
+ * This file must be created by the tester before running tests with key
+ * type ZPC_AES_KEY_TYPE_PVSECRET or ZPC_EC_KEY_TYPE_PVSECRET.
+ * The file must contain the output from the pvsecret utility list command.
+ * The pvsecret utility is part of s390-tools.
+ *
+ * Example:
+ *
+ *   # pvsecret list >pvsecret-list.out
+ *   # export ZPC_TEST_PVSECRET_LIST_FILE=pvsecret-list.out
+ */
+#define ENV_PVSECRET_LIST_FILE       "ZPC_TEST_PVSECRET_LIST_FILE"
+
 static int ishexdigit(const char);
 static unsigned char hexdigit2byte(char);
 static char byte2hexdigit(unsigned char);
@@ -359,6 +372,8 @@ testlib_env_aes_key_type(void)
 		type = ZPC_AES_KEY_TYPE_CCA_CIPHER;
 	else if (strcmp(env, "ZPC_AES_KEY_TYPE_EP11") == 0)
 		type = ZPC_AES_KEY_TYPE_EP11;
+	else if (strcmp(env, "ZPC_AES_KEY_TYPE_PVSECRET") == 0)
+		type = ZPC_AES_KEY_TYPE_PVSECRET;
 
 ret:
 	return type;
@@ -378,6 +393,8 @@ testlib_env_ec_key_type(void)
 		type = ZPC_EC_KEY_TYPE_CCA;
 	else if (strcmp(env, "ZPC_EC_KEY_TYPE_EP11") == 0)
 		type = ZPC_EC_KEY_TYPE_EP11;
+	else if (strcmp(env, "ZPC_EC_KEY_TYPE_PVSECRET") == 0)
+		type = ZPC_EC_KEY_TYPE_PVSECRET;
 
 ret:
 	return type;
@@ -451,6 +468,11 @@ zpc_ec_curve_t testlib_env_ec_key_curve(void)
 
 ret:
 	return curve;
+}
+
+char * testlib_env_pvsecret_list_file(void)
+{
+	return getenv(ENV_PVSECRET_LIST_FILE);
 }
 
 unsigned char *
@@ -609,4 +631,544 @@ byte2hexdigit(unsigned char b)
 	assert((b & 0xf0) == 0);
 
 	return (b >= 10 ? b + loff : b + noff);
+}
+
+const char *curve2string[] = {
+	"P256",
+	"P384",
+	"P521",
+	"ED25519",
+	"ED448",
+};
+
+typedef enum {
+	EXTRACT_ID,
+	EXTRACT_PUBKEY,
+	EXTRACT_PRIVKEY,
+	EXTRACT_SECRETKEY,
+} testkey_extract_mode_t;
+
+const char *type2string(int type)
+{
+	switch (type) {
+	case ZPC_AES_KEY_TYPE_CCA_DATA:
+	case ZPC_AES_KEY_TYPE_CCA_CIPHER:
+	case ZPC_EC_KEY_TYPE_CCA:
+		return "CCA";
+	case ZPC_AES_KEY_TYPE_EP11:
+	case ZPC_EC_KEY_TYPE_EP11:
+		return "EP11";
+	default:
+		return "PVSECRET";
+	}
+}
+
+/*
+ * A key with given type must be present in the 'pvsecret list' output file
+ * that must be created by the tester before running the tests.
+ * Note: the strings checked here are created by the pvsecret utility. So
+ * whenever the pvsecret utility would use different strings, this must be
+ * adapted here.
+ */
+int pvsec_found(const char *buffer, int pvsectype)
+{
+	switch (pvsectype) {
+	case ZPC_AES_SECRET_AES_128:
+		if (strstr(buffer, "AES-128-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_AES_SECRET_AES_192:
+		if (strstr(buffer, "AES-192-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_AES_SECRET_AES_256:
+		if (strstr(buffer, "AES-256-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_EC_SECRET_ECDSA_P256:
+		if (strstr(buffer, "EC-SECP256R1-PRIVATE-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_EC_SECRET_ECDSA_P384:
+		if (strstr(buffer, "EC-SECP384R1-PRIVATE-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_EC_SECRET_ECDSA_P521:
+		if (strstr(buffer, "EC-SECP521R1-PRIVATE-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_EC_SECRET_EDDSA_ED25519:
+		if (strstr(buffer, "EC-ED25519-PRIVATE-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_EC_SECRET_EDDSA_ED448:
+		if (strstr(buffer, "EC-ED448-PRIVATE-KEY") != NULL)
+			return 1;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * Convert a given hex string of the form " 0xabcde ...." into a byte array.
+ * Note that a leading space char is expected at the beginning of the string.
+ */
+int extract_bytes(const char *buffer, unsigned char *outbuf, unsigned int *outlen)
+{
+	unsigned char *sec = NULL;
+	char *tmp;
+	size_t seclen;
+	int rc = 1;
+
+	/* Remove leading ' 0x' and ending newline */
+	tmp = (char *)buffer + 3;
+	tmp[strlen(tmp) - 1] = 0;
+
+	/* Convert hex string to byte array */
+	sec = testlib_hexstr2buf(tmp, &seclen);
+	if (sec != NULL && seclen > 0) {
+		memcpy(outbuf, sec, seclen);
+		*outlen = seclen;
+		rc = 0;
+		goto ret;
+	}
+
+ret:
+	free(sec);
+
+	return rc;
+}
+
+/*
+ * Extract the pvsecret ID or secret key data from a text file created with
+ * the 'pvsecret' utility. The name of the text file must be specified via
+ * env variable ZPC_TEST_PVSECRET_LIST_FILE. If no pvsecret of this type is
+ * contained in the file (and thus on this system), return an error.
+ *
+ * The pvsecrets-list file contains AES pvsecret IDs in this form:
+ *
+ * 2 AES-128-KEY:
+ *  0x8cf9659cdea52a5c9ece7446593becc58a3ac519a14d8d54297ab5a01562b7b9
+ * 3 AES-192-KEY:
+ *  0x5498c4450db472397b0637f536491d11dbaee860cf47a05c6af822f0787a1aaf
+ * 4 AES-256-KEY:
+ *  0x7237b089a3fcdbef82404477f1f28e20d66de8c80a7dea00cd10520293eefeff
+ * ...
+ *
+ * The tester may optionally add the clear secret key of a pvsecret like:
+ *
+ * 5 AES-128-KEY:
+ *  0x8cf9659cdea52a5c9e ...   <- secret ID
+ *  0xbe0274e3f3b36 ...   <- clear secret key
+ * 6 AES-XTS-256-KEY:
+ * ...
+ *
+ * @return 0 success, outbuf contains extracted byte array
+ *         1 error opening list file
+ *         2 no pvsecret found for given type
+ */
+int testlib_get_aes_data(int size, unsigned char *outbuf,
+			unsigned int *outlen, testkey_extract_mode_t mode)
+{
+	FILE *fd;
+	const unsigned int BUF_LEN = 300;
+	char buffer[BUF_LEN] = { 0, };
+	char *fn;
+	int i, pvsectype, rc, lines_to_skip;
+
+	switch (mode) {
+	case EXTRACT_ID:
+		lines_to_skip = 1;
+		break;
+	case EXTRACT_SECRETKEY:
+		lines_to_skip = 2;
+		break;
+	default:
+		return 3; /* should not occur */
+	}
+
+	switch (size) {
+	case 128:
+		pvsectype = ZPC_AES_SECRET_AES_128;
+		break;
+	case 192:
+		pvsectype = ZPC_AES_SECRET_AES_192;
+		break;
+	default: /* 256 */
+		pvsectype = ZPC_AES_SECRET_AES_256;
+		break;
+	}
+
+	fn = testlib_env_pvsecret_list_file();
+	if (!fn)
+		return 1;
+
+	if ((fd = fopen(fn, "r")) == NULL)
+		return 1;
+
+	while (fgets(buffer, BUF_LEN, fd)) {
+		if (pvsec_found(buffer, pvsectype)) {
+			for (i = 0; i < lines_to_skip; i++) {
+				if (!fgets(buffer, BUF_LEN, fd)) { /* skip to next line */
+					rc = 2;
+					goto ret;
+				}
+			}
+			if (extract_bytes(buffer, outbuf, outlen) == 0) {
+				rc = 0;
+				goto ret;
+			}
+		}
+	}
+
+	rc = 2;
+
+ret:
+	fclose(fd);
+
+	return rc;
+}
+
+int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int keysize)
+{
+	unsigned char pvsec_id[32] = { 0, };
+	unsigned int id_len;
+	size_t i;
+	int rc;
+
+	rc = testlib_get_aes_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
+	switch (rc) {
+	case 0:
+		rc = zpc_aes_key_import(aes_key, pvsec_id, 32);
+		if (rc != 0) {
+			printf("[    ERROR ] zpc_aes_key_import from 'AES-%d-KEY' pvsecret failed with rc = %d.\n",
+					keysize, rc);
+			printf("Tried with ID:\n");
+			for (i = 0; i < sizeof(pvsec_id); i++)
+				printf("%02X%c",pvsec_id[i],((i+1)%16)?' ':'\n');
+		}
+		break;
+	case 1:
+		printf("[  WARNING ] Could not open pvsecret list file. Probably "
+			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
+		break;
+	case 2:
+		printf("[  WARNING ] No AES pvsecret with size %d available on this system.\n",
+			keysize);
+		break;
+	}
+
+	return rc;
+}
+
+int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size)
+{
+	unsigned char pvsec_id[32] = { 0, };
+	unsigned char keybytes[256] = { 0, };
+	unsigned int idlen, byteslen;
+	int rc;
+
+	rc = testlib_get_aes_data(size, pvsec_id, &idlen, EXTRACT_ID);
+	switch (rc) {
+	case 0:
+		break;
+	case 1:
+		printf("[  WARNING ] Could not open pvsecret list file. Probably "
+			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
+		goto ret;
+	case 2:
+		printf("[  WARNING ] No AES pvsecret with size %d available on this system.\n",
+				size);
+		goto ret;
+	}
+
+	rc = testlib_get_aes_data(size, keybytes, &byteslen, EXTRACT_SECRETKEY);
+	if (rc != 0) {
+		printf("[     INFO ] Cannot obtain clear key bytes for 'AES-%d-KEY' from list file.\n",
+			size);
+		goto ret;
+	}
+
+	rc = zpc_aes_key_import_clear(aes_key, keybytes);
+	if (rc != 0) {
+		printf("[     INFO ] Cannot import clear key data for %s-type 'AES-%d-KEY' from list file, rc = %d.\n",
+			type2string(type), size, rc);
+		goto ret;
+	}
+
+	rc = 0;
+	printf("[       OK ] Imported clear key data for %s-type 'AES-%d-KEY' from list file.\n",
+		type2string(type), size);
+
+ret:
+	return rc;
+}
+
+/*
+ * Extract the pvsecret ID, public or private key data from a text file created
+ * with the 'pvsecret' utility. The name of the text file must be specified via
+ * env variable ZPC_TEST_EC_KEY_PVSECTYPE. If no pvsecret of this type is
+ * contained in the file (and thus on this system), return an error.
+ *
+ * The pvsecrets-list file contains EC pvsecret IDs in this form:
+ *
+ *  9 EC-SECP384R1-PRIVATE-KEY:
+ *   0xf972ce506dad11195af5e2f3647237752ff2a064c9ad16b133d56062242cb4d0
+ *  10 EC-SECP521R1-PRIVATE-KEY:
+ *   0xc4c2acd778caafee6c184eaf99dcefb83b43197b9f6d190ffb73460ea417d944
+ *  11 EC-ED25519-PRIVATE-KEY:
+ *   0x3d5f4f95cdb1cdfc71014efa1a669fd42599a0ce2000d914a409e48bccaed584
+ *  12 EC-ED448-PRIVATE-KEY:
+ *   0x40159448e5203c70a9ec00f9490ae5c7d60e00bcb1bca2ed32c8b6b1224cd45a
+ * ...
+ *
+ * The tester may optionally add the clear public and private key of a pvsecret
+ * like:
+ *
+ * 11 EC-ED25519-PRIVATE-KEY:
+ *  0x3d5f4f95cdb1cdfc71014efa ...     <- pvsecret ID
+ *  0xf898c8e1ba10b2aadc787a713d70a787 ...     <- clear public key
+ *  0x3fecd5c7cb294bd89b68a5959cc59d634f51fb6e8 ... <- clear private key
+ * 12 EC-ED448-PRIVATE-KEY:
+ * ...
+ *
+ * Note that for p256, p384, and p521 only uncompressed public keys can be
+ * added and the leading compress indicator byte 0x04 must be removed.
+ *
+ * @return 0 success, outbuf contains 32-byte EC pvsecret ID
+ *         1 error opening list file
+ *         2 no pvsecret found for given type
+ */
+int testlib_get_ec_data(zpc_ec_curve_t curve, unsigned char *outbuf,
+			unsigned int *outlen, testkey_extract_mode_t mode)
+{
+	FILE *fd;
+	const unsigned int BUF_LEN = 300;
+	char buffer[BUF_LEN] = { 0, };
+	char *fn;
+	int i, pvsectype, rc, lines_to_skip;
+
+	switch (mode) {
+	case EXTRACT_ID:
+		lines_to_skip = 1;
+		break;
+	case EXTRACT_PUBKEY:
+		lines_to_skip = 2;
+		break;
+	case EXTRACT_PRIVKEY:
+		lines_to_skip = 3;
+		break;
+	default:
+		return 3; /* should not occur */
+	}
+
+	switch (curve) {
+	case ZPC_EC_CURVE_P256:
+		pvsectype = ZPC_EC_SECRET_ECDSA_P256;
+		break;
+	case ZPC_EC_CURVE_P384:
+		pvsectype = ZPC_EC_SECRET_ECDSA_P384;
+		break;
+	case ZPC_EC_CURVE_P521:
+		pvsectype = ZPC_EC_SECRET_ECDSA_P521;
+		break;
+	case ZPC_EC_CURVE_ED25519:
+		pvsectype = ZPC_EC_SECRET_EDDSA_ED25519;
+		break;
+	default:
+		pvsectype = ZPC_EC_SECRET_EDDSA_ED448;
+		break;
+	}
+
+	fn = testlib_env_pvsecret_list_file();
+	if (!fn)
+		return 1;
+
+	if ((fd = fopen(fn, "r")) == NULL)
+		return 1;
+
+	while (fgets(buffer, BUF_LEN, fd)) {
+		if (pvsec_found(buffer, pvsectype)) {
+			for (i = 0; i < lines_to_skip; i++) {
+				if (!fgets(buffer, BUF_LEN, fd)) { /* skip to next line */
+					rc = 2;
+					goto ret;
+				}
+			}
+			if (extract_bytes(buffer, outbuf, outlen) == 0) {
+				rc = 0;
+				goto ret;
+			}
+		}
+	}
+
+	rc = 2;
+
+ret:
+	fclose(fd);
+
+	return rc;
+}
+
+/*
+ * Obtain an EC public key from a text file, first created with the 'pvsecret'
+ * utility, related to the given pvsecret type env variable ZPC_TEST_EC_KEY_CURVE.
+ * The tester may add an EC/Ed public key manually by inserting the public key
+ * clear key value after the related pvsecret ID:
+ *
+ * 12 EC-ED25519-PRIVATE-KEY:
+ *  0x3d5f4f95cdb1cdfc71014efa ... 2000d914a409e48bccaed584 <- secret ID
+ *  0xf898c8e1 ...787a7170a787b40031e75a01c282195d997e1c770d47 <- pubkey value
+ * ...
+ *
+ * @return 0 success, pubkey contains pubkey value and publen its byte length
+ *         1 error opening list file
+ *         2 no pubkey found for given pvsecret ID
+ */
+int testlib_add_ec_public_key(const char *pvsec_id, unsigned char *pubkey,
+			unsigned int *publen)
+{
+	FILE *fd;
+	const unsigned int BUF_LEN = 300;
+	char buffer[BUF_LEN] = { 0, };
+	char *fn;
+	int rc;
+	unsigned char *bytes;
+	size_t bytelen;
+	char *tmp;
+
+	fn = testlib_env_pvsecret_list_file();
+	if (!fn)
+		return 1;
+
+	if ((fd = fopen(fn, "r")) == NULL)
+		return 1;
+
+	while (fgets(buffer, BUF_LEN, fd)) {
+		if (strstr(buffer, "0x") != NULL) {
+			/* Remove leading ' 0x' and ending newline */
+			tmp = (char *)buffer + 3;
+			tmp[strlen(tmp) - 1] = 0;
+			bytes = testlib_hexstr2buf(tmp, &bytelen);
+			if (bytes != NULL && bytelen > 0 && memcmp(bytes, pvsec_id, bytelen) == 0) {
+				if (fgets(buffer, BUF_LEN, fd)) { /* skip to next line */
+					if (strstr(buffer, "0x") != NULL) {
+						if (extract_bytes(buffer, pubkey, publen) == 0) {
+							rc = 0;
+							goto ret;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	rc = 2;
+
+ret:
+	fclose(fd);
+
+	return rc;
+}
+
+int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type,
+			zpc_ec_curve_t curve)
+{
+	unsigned char pvsec_id[32] = { 0, };
+	unsigned char pubkey[256] = { 0, };
+	unsigned int i, id_len, publen;
+	int rc;
+
+	rc = testlib_get_ec_data(curve, pvsec_id, &id_len, EXTRACT_ID);
+	switch (rc) {
+	case 0:
+		rc = zpc_ec_key_import(ec_key, pvsec_id, id_len);
+		if (rc != 0) {
+			printf("[    ERROR ] zpc_ec_key_import from 'EC-%s-PRIVATE-KEY' pvsecret failed with rc = %d.\n",
+				curve2string[curve], rc);
+			printf("Tried with ID:\n");
+			for (i = 0; i < sizeof(pvsec_id); i++)
+				printf("%02X%c",pvsec_id[i],((i+1)%16)?' ':'\n');
+		} else {
+			rc = testlib_add_ec_public_key((const char *)pvsec_id, pubkey, &publen);
+			if (rc == 0) {
+				rc = zpc_ec_key_import_clear(ec_key, pubkey, publen, NULL, 0);
+				if (rc == 0) {
+					printf("[       OK ] Added clear public key for %s-type 'EC-%s-PRIVATE-KEY' from list file.\n",
+						type2string(type), curve2string[curve]);
+				} else {
+					printf("[    ERROR ] Cannot import clear public key for %s-type 'EC-%s-PRIVATE-KEY' from list file, rc = %d.\n",
+						type2string(type), curve2string[curve], rc);
+				}
+			} else {
+				printf("[     INFO ] No clear public key for %s-type 'EC-%s-PRIVATE-KEY' available in list file.\n",
+					type2string(type), curve2string[curve]);
+			}
+		}
+		break;
+	case 1:
+		printf("[  WARNING ] Could not open pvsecret list file. Probably "
+			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
+		break;
+	case 2:
+		printf("[  WARNING ] No EC/Ed pvsecret for curve %s available on this system.\n",
+			curve2string[curve]);
+		break;
+	}
+
+	return rc;
+}
+
+int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve)
+{
+	unsigned char pvsec_id[32] = { 0, };
+	unsigned char privkey[256] = { 0, };
+	unsigned char pubkey[256] = { 0, };
+	unsigned int idlen, privlen, publen;
+	int rc;
+
+	rc = testlib_get_ec_data(curve, pvsec_id, &idlen, EXTRACT_ID);
+	switch (rc) {
+	case 0:
+		break;
+	case 1:
+		printf("[  WARNING ] Could not open pvsecret list file. Probably "
+			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
+		goto ret;
+	case 2:
+		printf("[  WARNING ] No EC/Ed pvsecret for curve %s available on this system.\n",
+			curve2string[curve]);
+		goto ret;
+	}
+
+	rc = testlib_get_ec_data(curve, pubkey, &publen, EXTRACT_PUBKEY);
+	if (rc != 0) {
+		printf("[     INFO ] Cannot obtain clear public key bytes for 'EC-%s-PRIVATE-KEY' from list file.\n",
+			curve2string[curve]);
+		goto ret;
+	}
+
+	rc = testlib_get_ec_data(curve, privkey, &privlen, EXTRACT_PRIVKEY);
+	if (rc != 0) {
+		printf("[     INFO ] Cannot obtain clear private key bytes for 'EC-%s-PRIVATE-KEY' from list file.\n",
+			curve2string[curve]);
+		goto ret;
+	}
+
+	rc = zpc_ec_key_import_clear(ec_key, pubkey, publen, privkey, privlen);
+	if (rc != 0) {
+		printf("[     INFO ] Cannot import clear key data for %s-type 'EC-%s-PRIVATE-KEY' from list file, rc = %d.\n",
+			type2string(type), curve2string[curve], rc);
+		goto ret;
+	}
+
+	rc = 0;
+	printf("[       OK ] Imported clear key data for %s-type 'EC-%s-PRIVATE-KEY' from list file, rc = %d.\n",
+		type2string(type), curve2string[curve], rc);
+
+ret:
+	return rc;
 }

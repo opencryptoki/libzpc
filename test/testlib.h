@@ -51,12 +51,14 @@ do {                                                                           \
         if (type == -1)                                                        \
                 GTEST_SKIP_("ZPC_TEST_AES_KEY_TYPE environment variable not set."); \
                                                                                \
-        mkvp = testlib_env_aes_key_mkvp();                                     \
-        rc = testlib_env_aes_key_apqns(apqns);                                 \
-        if (rc == 0 && mkvp != NULL)                                           \
-            GTEST_SKIP_("Both ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables set."); \
-        if (rc != 0 && mkvp == NULL)                                           \
-            GTEST_SKIP_("ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables unset."); \
+        if (type != ZPC_AES_KEY_TYPE_PVSECRET) {                               \
+            mkvp = testlib_env_aes_key_mkvp();                                 \
+            rc = testlib_env_aes_key_apqns(apqns);                             \
+            if (rc == 0 && mkvp != NULL)                                       \
+                GTEST_SKIP_("Both ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables set."); \
+            if (rc != 0 && mkvp == NULL)                                       \
+                GTEST_SKIP_("ZPC_TEST_AES_KEY_MKVP and ZPC_TEST_AES_KEY_APQNS environment variables unset."); \
+        }                                                                      \
 } while (0)
 
 # define TESTLIB_AES_ECB_HW_CAPS_CHECK()                                       \
@@ -219,6 +221,11 @@ do {                                                                           \
             zpc_aes_key_free(&aes_key);                                        \
             GTEST_SKIP_("SW_CAPS check (AES): EP11 host lib not available or too old."); \
         }                                                                      \
+        if (type == ZPC_AES_KEY_TYPE_PVSECRET &&                               \
+            rc == ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE) {                      \
+            zpc_aes_key_free(&aes_key);                                        \
+            GTEST_SKIP_("SW_CAPS check (AES): UV retrievable secrets not available."); \
+        }                                                                      \
         if (rc != 0) {                                                         \
             zpc_aes_key_free(&aes_key);                                        \
             GTEST_SKIP_("SW_CAPS check (AES): Unexpected error when setting key type."); \
@@ -226,7 +233,7 @@ do {                                                                           \
         zpc_aes_key_free(&aes_key);                                            \
 } while (0)
 
-# define TESTLIB_AES_KERNEL_CAPS_CHECK()                                       \
+# define TESTLIB_AES_KERNEL_CAPS_CHECK(type)                                   \
 do {                                                                           \
         int rc;                                                                \
         struct zpc_aes_key *aes_key;                                           \
@@ -234,21 +241,28 @@ do {                                                                           \
         rc = zpc_aes_key_alloc(&aes_key);                                      \
         if (rc != 0)                                                           \
             GTEST_SKIP_("KERNEL_CAPS check (AES): Cannot allocate key object."); \
-                                                                               \
-        rc = zpc_aes_key_set_mkvp(aes_key, NULL); /* cannot fail */            \
-        rc = zpc_aes_key_set_size(aes_key, 128); /* cannot fail */             \
-        rc = zpc_aes_key_generate(aes_key);                                    \
-        if (rc == ZPC_ERROR_IOCTLGENPROTK) {                                   \
+        rc = zpc_aes_key_set_type(aes_key, type);                              \
+        if (type == ZPC_AES_KEY_TYPE_PVSECRET &&                               \
+            rc == ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE) {                      \
             zpc_aes_key_free(&aes_key);                                        \
-            GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENPROTK not supported by kernel."); \
+            GTEST_SKIP_("KERNEL_CAPS check (AES): UV retrievable secrets not supported on this system."); \
         }                                                                      \
-        if (rc == ZPC_ERROR_IOCTLGENSECK2) {                                   \
-            zpc_aes_key_free(&aes_key);                                        \
-            GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENSECK2 not supported by kernel."); \
-        }                                                                      \
-        if (rc != 0) {                                                         \
-            zpc_aes_key_free(&aes_key);                                        \
-            GTEST_SKIP_("KERNEL_CAPS check (AES): Unexpected error when generating test key."); \
+        if (type != ZPC_AES_KEY_TYPE_PVSECRET) {                               \
+            rc = zpc_aes_key_set_mkvp(aes_key, NULL); /* cannot fail */        \
+            rc = zpc_aes_key_set_size(aes_key, 128); /* cannot fail */         \
+            rc = zpc_aes_key_generate(aes_key);                                \
+            if (rc == ZPC_ERROR_IOCTLGENSECK2) {                               \
+                zpc_aes_key_free(&aes_key);                                    \
+                GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENSECK2 not supported by kernel."); \
+            }                                                                  \
+            if (rc == ZPC_ERROR_IOCTLGENSECK2) {                               \
+                zpc_aes_key_free(&aes_key);                                    \
+                GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENSECK2 not supported by kernel."); \
+            }                                                                  \
+            if (rc != 0) {                                                     \
+                zpc_aes_key_free(&aes_key);                                    \
+                GTEST_SKIP_("KERNEL_CAPS check (AES): Unexpected error when generating test key."); \
+            }                                                                  \
         }                                                                      \
                                                                                \
         zpc_aes_key_free(&aes_key);                                            \
@@ -258,6 +272,9 @@ do {                                                                           \
 do {                                                                           \
         int rc;                                                                \
         struct zpc_aes_key *aes_key;                                           \
+                                                                               \
+        if (type == ZPC_AES_KEY_TYPE_PVSECRET)                                 \
+            break; /* silently skip check */                                   \
                                                                                \
         rc = zpc_aes_key_alloc(&aes_key);                                      \
         if (rc != 0)                                                           \
@@ -294,10 +311,12 @@ do {                                                                           \
             zpc_aes_key_free(&aes_key);                                        \
             GTEST_SKIP_("NEW_MK check (AES): unexpected error when generating test key."); \
         }                                                                      \
-        rc = zpc_aes_key_reencipher(aes_key, ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW); \
-        if (rc != 0) {                                                         \
-            zpc_aes_key_free(&aes_key);                                        \
-            GTEST_SKIP_("NEW_MK check (AES): new MK not set for this APQN/MKVP."); \
+        if (type != ZPC_AES_KEY_TYPE_PVSECRET) {                               \
+            rc = zpc_aes_key_reencipher(aes_key, ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW); \
+            if (rc != 0) {                                                     \
+                zpc_aes_key_free(&aes_key);                                    \
+                GTEST_SKIP_("NEW_MK check (AES): new MK not set for this APQN/MKVP."); \
+            }                                                                  \
         }                                                                      \
         zpc_aes_key_free(&aes_key);                                            \
 } while (0)
@@ -328,12 +347,14 @@ do {                                                                           \
         if (type == -1)                                                        \
                 GTEST_SKIP_("ZPC_TEST_EC_KEY_TYPE environment variable not set."); \
                                                                                \
-        mkvp = testlib_env_ec_key_mkvp();                                      \
-        rc = testlib_env_ec_key_apqns(apqns);                                  \
-        if (rc == 0 && mkvp != NULL)                                           \
-            GTEST_SKIP_("Both ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables set."); \
-        if (rc != 0 && mkvp == NULL)                                           \
-            GTEST_SKIP_("ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables unset."); \
+        if (type != ZPC_EC_KEY_TYPE_PVSECRET) {                                \
+            mkvp = testlib_env_ec_key_mkvp();                                  \
+            rc = testlib_env_ec_key_apqns(apqns);                              \
+            if (rc == 0 && mkvp != NULL)                                       \
+                GTEST_SKIP_("Both ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables set."); \
+            if (rc != 0 && mkvp == NULL)                                           \
+                GTEST_SKIP_("ZPC_TEST_EC_KEY_MKVP and ZPC_TEST_EC_KEY_APQNS environment variables unset."); \
+        }                                                                      \
 } while (0)
 
 # define TESTLIB_EC_HW_CAPS_CHECK()                                            \
@@ -378,6 +399,11 @@ do {                                                                           \
             zpc_ec_key_free(&ec_key);                                          \
             GTEST_SKIP_("SW_CAPS check (EC): EP11 host lib not available or too old (min EP11 3.0)."); \
         }                                                                      \
+        if (type == ZPC_EC_KEY_TYPE_PVSECRET &&                                \
+            rc == ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE) {                      \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("SW_CAPS check (EC): PVSECRET support not available on this system."); \
+        }                                                                      \
         if (rc != 0) {                                                         \
             zpc_ec_key_free(&ec_key);                                          \
             GTEST_SKIP_("HW_CAPS check (EC): unexpected error when setting key type."); \
@@ -397,6 +423,11 @@ do {                                                                           \
         rc = zpc_ec_key_set_mkvp(ec_key, NULL); /* cannot fail */              \
         rc = zpc_ec_key_set_curve(ec_key, ZPC_EC_CURVE_P256); /* cannot fail */ \
         rc = zpc_ec_key_set_type(ec_key, type);                                \
+        if (type == ZPC_EC_KEY_TYPE_PVSECRET &&                                \
+            rc == ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE) {                      \
+            zpc_ec_key_free(&ec_key);                                          \
+            GTEST_SKIP_("KERNEL_CAPS check (EC): PVSECRET support not available on this system."); \
+        }                                                                      \
         if (rc != 0) {                                                         \
             zpc_ec_key_free(&ec_key);                                          \
             GTEST_SKIP_("KERNEL_CAPS check (EC): error setting key type.");    \
@@ -420,14 +451,16 @@ do {                                                                           \
                 GTEST_SKIP_("KERNEL_CAPS check (EC): error setting apqns.");   \
             }                                                                  \
         }                                                                      \
-        rc = zpc_ec_key_generate(ec_key);                                      \
-        if (rc == ZPC_ERROR_IOCTLBLOB2PROTK3) {                                \
-            zpc_ec_key_free(&ec_key);                                          \
-            GTEST_SKIP_("KERNEL_CAPS check (EC): ioctl PKEY_KBLOB2PROTK3 not supported by kernel."); \
-        }                                                                      \
-        if (rc != 0) {                                                         \
-            zpc_ec_key_free(&ec_key);                                          \
-            GTEST_SKIP_("KERNEL_CAPS check (EC): Unexpected error when generating test key."); \
+        if (type != ZPC_EC_KEY_TYPE_PVSECRET) {                                \
+            rc = zpc_ec_key_generate(ec_key);                                  \
+            if (rc == ZPC_ERROR_IOCTLBLOB2PROTK3) {                            \
+                zpc_ec_key_free(&ec_key);                                      \
+                GTEST_SKIP_("KERNEL_CAPS check (EC): ioctl PKEY_KBLOB2PROTK3 not supported by kernel."); \
+            }                                                                  \
+            if (rc != 0) {                                                     \
+                zpc_ec_key_free(&ec_key);                                      \
+                GTEST_SKIP_("KERNEL_CAPS check (EC): Unexpected error when generating test key."); \
+            }                                                                  \
         }                                                                      \
                                                                                \
         zpc_ec_key_free(&ec_key);                                              \
@@ -443,6 +476,9 @@ do {                                                                           \
 do {                                                                           \
         int rc;                                                                \
         struct zpc_ec_key *ec_key;                                             \
+                                                                               \
+        if (type == ZPC_EC_KEY_TYPE_PVSECRET)                                  \
+            break; /* silently skip check */                                   \
                                                                                \
         rc = zpc_ec_key_alloc(&ec_key);                                        \
         if (rc != 0)                                                           \
@@ -491,7 +527,8 @@ do {                                                                           \
         int rc;                                                                \
         struct zpc_aes_key *aes_key;                                           \
         const u8 key[32] = {0};                                                \
-                                                                               \
+        if (type == ZPC_AES_KEY_TYPE_PVSECRET)                                 \
+            break; /* silently skip check */                                   \
         rc = zpc_aes_key_alloc(&aes_key);                                      \
         if (rc != 0)                                                           \
             GTEST_SKIP_("APQN_CAPS check: Cannot allocate key object.");       \
@@ -550,6 +587,13 @@ void testlib_env_ec_key_check(void);
 zpc_ec_curve_t testlib_env_ec_key_curve(void);
 int testlib_env_ec_key_type(void);
 unsigned int testlib_env_ec_key_flags(void);
+
+int testlib_get_aes_pvsecret_id(int keysize, unsigned char outbuf[32]);
+int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int size);
+int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size);
+int testlib_get_ec_pvsecret_id(zpc_ec_curve_t curve, unsigned char outbuf[32]);
+int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
+int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
 
 unsigned char *testlib_hexstr2buf(const char *, size_t *);
 unsigned char *testlib_hexstr2fixedbuf(const char *hexstr, size_t tolen);
