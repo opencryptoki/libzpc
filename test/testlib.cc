@@ -316,7 +316,6 @@ testlib_env_ec_key_apqns(const char *apqns[257])
 	tok = strtok(env, " \t\n,");
 	while (tok && i < 256) {
 		apqns[i] = tok;
-
 		tok = strtok(NULL, " \t\n,");
 		i++;
 	}
@@ -328,26 +327,26 @@ int
 testlib_env_aes_key_size(void)
 {
 	int size = -1;	/* Invalid key-size. */
-    long sizelong = LONG_MIN;
+	long sizelong = LONG_MIN;
 	char *env = NULL, *endptr = NULL;
 
 	env = getenv(ENV_AES_KEY_SIZE);
 	if (env == NULL || env[0] == '\0')
 		goto ret;
 
-    sizelong = strtol(env, &endptr, 0);
-    if (*endptr != '\0' || sizelong < INT_MIN || sizelong > INT_MAX)
-            goto ret;
+	sizelong = strtol(env, &endptr, 0);
+	if (*endptr != '\0' || sizelong < INT_MIN || sizelong > INT_MAX)
+		goto ret;
 
-    size = (int)sizelong;
+	size = (int)sizelong;
 ret:
-    return size;
+	return size;
 }
 
 int
 testlib_env_aes_key_type(void)
 {
-    int type = -1;	/* Invalid key-type. */
+	int type = -1;	/* Invalid key-type. */
 	char *env = NULL;
 
 	env = getenv(ENV_AES_KEY_TYPE);
@@ -362,7 +361,7 @@ testlib_env_aes_key_type(void)
 		type = ZPC_AES_KEY_TYPE_EP11;
 
 ret:
-    return type;
+	return type;
 }
 
 int
@@ -386,40 +385,40 @@ ret:
 
 unsigned int testlib_env_aes_key_flags(void)
 {
-    int flags = 0;	/* Default flags. */
-    long flagslong = LONG_MIN;
+	int flags = 0;	/* Default flags. */
+	long flagslong = LONG_MIN;
 	char *env = NULL, *endptr = NULL;
 
 	env = getenv(ENV_AES_KEY_FLAGS);
 	if (env == NULL || env[0] == '\0')
 		goto ret;
 
-    flagslong = strtol(env, &endptr, 0);
-    if (*endptr != '\0' || flagslong < 0 || flagslong > UINT_MAX)
-        goto ret;
+	flagslong = strtol(env, &endptr, 0);
+	if (*endptr != '\0' || flagslong < 0 || flagslong > UINT_MAX)
+		goto ret;
 
-    flags = (unsigned int)flagslong;
+	flags = (unsigned int)flagslong;
 ret:
-    return flags;
+	return flags;
 }
 
 unsigned int testlib_env_ec_key_flags(void)
 {
-    int flags = 0;	/* Default flags. */
-    long flagslong = LONG_MIN;
+	int flags = 0;	/* Default flags. */
+	long flagslong = LONG_MIN;
 	char *env = NULL, *endptr = NULL;
 
 	env = getenv(ENV_EC_KEY_FLAGS);
 	if (env == NULL || env[0] == '\0')
 		goto ret;
 
-    flagslong = strtol(env, &endptr, 0);
-    if (*endptr != '\0' || flagslong < 0 || flagslong > UINT_MAX)
-        goto ret;
+	flagslong = strtol(env, &endptr, 0);
+	if (*endptr != '\0' || flagslong < 0 || flagslong > UINT_MAX)
+		goto ret;
 
-    flags = (unsigned int)flagslong;
+	flags = (unsigned int)flagslong;
 ret:
-    return flags;
+	return flags;
 }
 
 zpc_ec_curve_t testlib_env_ec_key_curve(void)
