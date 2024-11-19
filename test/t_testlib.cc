@@ -192,6 +192,13 @@ TEST(testlib, env_aes_key_type)
 	rc = unsetenv("ZPC_TEST_AES_KEY_TYPE");
 	ASSERT_EQ(rc, 0);
 
+	rc = setenv("ZPC_TEST_AES_KEY_TYPE", "ZPC_AES_KEY_TYPE_PVSECRET", 1);
+	ASSERT_EQ(rc, 0);
+	type = testlib_env_aes_key_type();
+	EXPECT_EQ(type, ZPC_AES_KEY_TYPE_PVSECRET);
+	rc = unsetenv("ZPC_TEST_AES_KEY_TYPE");
+	ASSERT_EQ(rc, 0);
+
 	if (oldenv != NULL) {
 		/* Restore environment. */
 		rc = setenv("ZPC_TEST_AES_KEY_TYPE", oldenv, 1);
@@ -277,6 +284,49 @@ TEST(testlib, env_aes_key_flags)
 	if (oldenv != NULL) {
 		/* Restore environment. */
 		rc = setenv("ZPC_TEST_AES_KEY_FLAGS", oldenv, 1);
+		ASSERT_EQ(rc, 0);
+	}
+}
+
+TEST(testlib, env_ec_key_type)
+{
+	const char *oldenv = NULL;
+	int rc, type;
+
+	/* Save environment. */
+	oldenv = getenv("ZPC_TEST_EC_KEY_TYPE");
+
+	rc = setenv("ZPC_TEST_EC_KEY_TYPE", "abcde", 1);
+	ASSERT_EQ(rc, 0);
+	type = testlib_env_ec_key_type();
+	EXPECT_EQ(type, -1);
+	rc = unsetenv("ZPC_TEST_EC_KEY_TYPE");
+	ASSERT_EQ(rc, 0);
+
+	rc = setenv("ZPC_TEST_EC_KEY_TYPE", "ZPC_EC_KEY_TYPE_CCA", 1);
+	ASSERT_EQ(rc, 0);
+	type = testlib_env_ec_key_type();
+	EXPECT_EQ(type, ZPC_EC_KEY_TYPE_CCA);
+	rc = unsetenv("ZPC_TEST_EC_KEY_TYPE");
+	ASSERT_EQ(rc, 0);
+
+	rc = setenv("ZPC_TEST_EC_KEY_TYPE", "ZPC_EC_KEY_TYPE_EP11", 1);
+	ASSERT_EQ(rc, 0);
+	type = testlib_env_ec_key_type();
+	EXPECT_EQ(type, ZPC_EC_KEY_TYPE_EP11);
+	rc = unsetenv("ZPC_TEST_EC_KEY_TYPE");
+	ASSERT_EQ(rc, 0);
+
+	rc = setenv("ZPC_TEST_EC_KEY_TYPE", "ZPC_EC_KEY_TYPE_PVSECRET", 1);
+	ASSERT_EQ(rc, 0);
+	type = testlib_env_ec_key_type();
+	EXPECT_EQ(type, ZPC_EC_KEY_TYPE_PVSECRET);
+	rc = unsetenv("ZPC_TEST_EC_KEY_TYPE");
+	ASSERT_EQ(rc, 0);
+
+	if (oldenv != NULL) {
+		/* Restore environment. */
+		rc = setenv("ZPC_TEST_EC_KEY_TYPE", oldenv, 1);
 		ASSERT_EQ(rc, 0);
 	}
 }
