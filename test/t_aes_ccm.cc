@@ -80,13 +80,13 @@ TEST(aes_ccm, set_key)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
@@ -113,8 +113,15 @@ TEST(aes_ccm, set_key)
 	}
 	rc = zpc_aes_key_set_flags(aes_key, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_aes_key_import_clear(aes_key, clearkey);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_import_clear(aes_key, clearkey);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key, size);
+		if (rc)
+			goto ret;
+	}
 
 	rc = zpc_aes_ccm_set_key(NULL, NULL);
 	EXPECT_EQ(rc, ZPC_ERROR_ARG1NULL);
@@ -131,6 +138,7 @@ TEST(aes_ccm, set_key)
 	rc = zpc_aes_ccm_set_iv(aes_ccm, iv, 12);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_aes_ccm_free(&aes_ccm);
 	EXPECT_EQ(aes_ccm, nullptr);
 	zpc_aes_key_free(&aes_key);
@@ -150,13 +158,13 @@ TEST(aes_ccm, set_iv)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
@@ -190,8 +198,15 @@ TEST(aes_ccm, set_iv)
 		rc = zpc_aes_key_set_apqns(aes_key, apqns);
 		EXPECT_EQ(rc, 0);
 	}
-	rc = zpc_aes_key_generate(aes_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_generate(aes_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key, size);
+		if (rc)
+			goto ret;
+	}
 
 	rc = zpc_aes_ccm_set_iv(aes_ccm, iv, 12);
 	EXPECT_EQ(rc, ZPC_ERROR_KEYNOTSET);
@@ -208,6 +223,7 @@ TEST(aes_ccm, set_iv)
 	rc = zpc_aes_ccm_set_iv(aes_ccm, iv, 13);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_aes_ccm_free(&aes_ccm);
 	EXPECT_EQ(aes_ccm, nullptr);
 	zpc_aes_key_free(&aes_key);
@@ -227,13 +243,13 @@ TEST(aes_ccm, encrypt)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
@@ -257,8 +273,15 @@ TEST(aes_ccm, encrypt)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_set_flags(aes_key, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_aes_key_generate(aes_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_generate(aes_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key, size);
+		if (rc)
+			goto ret;
+	}
 
 	rc = zpc_aes_ccm_set_key(aes_ccm, aes_key);
 	EXPECT_EQ(rc, 0);
@@ -268,6 +291,7 @@ TEST(aes_ccm, encrypt)
 	rc = zpc_aes_ccm_encrypt(aes_ccm, c, tag, 12, aad, 99, m, 99);
 	EXPECT_EQ(rc, 0);
 
+ret:
 	zpc_aes_ccm_free(&aes_ccm);
 	EXPECT_EQ(aes_ccm, nullptr);
 	zpc_aes_key_free(&aes_key);
@@ -279,7 +303,7 @@ TEST(aes_ccm, decrypt)
 	struct zpc_aes_key *aes_key;
 	struct zpc_aes_ccm *aes_ccm;
 	const char *mkvp, *apqns[257];
-	u8 iv[12], aad[99], m[99], tag[12], c[99];
+	u8 iv[12], aad[99], m[99], tag[12] = { 0,}, c[99];
 	unsigned int flags;
 	int rc, size, type;
 
@@ -287,13 +311,13 @@ TEST(aes_ccm, decrypt)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
@@ -317,8 +341,16 @@ TEST(aes_ccm, decrypt)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_set_flags(aes_key, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_aes_key_generate(aes_key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_generate(aes_key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key, size);
+		if (rc)
+			goto ret;
+	}
+
 	rc = zpc_aes_ccm_set_key(aes_ccm, aes_key);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_ccm_set_iv(aes_ccm, iv, 12);
@@ -327,6 +359,7 @@ TEST(aes_ccm, decrypt)
 	rc = zpc_aes_ccm_decrypt(aes_ccm, m, tag, 12, aad, 99, c, 99);
 	EXPECT_EQ(rc, ZPC_ERROR_TAGMISMATCH);
 
+ret:
 	zpc_aes_ccm_free(&aes_ccm);
 	EXPECT_EQ(aes_ccm, nullptr);
 	zpc_aes_key_free(&aes_key);
@@ -346,13 +379,13 @@ TEST(aes_ccm, pc)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size = testlib_env_aes_key_size();
 	type = testlib_env_aes_key_type();
 	flags = testlib_env_aes_key_flags();
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
@@ -382,8 +415,16 @@ TEST(aes_ccm, pc)
 	}
 	rc = zpc_aes_key_set_flags(aes_key1, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_aes_key_import_clear(aes_key1, key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_import_clear(aes_key1, key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key1, size);
+		if (rc)
+			goto ret;
+	}
+
 	rc = zpc_aes_ccm_set_key(aes_ccm1, aes_key1);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_ccm_set_iv(aes_ccm1, iv, 12);
@@ -402,8 +443,16 @@ TEST(aes_ccm, pc)
 	}
 	rc = zpc_aes_key_set_flags(aes_key2, flags);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_aes_key_import_clear(aes_key2, key);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_import_clear(aes_key2, key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key2, size);
+		if (rc)
+			goto ret;
+	}
+
 	rc = zpc_aes_ccm_set_key(aes_ccm2, aes_key2);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_ccm_set_iv(aes_ccm2, iv, 12);
@@ -442,8 +491,15 @@ TEST(aes_ccm, pc)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_set_size(aes_key1, size);
 	EXPECT_EQ(rc, 0);
-	rc = zpc_aes_key_generate(aes_key1);
-	EXPECT_EQ(rc, 0);
+
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_generate(aes_key1);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key1, size);
+		if (rc)
+			goto ret;
+	}
 
 	rc = zpc_aes_ccm_set_key(aes_ccm1, aes_key1);
 	EXPECT_EQ(rc, 0);
@@ -477,6 +533,7 @@ TEST(aes_ccm, pc)
 	rc = zpc_aes_ccm_decrypt(aes_ccm2, m, tag, 12, aad, 99, c, 99);
 	EXPECT_EQ(rc, ZPC_ERROR_TAGMISMATCH);
 
+ret:
 	zpc_aes_ccm_free(&aes_ccm2);
 	zpc_aes_ccm_free(&aes_ccm1);
 	zpc_aes_key_free(&aes_key2);
@@ -490,8 +547,6 @@ TEST(aes_ccm, stream_inplace_kat1)
 	TESTLIB_ENV_AES_KEY_CHECK();
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
-
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
 
 	size_t keylen, ivlen, msglen, ctlen, taglen, aadlen;
 	unsigned char buf[4096], mac[16];
@@ -513,9 +568,14 @@ TEST(aes_ccm, stream_inplace_kat1)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
+
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
 	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
+
+	if (type == ZPC_AES_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping stream_inplace_kat1 test. KATs cannot be performed with UV secrets.");
 
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
@@ -623,8 +683,6 @@ TEST(aes_ccm, stream_inplace_kat2)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size_t keylen, ivlen, msglen, ctlen, taglen, aadlen;
 	unsigned char buf[4096], mac[16];
 	const char *mkvp, *apqns[257];
@@ -645,9 +703,14 @@ TEST(aes_ccm, stream_inplace_kat2)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
+
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
 	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
+
+	if (type == ZPC_AES_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping stream_inplace_kat2 test. KATs cannot be performed with UV secrets.");
 
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
@@ -725,11 +788,20 @@ TEST(aes_ccm, stream_inplace_kat2)
 
 TEST(aes_ccm, wycheproof_kat)
 {
+	int type;
+
+	type = testlib_env_aes_key_type();
+
 	TESTLIB_ENV_AES_KEY_CHECK();
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
+
+	TESTLIB_AES_SW_CAPS_CHECK(type);
+
+	if (type == ZPC_AES_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping wycheproof_kat test. KATs cannot be performed with UV secrets.");
 
 	__run_json("wycheproof/src/wycheproof/testvectors/aes_ccm_test.json");
 }
@@ -938,15 +1010,16 @@ TEST(aes_ccm, rederive_protected_key1)
 	struct zpc_aes_key *aes_key1;
 	struct zpc_aes_ccm *aes_ccm1, *aes_ccm2, *aes_ccm3;
 	u8 iv[12], aad[99], m[99], tag[16], c[99]; /* use ivlen != 12 bytes such that it must be processed by kma */
-	int rc, size;
+	int rc, size, type;
 
 	TESTLIB_ENV_AES_KEY_CHECK();
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size = testlib_env_aes_key_size();
+	type = testlib_env_aes_key_type();
+
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
 	rc = zpc_aes_key_alloc(&aes_key1);
 	EXPECT_EQ(rc, 0);
@@ -970,6 +1043,12 @@ TEST(aes_ccm, rederive_protected_key1)
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_set_size(aes_key1, size);
 	EXPECT_EQ(rc, 0);
+	/*
+	 * This key obj has no type set. Therefore the generate will work also
+	 * for tests with ZPC_TEST_AES_KEY_TYPE = ZPC_AES_KEY_TYPE_PVSECRET.
+	 * The generated protected key has no dependency on any secure key or
+	 * pvsecret.
+	 */
 	rc = zpc_aes_key_generate(aes_key1);
 	EXPECT_EQ(rc, 0);
 
@@ -1015,10 +1094,8 @@ TEST(aes_ccm, rederive_protected_key2)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size_t keylen, ivlen, msglen, ctlen, taglen, aadlen;
-	unsigned char buf[4096], mac[16];
+	unsigned char buf[4096], mac[16] = { 0, }, pvsec_ct[4096];
 	const char *mkvp, *apqns[257];
 	struct zpc_aes_key *aes_key;
 	struct zpc_aes_ccm *aes_ccm;
@@ -1037,9 +1114,11 @@ TEST(aes_ccm, rederive_protected_key2)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
+
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
-	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 192, flags);
 
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
@@ -1074,8 +1153,14 @@ TEST(aes_ccm, rederive_protected_key2)
 	rc = zpc_aes_key_set_size(aes_key, keylen * 8);
 	EXPECT_EQ(rc, 0);
 
-	rc = zpc_aes_key_import_clear(aes_key, key);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_import_clear(aes_key, key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key, keylen * 8);
+		if (rc)
+			goto ret;
+	}
 
 	/* Encrypt */
 	memcpy(buf, msg, msglen);
@@ -1091,8 +1176,12 @@ TEST(aes_ccm, rederive_protected_key2)
 	rc = zpc_aes_ccm_encrypt(aes_ccm, buf, mac, taglen, aad, aadlen, buf, msglen);
 	EXPECT_EQ(rc, 0);
 
-	EXPECT_TRUE(memcmp(buf, ct, ctlen) == 0);
-	EXPECT_TRUE(memcmp(mac, tag, taglen) == 0);
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		EXPECT_TRUE(memcmp(buf, ct, ctlen) == 0);
+		EXPECT_TRUE(memcmp(mac, tag, taglen) == 0);
+	} else {
+		memcpy(pvsec_ct, buf, ctlen);
+	}
 
 	/* Encrypt */
 	memcpy(buf, msg, msglen);
@@ -1110,11 +1199,20 @@ TEST(aes_ccm, rederive_protected_key2)
 	EXPECT_EQ(rc, 0);
 	EXPECT_EQ(rc, 0);
 
-	EXPECT_TRUE(memcmp(buf, ct, ctlen) == 0);
-	EXPECT_TRUE(memcmp(mac, tag, taglen) == 0);
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		EXPECT_TRUE(memcmp(buf, ct, ctlen) == 0);
+		EXPECT_TRUE(memcmp(mac, tag, taglen) == 0);
+	} else {
+		EXPECT_TRUE(memcmp(buf, pvsec_ct, ctlen) == 0);
+	}
 
 	/* Decrypt */
-	memcpy(buf, ct, ctlen);
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		memcpy(buf, ct, ctlen);
+	} else {
+		memcpy(buf, pvsec_ct, ctlen);
+		memcpy(tag, mac, taglen);
+	}
 
 	memset(aes_ccm->param_kmac.protkey, 0, sizeof(aes_ccm->param_kmac.protkey));    /* force WKaVP mismatch */
 	memset(aes_ccm->param_kma.protkey, 0, sizeof(aes_ccm->param_kma.protkey));    /* force WKaVP mismatch */
@@ -1129,14 +1227,17 @@ TEST(aes_ccm, rederive_protected_key2)
 	EXPECT_TRUE(memcmp(buf, msg, msglen) == 0);
 
 	/* Decrypt */
-	memcpy(buf, ct, ctlen);
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		memcpy(buf, ct, ctlen);
+	} else {
+		memcpy(buf, pvsec_ct, ctlen);
+		memcpy(tag, mac, taglen);
+	}
 
 	memset(aes_ccm->param_kmac.protkey, 0, sizeof(aes_ccm->param_kmac.protkey));    /* force WKaVP mismatch */
 	memset(aes_ccm->param_kma.protkey, 0, sizeof(aes_ccm->param_kma.protkey));    /* force WKaVP mismatch */
 	rc = zpc_aes_ccm_set_iv(aes_ccm, iv, ivlen);
 	EXPECT_EQ(rc, 0);
-
-	memcpy(buf, ct, ctlen);
 
 	memset(aes_ccm->param_kmac.protkey, 0, sizeof(aes_ccm->param_kmac.protkey));    /* force WKaVP mismatch */
 	memset(aes_ccm->param_kma.protkey, 0, sizeof(aes_ccm->param_kma.protkey));    /* force WKaVP mismatch */
@@ -1145,6 +1246,7 @@ TEST(aes_ccm, rederive_protected_key2)
 
 	EXPECT_TRUE(memcmp(buf, msg, msglen) == 0);
 
+ret:
 	zpc_aes_ccm_free(&aes_ccm);
 	EXPECT_EQ(aes_ccm, nullptr);
 	zpc_aes_key_free(&aes_key);
@@ -1164,10 +1266,8 @@ TEST(aes_ccm, reencipher)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size_t keylen, ivlen, msglen, ctlen, taglen, aadlen;
-	unsigned char buf[4096], mac[16];
+	unsigned char buf[4096], mac[16] = { 0, };
 	const char *mkvp, *apqns[257];
 	struct zpc_aes_key *aes_key;
 	struct zpc_aes_ccm *aes_ccm;
@@ -1186,11 +1286,16 @@ TEST(aes_ccm, reencipher)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
+
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
-	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 192, flags);
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
+
+	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+		GTEST_SKIP_("Skipping reencipher test. Not applicable for UV secrets.");
 
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
 	ASSERT_NE(key, nullptr);
@@ -1322,7 +1427,7 @@ static void
 __task(struct zpc_aes_key *aes_key)
 {
 	struct zpc_aes_ccm *aes_ccm;
-	unsigned char buf[4096], mac[16];
+	unsigned char buf[4096], mac[16] = { 0, };
 	size_t ivlen, msglen, ctlen, taglen, aadlen;
 	int rc, i;
 
@@ -1361,11 +1466,17 @@ __task(struct zpc_aes_key *aes_key)
 		rc = zpc_aes_ccm_encrypt(aes_ccm, buf, mac, taglen, aad, aadlen, buf, msglen);
 		EXPECT_EQ(rc, 0);
 
-		EXPECT_TRUE(memcmp(buf, ct, ctlen) == 0);
-		EXPECT_TRUE(memcmp(mac, tag, taglen) == 0);
+		if (aes_key->type != ZPC_AES_KEY_TYPE_PVSECRET) {
+			EXPECT_TRUE(memcmp(buf, ct, ctlen) == 0);
+			EXPECT_TRUE(memcmp(mac, tag, taglen) == 0);
+		}
 
 		/* Decrypt */
-		memcpy(buf, ct, ctlen);
+		if (aes_key->type != ZPC_AES_KEY_TYPE_PVSECRET) {
+			memcpy(buf, ct, ctlen);
+		} else {
+			memcpy(tag, mac, taglen);
+		}
 
 		rc = zpc_aes_ccm_set_iv(aes_ccm, iv, ivlen);
 		EXPECT_EQ(rc, 0);
@@ -1393,8 +1504,6 @@ TEST(aes_ccm, threads)
 
 	TESTLIB_AES_CCM_HW_CAPS_CHECK();
 
-	TESTLIB_AES_KERNEL_CAPS_CHECK();
-
 	size_t keylen;
 	const char *mkvp, *apqns[257];
 	struct zpc_aes_key *aes_key;
@@ -1409,9 +1518,11 @@ TEST(aes_ccm, threads)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
+
 	TESTLIB_AES_SW_CAPS_CHECK(type);
 
-	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 256, flags);
+	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, 192, flags);
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
@@ -1435,17 +1546,25 @@ TEST(aes_ccm, threads)
 	rc = zpc_aes_key_set_size(aes_key, keylen * 8);
 	EXPECT_EQ(rc, 0);
 
-	rc = zpc_aes_key_import_clear(aes_key, key);
-	EXPECT_EQ(rc, 0);
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_import_clear(aes_key, key);
+		EXPECT_EQ(rc, 0);
+	} else {
+		rc = testlib_set_aes_key_from_pvsecret(aes_key, keylen * 8);
+		if (rc)
+			goto ret;
+	}
 
 	for (i = 0; i < 500; i++) {
 		t[i] = new std::thread(__task, aes_key);
 	}
 
 	/* Do something with key object while threads are working with it. */
-	rc = zpc_aes_key_reencipher(aes_key, ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW);
-	EXPECT_EQ(rc, 0);
-	memset(&aes_key->cur, 0, sizeof(aes_key->cur));     /* destroy current secure key */
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET) {
+		rc = zpc_aes_key_reencipher(aes_key, ZPC_AES_KEY_REENCIPHER_CURRENT_TO_NEW);
+		EXPECT_EQ(rc, 0);
+		memset(&aes_key->cur, 0, sizeof(aes_key->cur));     /* destroy current secure key */
+	}
  
 	for (i = 0; i < 500; i++) {
 		memset(&aes_key->prot, 0, sizeof(aes_key->prot));    /* destroy cached protected key */
@@ -1457,6 +1576,7 @@ TEST(aes_ccm, threads)
 		delete t[i];
 	}
 
+ret:
 	zpc_aes_key_free(&aes_key);
 	EXPECT_EQ(aes_key, nullptr);
 
