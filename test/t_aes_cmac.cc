@@ -191,7 +191,7 @@ TEST(aes_cmac, sign)
 	EXPECT_EQ(aes_key, nullptr);
 }
 
-TEST(aes_cmac, verifyzpc_aes_cmac_verify)
+TEST(aes_cmac, verify)
 {
 	struct zpc_aes_key *aes_key;
 	struct zpc_aes_cmac *aes_cmac;
