@@ -193,7 +193,7 @@ static void zpc_init(void)
 		goto ret;
 
 	/* Expected facility list size is 64 * facility_list_nmemb bits. */
-	facility_list = calloc(sizeof(u64), facility_list_nmemb);
+	facility_list = calloc(facility_list_nmemb, sizeof(u64));
 	if (facility_list == NULL)
 		goto ret;
 
