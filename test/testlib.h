@@ -512,7 +512,7 @@ do {                                                                           \
         switch (rc) {                                                          \
         case ZPC_ERROR_IOCTLCLR2SECK2:                                         \
             GTEST_SKIP_("APQN_CAPS check: Cannot create a protected key, "     \
-                        "probably card older than CEX7.");                     \
+                        "probably card older than CEX7 or no MK set.");        \
         default:                                                               \
             break;                                                             \
         }                                                                      \
