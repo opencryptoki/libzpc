@@ -1,6 +1,6 @@
 arch:     s390x
 os:       linux
-dist:     focal
+dist:     jammy
 language: cpp
 sudo:     required
 env:      |
@@ -15,6 +15,7 @@ before_install:
         - sudo apt-get install cmake libjson-c-dev
 
 script:
-        - mkdir build && cd build
-        - cmake -DBUILD_TEST=ON ..
-        - make
+        - set -o pipefail
+        - mkdir build 2> >(tee) && cd build 2> >(tee)
+        - cmake -DBUILD_TEST=ON .. 2> >(tee)
+        - make 2> >(tee)
