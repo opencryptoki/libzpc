@@ -175,6 +175,7 @@ zpc_aes_ecb_encrypt(struct zpc_aes_ecb *aes_ecb, u8 * c, const u8 * m,
 	}
 	if (mlen % 16 != 0) {
 		rc = ZPC_ERROR_MLEN;
+		goto ret;
 	}
 
 	if (!aes_ecb->key_set) {

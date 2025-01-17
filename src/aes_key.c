@@ -1163,7 +1163,7 @@ int aes_key_sec2prot(struct zpc_aes_key *aes_key, enum aes_key_sec sec)
 		if (sec == AES_KEY_SEC_CUR) {
 			key = &aes_key->cur;
 			keylen = aes_key->cur.seclen;
-		} else if (sec == AES_KEY_SEC_OLD) {
+		} else {
 			key = &aes_key->old;
 			keylen = aes_key->old.seclen;
 		}
