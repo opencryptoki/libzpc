@@ -295,6 +295,7 @@ zpc_aes_cbc_encrypt(struct zpc_aes_cbc *aes_cbc, u8 * c, const u8 * m,
 	}
 	if (mlen % 16 != 0) {
 		rc = ZPC_ERROR_MLEN;
+		goto ret;
 	}
 
 	if (!aes_cbc->key_set) {
