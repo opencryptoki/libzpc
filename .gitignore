@@ -1,1 +1,25 @@
 .vscode/
+
+# ignore common build directory
+/build/
+
+# ignore editor stubs
+\#*\#
+.*.swp
+
+# generic ignore patterns
+TAGS
+.TAGS
+!TAGS/
+tags
+.tags
+!tags/
+gtags.files
+GTAGS
+GRTAGS
+GPATH
+GSYMS
+cscope.files
+cscope.out
+cscope.in.out
+cscope.po.out
