@@ -300,8 +300,10 @@ testlib_env_aes_key_apqns(const char *apqns[257])
 	int i;
 
 	env = getenv(ENV_AES_KEY_APQNS);
-	if (env == NULL)
+	if (env == NULL) {
+		apqns[0] = NULL;
 		return -1;
+	}
 
 	i = 0;
 	tok = strtok(env, " \t\n,");
@@ -322,8 +324,10 @@ testlib_env_ec_key_apqns(const char *apqns[257])
 	int i;
 
 	env = getenv(ENV_EC_KEY_APQNS);
-	if (env == NULL)
+	if (env == NULL) {
+		apqns[0] = NULL;
 		return -1;
+	}
 
 	i = 0;
 	tok = strtok(env, " \t\n,");
