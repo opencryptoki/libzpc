@@ -95,4 +95,15 @@ global:
 local: *;
 } ZPC_1.1.0;
 
+ZPC_1.4.0 {
+global:
+	zpc_hmac_key_alloc;
+	zpc_hmac_key_set_type;
+	zpc_hmac_key_set_hash_function;
+	zpc_hmac_key_generate;
+	zpc_hmac_key_free;
+
+local: *;
+} ZPC_1.2.0;
+
 

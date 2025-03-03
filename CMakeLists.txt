@@ -47,6 +47,7 @@ set(ZPC_HEADERS
     include/zpc/aes_cmac.h
     include/zpc/ecc_key.h
     include/zpc/ecdsa_ctx.h
+    include/zpc/hmac_key.h
 )
 
 set(ZPC_SOURCES
@@ -64,6 +65,7 @@ set(ZPC_SOURCES
     src/ecc_key.c
     src/ecdsa_ctx.c
     src/pvsecrets.c
+    src/hmac_key.c
 
     src/zkey/utils.c
     src/zkey/pkey.c
