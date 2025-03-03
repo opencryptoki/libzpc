@@ -494,6 +494,30 @@ extern "C" {
 # define ZPC_ERROR_IOCTLVERIFYKEY2                     81
 
 /**
+ * \def ZPC_ERROR_HMAC_HASH_FUNCTION_NOTSET
+ * \brief HMAC hash function not set.
+ */
+# define ZPC_ERROR_HMAC_HASH_FUNCTION_NOTSET           82
+
+/**
+ * \def ZPC_ERROR_HMAC_HASH_FUNCTION_INVALID
+ * \brief HMAC hash function invalid.
+ */
+# define ZPC_ERROR_HMAC_HASH_FUNCTION_INVALID          83
+
+/**
+ * \def ZPC_ERROR_HMAC_KEYGEN_VIA_SYSFS_FAILED
+ * \brief HMAC key generation via sysfs attributes failed.
+ */
+# define ZPC_ERROR_HMAC_KEYGEN_VIA_SYSFS               84
+
+/**
+ * \def ZPC_ERROR_CREATE_BLOCKSIZED_KEY
+ * \brief Creating a block-sized HMAC key failed.
+ */
+# define ZPC_ERROR_CREATE_BLOCKSIZED_KEY               85
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
