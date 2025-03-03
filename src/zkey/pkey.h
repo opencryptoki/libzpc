@@ -277,6 +277,19 @@ struct pkey_clrkey {
 	u8  clrkey[32]; /* 16, 24, or 32 byte clear key value */
 };
 
+#define MAXHMACPROTKEYSIZE        160
+
+struct hmac_protkey {
+	u32 type; /* key type, one of the PKEY_KEYTYPE_HMAC values */
+	u32 len; /* bytes actually stored in protkey[] */
+	u8  protkey[MAXHMACPROTKEYSIZE]; /* the protected key blob */
+};
+
+struct hmac_genprotk {
+	u32 keytype; /* in: key type to generate */
+	struct hmac_protkey protkey; /* out: the generated protkey */
+};
+
 #define PKEY_IOCTL_MAGIC	'p'
 #define AUTOSELECT		0xFFFF
 #define PKEYDEVICE		"/dev/pkey"
@@ -289,6 +302,8 @@ struct pkey_clrkey {
 #define PKEY_KEYTYPE_ECC_P521         7
 #define PKEY_KEYTYPE_ECC_ED25519      8
 #define PKEY_KEYTYPE_ECC_ED448        9
+#define PKEY_KEYTYPE_HMAC_512         12
+#define PKEY_KEYTYPE_HMAC_1024        13
 
 /* inside view of a clear key token (type 0x00 version 0x02) */
 struct clearkeytoken {
