@@ -109,6 +109,10 @@ cpacf_kmc(unsigned long fc, void *param, u8 * out, const u8 * in, long inlen)
 # define CPACF_KMAC_ENCRYPTED_AES_128    26
 # define CPACF_KMAC_ENCRYPTED_AES_192    27
 # define CPACF_KMAC_ENCRYPTED_AES_256    28
+# define CPACF_KMAC_ENCRYPTED_SHA_224    120
+# define CPACF_KMAC_ENCRYPTED_SHA_256    121
+# define CPACF_KMAC_ENCRYPTED_SHA_384    122
+# define CPACF_KMAC_ENCRYPTED_SHA_512    123
 
 struct cpacf_kmac_aes_param {
 	u8 icv[16];
