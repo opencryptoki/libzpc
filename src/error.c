@@ -99,6 +99,10 @@ zpc_error_string(int err)
 		"The given pvsecret type is not supported by libzpc.",
 		"The given pvsecret ID does not belong to a secret on this system.",
 		"PKEY_VERIFYKEY2 ioctl failed.",
+		"HMAC hash function not set.",
+		"HMAC hash function invalid.",
+		"HMAC key generation via sysfs attributes failed.",
+		"Creating a block-sized HMAC key failed.",
 		"LAST"
 	};
 	const char *rc;
