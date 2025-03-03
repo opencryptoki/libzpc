@@ -115,7 +115,7 @@ static void zpc_init(void)
 	int aes_ecb_km = 0;
 	int aes_cbc_kmc = 0;
 	int aes_gcm_kma = 0;
-	int aes_cmac_kmac = 0, aes_cmac_pcc = 0;
+	int aes_cmac_kmac = 0, aes_cmac_pcc = 0, hmac_kmac = 0;
 	int aes_ccm_kmac = 0, aes_ccm_kma = 0;
 	int aes_xts_km = 0, aes_xts_pcc = 0;
 	int ecc_kdsa = 0;
@@ -262,6 +262,16 @@ static void zpc_init(void)
 			aes_cmac_kmac = 1;
 			aes_ccm_kmac = 1;
 		}
+		if ((status_word[OFF64(CPACF_KMAC_ENCRYPTED_SHA_224)]
+		    & MASK64(CPACF_KMAC_ENCRYPTED_SHA_224))
+		    && (status_word[OFF64(CPACF_KMAC_ENCRYPTED_SHA_256)]
+		    & MASK64(CPACF_KMAC_ENCRYPTED_SHA_256))
+		    && (status_word[OFF64(CPACF_KMAC_ENCRYPTED_SHA_384)]
+		    & MASK64(CPACF_KMAC_ENCRYPTED_SHA_384))
+		    && (status_word[OFF64(CPACF_KMAC_ENCRYPTED_SHA_512)]
+		    & MASK64(CPACF_KMAC_ENCRYPTED_SHA_512))) {
+			hmac_kmac = 1;
+		}
 	}
 
 	/* Check MSA3. */
@@ -337,6 +347,10 @@ static void zpc_init(void)
 		}
 	}
 
+	if (hmac_kmac == 1) {
+		DEBUG("detected message-security-assist extension 11");
+	}
+
 	/* Hardware capabilities via CPACF */
 	if (aes_ecb_km == 1) {
 		hwcaps.aes_ecb = 1;
@@ -353,6 +367,10 @@ static void zpc_init(void)
 	if (aes_cmac_kmac == 1 && aes_cmac_pcc == 1) {
 		hwcaps.aes_cmac = 1;
 		DEBUG("detected aes-cmac instruction set extensions");
+	}
+	if (hmac_kmac == 1) {
+		hwcaps.hmac_kmac = 1;
+		DEBUG("detected hmac instruction set extensions");
 	}
 	if (aes_ccm_kma == 1 && aes_ccm_kmac == 1) {
 		hwcaps.aes_ccm = 1;
