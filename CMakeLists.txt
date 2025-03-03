@@ -386,6 +386,8 @@ set(ZPC_TEST_SOURCES
     test/b_aes_gcm.c
     test/b_ecc_key.c
     test/b_ecdsa_ctx.c
+    test/b_hmac_key.c
+    test/b_hmac.c
     test/t_system.cc
     test/t_testlib.cc
     test/t_environment.cc
@@ -399,6 +401,8 @@ set(ZPC_TEST_SOURCES
     test/t_aes_gcm.cc
     test/t_ecc_key.cc
     test/t_ecdsa_ctx.cc
+    test/t_hmac_key.cc
+    test/t_hmac.cc
 )
 
 add_executable(runtest ${ZPC_TEST_SOURCES})
