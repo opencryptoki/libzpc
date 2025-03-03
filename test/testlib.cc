@@ -9,6 +9,7 @@
 
 #include "zpc/aes_key.h"
 #include "zpc/ecc_key.h"
+#include "zpc/hmac.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -26,6 +27,9 @@
 #define ENV_EC_KEY_CURVE	"ZPC_TEST_EC_KEY_CURVE"
 #define ENV_EC_KEY_TYPE		"ZPC_TEST_EC_KEY_TYPE"
 #define ENV_EC_KEY_FLAGS	"ZPC_TEST_EC_KEY_FLAGS"
+
+#define ENV_HMAC_KEY_TYPE	"ZPC_TEST_HMAC_KEY_TYPE"
+#define ENV_HMAC_HASH_FUNC	"ZPC_TEST_HMAC_HASH_FUNCTION"
 
 /*
  * This file must be created by the tester before running tests with key
@@ -474,6 +478,49 @@ ret:
 	return curve;
 }
 
+int
+testlib_env_hmac_key_type(void)
+{
+	int type = -1;	/* Invalid key-type. */
+	char *env = NULL;
+
+	env = getenv(ENV_HMAC_KEY_TYPE);
+	if (env == NULL) {
+		type = -2;
+		goto ret;
+	}
+
+	if (strcmp(env, "ZPC_HMAC_KEY_TYPE_PVSECRET") == 0)
+		type = ZPC_HMAC_KEY_TYPE_PVSECRET;
+
+ret:
+	return type;
+}
+
+zpc_hmac_hashfunc_t testlib_env_hmac_hashfunc(void)
+{
+	zpc_hmac_hashfunc_t hfunc = ZPC_HMAC_HASHFUNC_INVALID;
+	char *env = NULL;
+
+	env = getenv(ENV_HMAC_HASH_FUNC);
+	if (env == NULL) {
+		hfunc = ZPC_HMAC_HASHFUNC_NOT_SET;
+		goto ret;
+	}
+
+	if (strcmp(env, "SHA-224") == 0)
+		hfunc = ZPC_HMAC_HASHFUNC_SHA_224;
+	else if (strcmp(env, "SHA-256") == 0)
+		hfunc = ZPC_HMAC_HASHFUNC_SHA_256;
+	else if (strcmp(env, "SHA-384") == 0)
+		hfunc = ZPC_HMAC_HASHFUNC_SHA_384;
+	else if (strcmp(env, "SHA-512") == 0)
+		hfunc = ZPC_HMAC_HASHFUNC_SHA_512;
+
+ret:
+	return hfunc;
+}
+
 char * testlib_env_pvsecret_list_file(void)
 {
 	return getenv(ENV_PVSECRET_LIST_FILE);
@@ -709,6 +756,14 @@ int pvsec_found(const char *buffer, int pvsectype)
 		if (strstr(buffer, "EC-ED448-PRIVATE-KEY") != NULL)
 			return 1;
 		break;
+	case ZPC_HMAC_SECRET_HMAC_SHA_256:
+		if (strstr(buffer, "HMAC-SHA-256-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_HMAC_SECRET_HMAC_SHA_512:
+		if (strstr(buffer, "HMAC-SHA-512-KEY") != NULL)
+			return 1;
+		break;
 	default:
 		break;
 	}
@@ -724,11 +779,15 @@ int extract_bytes(const char *buffer, unsigned char *outbuf, unsigned int *outle
 {
 	unsigned char *sec = NULL;
 	char *tmp;
-	size_t seclen;
+	size_t seclen = 0;
 	int rc = 1;
 
-	/* Remove leading ' 0x' and ending newline */
-	tmp = (char *)buffer + 3;
+	/* Skip possible leading blanks */
+	tmp = (char *)buffer;
+	while (strlen(tmp) > 1 && tmp[0] == ' ')
+		tmp += 1;
+
+	/* Remove ending newline */
 	tmp[strlen(tmp) - 1] = 0;
 
 	/* Convert hex string to byte array */
@@ -778,7 +837,7 @@ int testlib_get_aes_data(int size, unsigned char *outbuf,
 			unsigned int *outlen, testkey_extract_mode_t mode)
 {
 	FILE *fd;
-	const unsigned int BUF_LEN = 300;
+	const unsigned int BUF_LEN = 1024;
 	char buffer[BUF_LEN] = { 0, };
 	char *fn;
 	int i, pvsectype, rc, lines_to_skip;
@@ -801,9 +860,17 @@ int testlib_get_aes_data(int size, unsigned char *outbuf,
 	case 192:
 		pvsectype = ZPC_AES_SECRET_AES_192;
 		break;
-	default: /* 256 */
+	case 256:
 		pvsectype = ZPC_AES_SECRET_AES_256;
 		break;
+	case 512:
+		pvsectype = ZPC_HMAC_SECRET_HMAC_SHA_256;
+		break;
+	case 1024:
+		pvsectype = ZPC_HMAC_SECRET_HMAC_SHA_512;
+		break;
+	default:
+		return 3; /* should not occur */
 	}
 
 	fn = testlib_env_pvsecret_list_file();
@@ -1172,6 +1239,81 @@ int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_cur
 	rc = 0;
 	printf("[       OK ] Imported clear key data for %s-type 'EC-%s-PRIVATE-KEY' from list file, rc = %d.\n",
 		type2string(type), curve2string[curve], rc);
+
+ret:
+	return rc;
+}
+
+int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, int keysize)
+{
+	unsigned char pvsec_id[32] = { 0, };
+	unsigned int id_len;
+	size_t i;
+	int rc;
+
+	rc = testlib_get_aes_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
+	switch (rc) {
+	case 0:
+		rc = zpc_hmac_key_import(hmac_key, pvsec_id, 32);
+		if (rc != 0) {
+			printf("[    ERROR ] zpc_hmac_key_import from 'HMAC-SHA-%d-KEY' pvsecret failed with rc = %d.\n",
+				keysize == 512 ? 256 : 512, rc);
+			printf("Tried with ID:\n");
+			for (i = 0; i < sizeof(pvsec_id); i++)
+				printf("%02X%c",pvsec_id[i],((i+1)%16)?' ':'\n');
+		}
+		break;
+	case 1:
+		printf("[  WARNING ] Could not open pvsecret list file. Probably "
+			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
+		break;
+	case 2:
+		printf("[  WARNING ] No HMAC pvsecret with size %d available on this system.\n",
+			keysize);
+		break;
+	}
+
+	return rc;
+}
+
+int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, int size)
+{
+	unsigned char pvsec_id[32] = { 0, };
+	unsigned char keybytes[256] = { 0, };
+	unsigned int idlen, byteslen;
+	int rc;
+
+	rc = testlib_get_aes_data(size, pvsec_id, &idlen, EXTRACT_ID);
+	switch (rc) {
+	case 0:
+		break;
+	case 1:
+		printf("[  WARNING ] Could not open pvsecret list file. Probably "
+			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
+		goto ret;
+	case 2:
+		printf("[  WARNING ] No HMAC pvsecret with size %d available on this system.\n",
+				size);
+		goto ret;
+	}
+
+	rc = testlib_get_aes_data(size, keybytes, &byteslen, EXTRACT_SECRETKEY);
+	if (rc != 0) {
+		printf("[     INFO ] Cannot obtain clear key bytes for 'HMAC-SHA-%d-KEY' from list file.\n",
+			size == 512 ? 256 : 512);
+		goto ret;
+	}
+
+	rc = zpc_hmac_key_import_clear(hmac_key, keybytes, byteslen);
+	if (rc != 0) {
+		printf("[     INFO ] Cannot import clear key data for %s-type 'HMAC-SHA-%d-KEY' from list file, rc = %d.\n",
+			type2string(type), keysize == 512 ? 256 : 512, rc);
+		goto ret;
+	}
+
+	rc = 0;
+	printf("[       OK ] Imported clear key data for %s-type 'HMAC-SHA-%d-KEY' from list file.\n",
+		type2string(type), size == 512 ? 256 : 512);
 
 ret:
 	return rc;

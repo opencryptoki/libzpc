@@ -19,6 +19,7 @@ extern "C" {
 # include <stddef.h>
 
 #include "zpc/ecc_key.h"
+#include "zpc/hmac.h"
 
 # define UNUSED(x)	(void)(x)
 # define NMEMB(x)	(sizeof(x) / sizeof(x[0]))
@@ -552,6 +553,124 @@ do {                                                                           \
         zpc_aes_key_free(&aes_key);                                            \
 } while (0)
 
+# define TESTLIB_ENV_HMAC_KEY_CHECK()                                          \
+do {                                                                           \
+        int type;                                                              \
+        zpc_hmac_hashfunc_t hfunc = testlib_env_hmac_hashfunc();               \
+                                                                               \
+        switch (hfunc) {                                                       \
+        case ZPC_HMAC_HASHFUNC_SHA_224:                                        \
+        case ZPC_HMAC_HASHFUNC_SHA_256:                                        \
+        case ZPC_HMAC_HASHFUNC_SHA_384:                                        \
+        case ZPC_HMAC_HASHFUNC_SHA_512:                                        \
+            break;                                                             \
+        case ZPC_HMAC_HASHFUNC_NOT_SET:                                        \
+            GTEST_SKIP_("ZPC_TEST_HMAC_HASH_FUNCTION environment variable not set."); \
+            break;                                                             \
+        default:                                                               \
+            GTEST_SKIP_("ZPC_TEST_HMAC_HASH_FUNCTION environment variable set to invalid value."); \
+            break;                                                             \
+        }                                                                      \
+                                                                               \
+        type = testlib_env_hmac_key_type();                                    \
+        switch (type) {                                                        \
+        case ZPC_HMAC_KEY_TYPE_PVSECRET:                                       \
+            break;                                                             \
+        case -1:                                                               \
+            GTEST_SKIP_("ZPC_TEST_HMAC_KEY_TYPE environment variable set to invalid value."); \
+        default:                                                               \
+            GTEST_SKIP_("ZPC_TEST_HMAC_KEY_TYPE environment variable not set."); \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+/*
+ * Check MSA 11 (protected key HMAC) availability.
+ */
+# define TESTLIB_HMAC_HW_CAPS_CHECK()                                          \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_hmac *hmac;                                                 \
+                                                                               \
+        rc = zpc_hmac_alloc(&hmac);                                            \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (HMAC): opening /dev/pkey failed.");    \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (HMAC): no HW capabilities for HMAC."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (HMAC): cannot allocate HMAC context.");\
+            break;                                                             \
+        default:                                                               \
+            zpc_hmac_free(&hmac);                                              \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+/*
+ * Check availability of PVSECRET support. This requires that we are running
+ * in a secure execution guest under KVM.
+ */
+# define TESTLIB_HMAC_SW_CAPS_CHECK(type)                                      \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_hmac_key *hmac_key;                                         \
+                                                                               \
+        rc = zpc_hmac_key_alloc(&hmac_key);                                    \
+        if (rc != 0) {                                                         \
+            zpc_hmac_key_free(&hmac_key);                                      \
+            GTEST_SKIP_("SW_CAPS check (HMAC): zpc_hmac_key_alloc failed.");   \
+            break;                                                             \
+        }                                                                      \
+        rc = zpc_hmac_key_set_type(hmac_key, type);                            \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            zpc_hmac_key_free(&hmac_key);                                      \
+            GTEST_SKIP_("SW_CAPS check (HMAC): opening /dev/pkey failed.");    \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            zpc_hmac_key_free(&hmac_key);                                      \
+            GTEST_SKIP_("SW_CAPS check (HMAC): no HW capabilities for HMAC."); \
+            break;                                                             \
+        case ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE:                             \
+            zpc_hmac_key_free(&hmac_key);                                      \
+            GTEST_SKIP_("SW_CAPS check (HMAC): PVSECRET support not available on this system.");\
+            break;                                                             \
+        default:                                                               \
+            zpc_hmac_key_free(&hmac_key);                                      \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+/*
+ * Check if kernel PKEY module supports protected key HMAC via PCKMO.
+ */
+# define TESTLIB_HMAC_KERNEL_CAPS_CHECK()                                      \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_hmac_key *key;                                              \
+        unsigned char buf[64];                                                 \
+                                                                               \
+        rc = zpc_hmac_key_alloc(&key);                                         \
+        if (rc != 0) {                                                         \
+            zpc_hmac_key_free(&key);                                           \
+            GTEST_SKIP_("KERNEL_CAPS check (HMAC): zpc_hmac_key_alloc failed."); \
+        }                                                                      \
+        rc = zpc_hmac_key_set_hash_function(key, ZPC_HMAC_HASHFUNC_SHA_256);   \
+        if (rc != 0) {                                                         \
+            zpc_hmac_key_free(&key);                                           \
+            GTEST_SKIP_("KERNEL_CAPS check (HMAC): Cannot set hash function."); \
+        }                                                                      \
+        rc = zpc_hmac_key_import_clear(key, buf, sizeof(buf));                 \
+        if (rc != 0) {                                                         \
+            zpc_hmac_key_free(&key);                                           \
+            GTEST_SKIP_("KERNEL_CAPS check (HMAC): no kernel support for HMAC."); \
+        }                                                                      \
+        zpc_hmac_key_free(&key);                                               \
+} while (0)
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
@@ -584,12 +703,17 @@ zpc_ec_curve_t testlib_env_ec_key_curve(void);
 int testlib_env_ec_key_type(void);
 unsigned int testlib_env_ec_key_flags(void);
 
+zpc_hmac_hashfunc_t testlib_env_hmac_hashfunc(void);
+int testlib_env_hmac_key_type(void);
+
 int testlib_get_aes_pvsecret_id(int keysize, unsigned char outbuf[32]);
 int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int size);
 int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size);
 int testlib_get_ec_pvsecret_id(zpc_ec_curve_t curve, unsigned char outbuf[32]);
 int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
 int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
+int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, int size);
+int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, int size);
 
 unsigned char *testlib_hexstr2buf(const char *, size_t *);
 unsigned char *testlib_hexstr2fixedbuf(const char *hexstr, size_t tolen);
