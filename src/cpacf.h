@@ -114,9 +114,29 @@ cpacf_kmc(unsigned long fc, void *param, u8 * out, const u8 * in, long inlen)
 # define CPACF_KMAC_ENCRYPTED_SHA_384    122
 # define CPACF_KMAC_ENCRYPTED_SHA_512    123
 
+/* Flags */
+# define CPACF_KMAC_IKP         0x8000
+# define CPACF_KMAC_IIMP        0x4000
+# define CPACF_KMAC_CCUP        0x2000
+
 struct cpacf_kmac_aes_param {
 	u8 icv[16];
 	u8 protkey[64]; /* WKa(K)|WKaVP */
+};
+
+struct cpacf_kmac_hmac_param {
+	union {
+		struct {
+			u32 h[8];
+			u64 imbl;
+			unsigned char protkey[96]; /* WKa(K)|WKaVP */
+		} hmac_224_256;
+		struct {
+			u64 h[8];
+			u128 imbl;
+			unsigned char protkey[160]; /* WKa(K)|WKaVP */
+		} hmac_384_512;
+	};
 };
 
 static inline int
@@ -390,6 +410,45 @@ cpacf_kdsa(unsigned long func, void *param,
         : "cc", "memory");
 
     return (int)rc;
+}
+
+/* KLMD */
+
+/* Function codes */
+#define CPACF_KLMD_QUERY                              0
+#define CPACF_KLMD_SHA_256                            2
+#define CPACF_KLMD_SHA_512                            3
+
+/* Parameter blocks */
+struct cpacf_klmd_param {
+	union {
+		struct {
+			u8 h[32];
+			u64 mbl;
+		} klmd_224_256;
+		struct {
+			u8 h[64];
+			u128 mbl;
+		} klmd_384_512;
+	};
+};
+
+static inline int cpacf_klmd(unsigned long func, void *param,
+		const unsigned char *src, long src_len)
+{
+	register long __func __asm__("0") = func;
+	register void *__param __asm__("1") = param;
+	register const unsigned char *__src __asm__("2") = src;
+	register long __src_len __asm__("3") = src_len;
+
+	__asm__ volatile (
+		"0:	.insn	rre,0xb93f0000,%0,%0 \n" /* KLMD opcode */
+		"	brc	1,0b \n"	/* handle partial completion */
+		: "+a"(__src), "+d"(__src_len)
+		: "d"(__func), "a"(__param)
+		: "cc", "memory");
+
+	return func ? src_len - __src_len : __src_len;
 }
 
 static inline void s390_flip_endian_32(void *dest, const void *src)

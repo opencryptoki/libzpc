@@ -103,6 +103,13 @@ global:
 	zpc_hmac_key_generate;
 	zpc_hmac_key_free;
 
+	zpc_hmac_alloc;
+	zpc_hmac_set_key;
+	zpc_hmac_init;
+	zpc_hmac_sign;
+	zpc_hmac_verify;
+	zpc_hmac_free;
+
 local: *;
 } ZPC_1.2.0;
 

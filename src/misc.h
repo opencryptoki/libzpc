@@ -19,6 +19,7 @@ typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long long u64;
+typedef unsigned __int128 u128; /* compiler builtin type */
 
 /* Maximum binary MKVP byte-length. */
 # define MAX_MKVPLEN            32
