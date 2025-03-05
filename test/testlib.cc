@@ -699,7 +699,7 @@ typedef enum {
 	EXTRACT_SECRETKEY,
 } testkey_extract_mode_t;
 
-const char *type2string(int type)
+static const char *type2string(int type)
 {
 	switch (type) {
 	case ZPC_AES_KEY_TYPE_CCA_DATA:
@@ -721,7 +721,7 @@ const char *type2string(int type)
  * whenever the pvsecret utility would use different strings, this must be
  * adapted here.
  */
-int pvsec_found(const char *buffer, int pvsectype)
+static int pvsec_found(const char *buffer, int pvsectype)
 {
 	switch (pvsectype) {
 	case ZPC_AES_SECRET_AES_128:
@@ -775,7 +775,8 @@ int pvsec_found(const char *buffer, int pvsectype)
  * Convert a given hex string of the form " 0xabcde ...." into a byte array.
  * Note that a leading space char is expected at the beginning of the string.
  */
-int extract_bytes(const char *buffer, unsigned char *outbuf, unsigned int *outlen)
+static int extract_bytes(const char *buffer, unsigned char *outbuf,
+		size_t *outlen)
 {
 	unsigned char *sec = NULL;
 	char *tmp;
@@ -806,11 +807,6 @@ ret:
 }
 
 /*
- * Extract the pvsecret ID or secret key data from a text file created with
- * the 'pvsecret' utility. The name of the text file must be specified via
- * env variable ZPC_TEST_PVSECRET_LIST_FILE. If no pvsecret of this type is
- * contained in the file (and thus on this system), return an error.
- *
  * The pvsecrets-list file contains AES pvsecret IDs in this form:
  *
  * 2 AES-128-KEY:
@@ -833,14 +829,59 @@ ret:
  *         1 error opening list file
  *         2 no pvsecret found for given type
  */
-int testlib_get_aes_data(int size, unsigned char *outbuf,
-			unsigned int *outlen, testkey_extract_mode_t mode)
+static int get_key_bytes_from_list_file(unsigned char *outbuf, size_t *outlen,
+		int pvsectype, int lines_to_skip)
 {
-	FILE *fd;
-	const unsigned int BUF_LEN = 1024;
+	const size_t BUF_LEN = 1024;
 	char buffer[BUF_LEN] = { 0, };
+	FILE *fd;
 	char *fn;
-	int i, pvsectype, rc, lines_to_skip;
+	int i, rc;
+
+	fn = testlib_env_pvsecret_list_file();
+	if (!fn)
+		return 1;
+
+	if ((fd = fopen(fn, "r")) == NULL)
+		return 1;
+
+	while (fgets(buffer, BUF_LEN, fd)) {
+		if (pvsec_found(buffer, pvsectype)) {
+			for (i = 0; i < lines_to_skip; i++) {
+				if (!fgets(buffer, BUF_LEN, fd)) { /* skip to next line */
+					rc = 2;
+					goto ret;
+				}
+			}
+			if (extract_bytes(buffer, outbuf, outlen) == 0) {
+				rc = 0;
+				goto ret;
+			}
+		}
+	}
+
+	rc = 2;
+
+ret:
+	fclose(fd);
+
+	return rc;
+}
+
+/*
+ * Extract the pvsecret ID or secret key data from a text file created with
+ * the 'pvsecret' utility. The name of the text file must be specified via
+ * env variable ZPC_TEST_PVSECRET_LIST_FILE. If no pvsecret of this type is
+ * contained in the file (and thus on this system), return an error.
+ *
+ * @return 0 success, outbuf contains extracted byte array
+ *         1 error opening list file
+ *         2 no pvsecret found for given type
+ */
+static int testlib_get_key_data(int size, unsigned char *outbuf,
+		size_t *outlen, testkey_extract_mode_t mode)
+{
+	int pvsectype, rc, lines_to_skip;
 
 	switch (mode) {
 	case EXTRACT_ID:
@@ -873,32 +914,7 @@ int testlib_get_aes_data(int size, unsigned char *outbuf,
 		return 3; /* should not occur */
 	}
 
-	fn = testlib_env_pvsecret_list_file();
-	if (!fn)
-		return 1;
-
-	if ((fd = fopen(fn, "r")) == NULL)
-		return 1;
-
-	while (fgets(buffer, BUF_LEN, fd)) {
-		if (pvsec_found(buffer, pvsectype)) {
-			for (i = 0; i < lines_to_skip; i++) {
-				if (!fgets(buffer, BUF_LEN, fd)) { /* skip to next line */
-					rc = 2;
-					goto ret;
-				}
-			}
-			if (extract_bytes(buffer, outbuf, outlen) == 0) {
-				rc = 0;
-				goto ret;
-			}
-		}
-	}
-
-	rc = 2;
-
-ret:
-	fclose(fd);
+	rc = get_key_bytes_from_list_file(outbuf, outlen, pvsectype, lines_to_skip);
 
 	return rc;
 }
@@ -906,11 +922,10 @@ ret:
 int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int keysize)
 {
 	unsigned char pvsec_id[32] = { 0, };
-	unsigned int id_len;
-	size_t i;
+	size_t id_len, i;
 	int rc;
 
-	rc = testlib_get_aes_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
+	rc = testlib_get_key_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
 	switch (rc) {
 	case 0:
 		rc = zpc_aes_key_import(aes_key, pvsec_id, 32);
@@ -927,7 +942,7 @@ int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int keysize)
 			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
 		break;
 	case 2:
-		printf("[  WARNING ] No AES pvsecret with size %d available on this system.\n",
+		printf("[  WARNING ] No 'AES-%d-KEY' pvsecret available on this system.\n",
 			keysize);
 		break;
 	}
@@ -939,10 +954,10 @@ int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int siz
 {
 	unsigned char pvsec_id[32] = { 0, };
 	unsigned char keybytes[256] = { 0, };
-	unsigned int idlen, byteslen;
+	size_t idlen, byteslen;
 	int rc;
 
-	rc = testlib_get_aes_data(size, pvsec_id, &idlen, EXTRACT_ID);
+	rc = testlib_get_key_data(size, pvsec_id, &idlen, EXTRACT_ID);
 	switch (rc) {
 	case 0:
 		break;
@@ -951,12 +966,12 @@ int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int siz
 			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
 		goto ret;
 	case 2:
-		printf("[  WARNING ] No AES pvsecret with size %d available on this system.\n",
+		printf("[  WARNING ] No 'AES-%d-KEY' pvsecret available on this system.\n",
 				size);
 		goto ret;
 	}
 
-	rc = testlib_get_aes_data(size, keybytes, &byteslen, EXTRACT_SECRETKEY);
+	rc = testlib_get_key_data(size, keybytes, &byteslen, EXTRACT_SECRETKEY);
 	if (rc != 0) {
 		printf("[     INFO ] Cannot obtain clear key bytes for 'AES-%d-KEY' from list file.\n",
 			size);
@@ -1014,13 +1029,9 @@ ret:
  *         2 no pvsecret found for given type
  */
 int testlib_get_ec_data(zpc_ec_curve_t curve, unsigned char *outbuf,
-			unsigned int *outlen, testkey_extract_mode_t mode)
+		size_t *outlen, testkey_extract_mode_t mode)
 {
-	FILE *fd;
-	const unsigned int BUF_LEN = 300;
-	char buffer[BUF_LEN] = { 0, };
-	char *fn;
-	int i, pvsectype, rc, lines_to_skip;
+	int pvsectype, rc, lines_to_skip;
 
 	switch (mode) {
 	case EXTRACT_ID:
@@ -1054,32 +1065,7 @@ int testlib_get_ec_data(zpc_ec_curve_t curve, unsigned char *outbuf,
 		break;
 	}
 
-	fn = testlib_env_pvsecret_list_file();
-	if (!fn)
-		return 1;
-
-	if ((fd = fopen(fn, "r")) == NULL)
-		return 1;
-
-	while (fgets(buffer, BUF_LEN, fd)) {
-		if (pvsec_found(buffer, pvsectype)) {
-			for (i = 0; i < lines_to_skip; i++) {
-				if (!fgets(buffer, BUF_LEN, fd)) { /* skip to next line */
-					rc = 2;
-					goto ret;
-				}
-			}
-			if (extract_bytes(buffer, outbuf, outlen) == 0) {
-				rc = 0;
-				goto ret;
-			}
-		}
-	}
-
-	rc = 2;
-
-ret:
-	fclose(fd);
+	rc = get_key_bytes_from_list_file(outbuf, outlen, pvsectype, lines_to_skip);
 
 	return rc;
 }
@@ -1099,58 +1085,12 @@ ret:
  *         1 error opening list file
  *         2 no pubkey found for given pvsecret ID
  */
-int testlib_add_ec_public_key(const char *pvsec_id, unsigned char *pubkey,
-			unsigned int *publen)
-{
-	FILE *fd;
-	const unsigned int BUF_LEN = 300;
-	char buffer[BUF_LEN] = { 0, };
-	char *fn;
-	int rc;
-	unsigned char *bytes;
-	size_t bytelen;
-	char *tmp;
-
-	fn = testlib_env_pvsecret_list_file();
-	if (!fn)
-		return 1;
-
-	if ((fd = fopen(fn, "r")) == NULL)
-		return 1;
-
-	while (fgets(buffer, BUF_LEN, fd)) {
-		if (strstr(buffer, "0x") != NULL) {
-			/* Remove leading ' 0x' and ending newline */
-			tmp = (char *)buffer + 3;
-			tmp[strlen(tmp) - 1] = 0;
-			bytes = testlib_hexstr2buf(tmp, &bytelen);
-			if (bytes != NULL && bytelen > 0 && memcmp(bytes, pvsec_id, bytelen) == 0) {
-				if (fgets(buffer, BUF_LEN, fd)) { /* skip to next line */
-					if (strstr(buffer, "0x") != NULL) {
-						if (extract_bytes(buffer, pubkey, publen) == 0) {
-							rc = 0;
-							goto ret;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	rc = 2;
-
-ret:
-	fclose(fd);
-
-	return rc;
-}
-
 int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type,
-			zpc_ec_curve_t curve)
+		zpc_ec_curve_t curve)
 {
 	unsigned char pvsec_id[32] = { 0, };
 	unsigned char pubkey[256] = { 0, };
-	unsigned int i, id_len, publen;
+	size_t i, id_len, publen;
 	int rc;
 
 	rc = testlib_get_ec_data(curve, pvsec_id, &id_len, EXTRACT_ID);
@@ -1164,7 +1104,7 @@ int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type,
 			for (i = 0; i < sizeof(pvsec_id); i++)
 				printf("%02X%c",pvsec_id[i],((i+1)%16)?' ':'\n');
 		} else {
-			rc = testlib_add_ec_public_key((const char *)pvsec_id, pubkey, &publen);
+			rc = testlib_get_ec_data(curve, pubkey, &publen, EXTRACT_PUBKEY);
 			if (rc == 0) {
 				rc = zpc_ec_key_import_clear(ec_key, pubkey, publen, NULL, 0);
 				if (rc == 0) {
@@ -1198,7 +1138,7 @@ int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_cur
 	unsigned char pvsec_id[32] = { 0, };
 	unsigned char privkey[256] = { 0, };
 	unsigned char pubkey[256] = { 0, };
-	unsigned int idlen, privlen, publen;
+	size_t idlen, privlen, publen;
 	int rc;
 
 	rc = testlib_get_ec_data(curve, pvsec_id, &idlen, EXTRACT_ID);
@@ -1244,14 +1184,13 @@ ret:
 	return rc;
 }
 
-int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, int keysize)
+int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, size_t keysize)
 {
 	unsigned char pvsec_id[32] = { 0, };
-	unsigned int id_len;
-	size_t i;
+	size_t i, id_len;
 	int rc;
 
-	rc = testlib_get_aes_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
+	rc = testlib_get_key_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
 	switch (rc) {
 	case 0:
 		rc = zpc_hmac_key_import(hmac_key, pvsec_id, 32);
@@ -1268,22 +1207,22 @@ int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, int keysiz
 			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
 		break;
 	case 2:
-		printf("[  WARNING ] No HMAC pvsecret with size %d available on this system.\n",
-			keysize);
+		printf("[  WARNING ] No 'HMAC-SHA-%d-KEY' pvsecret available on this system.\n",
+			keysize == 512 ? 256 : 512);
 		break;
 	}
 
 	return rc;
 }
 
-int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, int size)
+int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, size_t keysize)
 {
 	unsigned char pvsec_id[32] = { 0, };
 	unsigned char keybytes[256] = { 0, };
-	unsigned int idlen, byteslen;
+	size_t idlen, byteslen;
 	int rc;
 
-	rc = testlib_get_aes_data(size, pvsec_id, &idlen, EXTRACT_ID);
+	rc = testlib_get_key_data(keysize, pvsec_id, &idlen, EXTRACT_ID);
 	switch (rc) {
 	case 0:
 		break;
@@ -1292,15 +1231,15 @@ int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, int 
 			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
 		goto ret;
 	case 2:
-		printf("[  WARNING ] No HMAC pvsecret with size %d available on this system.\n",
-				size);
+		printf("[  WARNING ] No 'HMAC-SHA-%d-KEY' pvsecret available on this system.\n",
+			keysize == 512 ? 256 : 512);
 		goto ret;
 	}
 
-	rc = testlib_get_aes_data(size, keybytes, &byteslen, EXTRACT_SECRETKEY);
+	rc = testlib_get_key_data(keysize, keybytes, &byteslen, EXTRACT_SECRETKEY);
 	if (rc != 0) {
 		printf("[     INFO ] Cannot obtain clear key bytes for 'HMAC-SHA-%d-KEY' from list file.\n",
-			size == 512 ? 256 : 512);
+			keysize == 512 ? 256 : 512);
 		goto ret;
 	}
 
@@ -1313,7 +1252,7 @@ int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, int 
 
 	rc = 0;
 	printf("[       OK ] Imported clear key data for %s-type 'HMAC-SHA-%d-KEY' from list file.\n",
-		type2string(type), size == 512 ? 256 : 512);
+		type2string(type), keysize == 512 ? 256 : 512);
 
 ret:
 	return rc;
