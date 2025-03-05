@@ -712,8 +712,8 @@ int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int siz
 int testlib_get_ec_pvsecret_id(zpc_ec_curve_t curve, unsigned char outbuf[32]);
 int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
 int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
-int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, int size);
-int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, int size);
+int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, size_t size);
+int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, size_t size);
 
 unsigned char *testlib_hexstr2buf(const char *, size_t *);
 unsigned char *testlib_hexstr2fixedbuf(const char *hexstr, size_t tolen);
