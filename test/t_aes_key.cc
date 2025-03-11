@@ -482,7 +482,7 @@ TEST(aes_key, reencipher)
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
-	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+	if (type == ZPC_AES_KEY_TYPE_PVSECRET)
 		GTEST_SKIP_("Skipping reencipher test. Not applicable for UV secrets.");
 
 	rc = zpc_aes_key_alloc(&aes_key);
