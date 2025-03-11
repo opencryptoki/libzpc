@@ -1475,7 +1475,7 @@ TEST(aes_gcm, reencipher)
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
-	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+	if (type == ZPC_AES_KEY_TYPE_PVSECRET)
 		GTEST_SKIP_("Skipping reencipher test. Not applicable for UV secrets.");
 
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
@@ -1655,7 +1655,7 @@ TEST(aes_gcm, pvsecret_kat)
 	mkvp = testlib_env_aes_key_mkvp();
 	(void)testlib_env_aes_key_apqns(apqns);
 
-	if (type != ZPC_EC_KEY_TYPE_PVSECRET)
+	if (type != ZPC_AES_KEY_TYPE_PVSECRET)
 		GTEST_SKIP_("Skipping pvsecret_kat test. Only applicable for UV secrets.");
 
 	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
@@ -1664,11 +1664,11 @@ TEST(aes_gcm, pvsecret_kat)
 
 	TESTLIB_APQN_CAPS_CHECK(apqns, mkvp, type, size, flags);
 
-	TESTLIB_EC_SW_CAPS_CHECK(type);
+	TESTLIB_AES_SW_CAPS_CHECK(type);
 
-	TESTLIB_EC_KERNEL_CAPS_CHECK(type, mkvp, apqns);
+	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
-	TESTLIB_EC_NEW_MK_CHECK(type, mkvp, apqns);
+	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
 	rc = zpc_aes_key_alloc(&aes_key1);
 	EXPECT_EQ(rc, 0);

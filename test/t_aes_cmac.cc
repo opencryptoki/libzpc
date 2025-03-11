@@ -1018,7 +1018,7 @@ TEST(aes_cmac, reencipher)
 
 	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
 
-	if (type == ZPC_EC_KEY_TYPE_PVSECRET)
+	if (type == ZPC_AES_KEY_TYPE_PVSECRET)
 		GTEST_SKIP_("Skipping reencipher test. Not applicable for UV secrets.");
 
 	u8 *key = testlib_hexstr2buf(keystr, &keylen);
