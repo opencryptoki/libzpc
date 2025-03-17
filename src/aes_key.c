@@ -32,9 +32,9 @@ static int aes_key_blob_is_pkey_extractable(struct zpc_aes_key *aes_key,
 								const unsigned char *buf, size_t buflen);
 static int aes_key_add_ep11_header(struct zpc_aes_key *aes_key);
 static int aes_key_blob_has_a_session(struct zpc_aes_key *aes_key);
-int aes_key_pvsec2prot(struct zpc_aes_key *aes_key);
-int aes_key_blob_is_valid_pvsecret_id(struct zpc_aes_key *aes_key,
-								const unsigned char *id);
+static int aes_key_pvsec2prot(struct zpc_aes_key *aes_key);
+static int aes_key_blob_is_valid_pvsecret_id(struct zpc_aes_key *aes_key,
+		const unsigned char *id);
 
 int
 zpc_aes_key_alloc(struct zpc_aes_key **aes_key)
@@ -1118,7 +1118,7 @@ void aes_key_make_uvrsecrettoken(struct zpc_aes_key *aes_key, const unsigned cha
  * Verify that a given pvsecret ID is a valid ID on this system, i.e. an UV
  * secret exists with this ID and has the expected key length.
  */
-int aes_key_blob_is_valid_pvsecret_id(struct zpc_aes_key *aes_key, const unsigned char *id)
+static int aes_key_blob_is_valid_pvsecret_id(struct zpc_aes_key *aes_key, const unsigned char *id)
 {
 	struct pkey_verifykey2 io;
 	unsigned char buf[sizeof(struct uvrsecrettoken)] = { 0, };
@@ -1144,7 +1144,7 @@ int aes_key_blob_is_valid_pvsecret_id(struct zpc_aes_key *aes_key, const unsigne
  * (Re)derive protected key from a retrievable secret ID.
  * Caller must hold aes_key's wr lock.
  */
-int aes_key_pvsec2prot(struct zpc_aes_key *aes_key)
+static int aes_key_pvsec2prot(struct zpc_aes_key *aes_key)
 {
 	struct pkey_kblob2pkey3 io;
 	unsigned char buf[sizeof(struct uvrsecrettoken)] = { 0, };
