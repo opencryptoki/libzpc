@@ -255,10 +255,6 @@ do {                                                                           \
                 zpc_aes_key_free(&aes_key);                                    \
                 GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENSECK2 not supported by kernel."); \
             }                                                                  \
-            if (rc == ZPC_ERROR_IOCTLGENSECK2) {                               \
-                zpc_aes_key_free(&aes_key);                                    \
-                GTEST_SKIP_("KERNEL_CAPS check (AES): ioctl PKEY_GENSECK2 not supported by kernel."); \
-            }                                                                  \
             if (rc != 0) {                                                     \
                 zpc_aes_key_free(&aes_key);                                    \
                 GTEST_SKIP_("KERNEL_CAPS check (AES): Unexpected error when generating test key."); \
