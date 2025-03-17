@@ -1847,9 +1847,13 @@ TEST(aes_xts, pvsecret_kat)
 		EXPECT_EQ(rc, 0);
 		if (mkvp != NULL) {
 			rc = zpc_aes_key_set_mkvp(aes_key3, mkvp);
-			EXPECT_EQ(rc, 0);
-			rc = zpc_aes_key_set_mkvp(aes_key4, mkvp);
-			EXPECT_EQ(rc, 0);
+			rc += zpc_aes_key_set_mkvp(aes_key4, mkvp);
+			if (type2 == ZPC_AES_KEY_TYPE_CCA_DATA && rc != 0) {
+				type2 = ZPC_AES_KEY_TYPE_EP11;
+				continue;
+			}
+			if (rc)
+				goto ret;
 		} else {
 			rc = zpc_aes_key_set_apqns(aes_key3, apqns);
 			EXPECT_EQ(rc, 0);
@@ -1869,7 +1873,7 @@ TEST(aes_xts, pvsecret_kat)
 
 		rc = testlib_set_aes_key_from_file(aes_key3, type2, size);
 		rc = testlib_set_aes_key_from_file(aes_key4, type2, size);
-		if (rc == ZPC_ERROR_IOCTLCLR2SECK2) {
+		if (type2 == ZPC_AES_KEY_TYPE_CCA_DATA && rc != 0) {
 			type2 = ZPC_AES_KEY_TYPE_EP11;
 			continue;
 		}

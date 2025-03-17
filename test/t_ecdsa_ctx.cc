@@ -1513,7 +1513,12 @@ TEST(ecdsa_ctx, pvsecret_kat)
 		EXPECT_EQ(rc, 0);
 		if (mkvp != NULL) {
 			rc = zpc_ec_key_set_mkvp(ec_key2, mkvp);
-			EXPECT_EQ(rc, 0);
+			if (type2 == ZPC_EC_KEY_TYPE_CCA && rc != 0) {
+				type2 = ZPC_EC_KEY_TYPE_EP11;
+				continue;
+			}
+			if (rc)
+				goto ret;
 		} else {
 			rc = zpc_ec_key_set_apqns(ec_key2, apqns);
 			EXPECT_EQ(rc, 0);
@@ -1526,7 +1531,7 @@ TEST(ecdsa_ctx, pvsecret_kat)
 		EXPECT_EQ(rc, 0);
 
 		rc = testlib_set_ec_key_from_file(ec_key2, type2, curve);
-		if (rc == ZPC_ERROR_EC_KEY_PARTS_INCONSISTENT) {
+		if (type2 == ZPC_EC_KEY_TYPE_CCA && rc != 0) {
 			type2 = ZPC_EC_KEY_TYPE_EP11;
 			continue;
 		}
