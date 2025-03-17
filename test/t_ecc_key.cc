@@ -321,34 +321,27 @@ TEST(ec_key, import_clear)
 
 	rc = zpc_ec_key_import_clear(ec_key, NULL, 0, NULL, 0);
 	EXPECT_EQ(rc, ZPC_ERROR_EC_NO_KEY_PARTS);
-	if (type != ZPC_EC_KEY_TYPE_PVSECRET) {
-		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-		EXPECT_EQ(rc, ZPC_ERROR_APQNSNOTSET);
-	}
+
+	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
+	EXPECT_EQ(rc, ZPC_ERROR_KEYTYPENOTSET);
+
+	rc = zpc_ec_key_set_type(ec_key, type);
+	EXPECT_EQ(rc, 0);
 
 	if (mkvp == NULL) {
 		rc = zpc_ec_key_set_apqns(ec_key, apqns);
 		EXPECT_EQ(rc, 0);
-		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-		EXPECT_EQ(rc, ZPC_ERROR_EC_CURVE_NOTSET);
+	} else {
+		rc = zpc_ec_key_set_mkvp(ec_key, mkvp);
+		EXPECT_EQ(rc, 0);
 	}
 
+	rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
+	EXPECT_EQ(rc, ZPC_ERROR_EC_CURVE_NOTSET);
 	rc = zpc_ec_key_set_curve(ec_key, curve);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_ec_key_set_flags(ec_key, flags);
 	EXPECT_EQ(rc, 0);
-
-	if (mkvp == NULL) {
-		rc = zpc_ec_key_import_clear(ec_key, pubkey, pubkeylen, privkey, privkeylen);
-		EXPECT_EQ(rc, ZPC_ERROR_KEYTYPENOTSET);
-	}
-
-	rc = zpc_ec_key_set_type(ec_key, type);
-	EXPECT_EQ(rc, 0);
-	if (mkvp != NULL) {
-		rc = zpc_ec_key_set_mkvp(ec_key, mkvp);
-		EXPECT_EQ(rc, 0);
-	}
 
 	rc = zpc_ec_key_import_clear(ec_key, pubkey, 5, privkey, privkeylen);
 	EXPECT_EQ(rc, ZPC_ERROR_EC_PUBKEY_LENGTH);

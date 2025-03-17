@@ -823,12 +823,12 @@ int zpc_ec_key_import_clear(struct zpc_ec_key *ec_key, const unsigned char *pubk
 		rc = ZPC_ERROR_OBJINUSE;
 		goto ret;
 	}
-	if (ec_key->curve_set != 1) {
-		rc = ZPC_ERROR_EC_CURVE_NOTSET;
-		goto ret;
-	}
 	if (ec_key->type_set != 1) {
 		rc = ZPC_ERROR_KEYTYPENOTSET;
+		goto ret;
+	}
+	if (ec_key->curve_set != 1) {
+		rc = ZPC_ERROR_EC_CURVE_NOTSET;
 		goto ret;
 	}
 	if (ec_key->type != ZPC_EC_KEY_TYPE_PVSECRET && ec_key->apqns_set != 1) {
