@@ -722,6 +722,7 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 		ec_key->pubkey_set = 1;
 		rv = pthread_mutex_lock(&ep11lock);
 		assert(rv == 0);
+		rc = -EIO;
 		for (i = 0; i < ec_key->napqns; i++) {
 			rc = get_ep11_target_for_apqn(&ep11, ec_key->apqns[i].card,
 					ec_key->apqns[i].domain, &target, true);
