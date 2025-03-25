@@ -1,6 +1,10 @@
 Changelog {#changes}
 ===
 
+**Version 1.3.1**
+
+- bug fixes
+
 **Version 1.3.0**
 
 - Support for Ultravisor retrievable secrets
