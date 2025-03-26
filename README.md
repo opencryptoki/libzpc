@@ -19,6 +19,10 @@ Message authentication (MAC):
 
     AES-128-CMAC, AES-192-CMAC, AES-256-CMAC
 
+Hash-based message authentication (HMAC)
+
+    HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384, HMAC-SHA-512
+
 Authenticated Encryption (AEAD):
 
     AES-128-CCM, AES-192-CCM, AES-256-CCM
@@ -57,6 +61,11 @@ Additional hardware and software prerequisites for ECDSA:
 - Crypto Express 7S EP11 coprocessor (CEX7P) or later for EP11 type keys
 - CCA host library version 7.1 or later for CCA type keys
 - EP11 host library version 3.0 or later for EP11 type keys
+
+Additional hardware and software prerequisites for HMAC:
+- Message security assist (MSA) 11 (IBM z17 or later)
+- A KVM guest in IBM Secure Execution mode for PVSECRET type keys
+- Kernel 6.13 or later with support for PVSECRET type keys
 
 Building `libzpc`:
 
@@ -100,6 +109,23 @@ For ECDSA, the following environment variables can be passed to `./runtest`:
 - `ZPC_TEST_EC_KEY_MKVP=<mkvp>` : Test the APQNs that match `<mkvp>`
 and key type.
 - `ZPC_TEST_EC_KEY_APQNS=<apqns>` : Test the `<apqns>`.
+
+For HMAC, the following environment variables can be passed to `./runtest`:
+- `ZPC_TEST_HMAC_KEY_TYPE=<type>`       : The only supported choice for `<type>` is `ZPC_HMAC_KEY_TYPE_PVSECRET`.
+- `ZPC_TEST_HMAC_HASH_FUNCTION=<hfunc>` : The choices for `<hfunc>` are `SHA-224`, `SHA-256`, `SHA-384`, and `SHA-512`.
+There are no MKVP or APQN related variables for HMAC.
+
+For PVSECRET type keys, the following environment variable must be passed to `./runtest`:
+- `ZPC_TEST_PVSECRET_LIST_FILE=<list-file>` : The `<list-file>` must be created with the pvsecret utility
+as part of s390-tools v2.37 or later. Perform a 'pvsecret list' command and redirect the output to the list file.
+Testers may optionally add clear key data, used when creating Ultravisor retrievable secrets, to the
+list file. Example:
+
+    7 HMAC-SHA-256-KEY:
+     0xb620b6d76f89910aff90ff9 ...  <- the secret ID
+     0xa783830e0bd6f3ae8cade16b3004 ...  <- the clear key 
+
+If clear key data is available, additional tests (pvsecret_kat) are performed.
 
 See
 
