@@ -518,6 +518,12 @@ extern "C" {
 # define ZPC_ERROR_CREATE_BLOCKSIZED_KEY               85
 
 /**
+ * \def ZPC_ERROR_XTS_KEYGEN_VIA_SYSFS
+ * \brief creating a full-xts key via sysfs attributes failed.
+ */
+# define ZPC_ERROR_XTS_KEYGEN_VIA_SYSFS                86
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.
