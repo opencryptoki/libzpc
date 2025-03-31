@@ -254,6 +254,15 @@ struct pkey_protkey {
 	u8  protkey[MAXPROTKEYSIZE];	       /* the protected key blob */
 };
 
+#define MAXXTSFULLPROTKEYSIZE	96	/* a full-xts protkey blob may be up to 96 bytes */
+
+/* Struct to hold protected AES key and length info */
+struct pkey_xts_full_protkey {
+	u32 type; /* key type, one of the PKEY_KEYTYPE_AES values */
+	u32 len; /* bytes actually stored in protkey[] */
+	u8  protkey[MAXXTSFULLPROTKEYSIZE]; /* the protected key blob */
+};
+
 #define MAXECPROTKEYSIZE	112	/* max 80 + 32 bytes for p521 */
 
 struct pkey_ecprotkey {
@@ -302,6 +311,8 @@ struct hmac_genprotk {
 #define PKEY_KEYTYPE_ECC_P521         7
 #define PKEY_KEYTYPE_ECC_ED25519      8
 #define PKEY_KEYTYPE_ECC_ED448        9
+#define PKEY_KEYTYPE_AES_XTS_128      10
+#define PKEY_KEYTYPE_AES_XTS_256      11
 #define PKEY_KEYTYPE_HMAC_512         12
 #define PKEY_KEYTYPE_HMAC_1024        13
 
@@ -455,6 +466,11 @@ struct pkey_genprotk {
 	struct pkey_protkey protkey;	       /* out: the protected key   */
 };
 #define PKEY_GENPROTK _IOWR(PKEY_IOCTL_MAGIC, 0x08, struct pkey_genprotk)
+
+struct pkey_genfxtsprotk {
+	u32 keytype; /* in: key type to generate */
+	struct pkey_xts_full_protkey protkey; /* out: the protected key   */
+};
 
 struct pkey_kblob2pkey2 {
 	u8  *key;	     /* in: pointer to key blob		   */
