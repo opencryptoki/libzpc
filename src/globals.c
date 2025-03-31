@@ -117,7 +117,7 @@ static void zpc_init(void)
 	int aes_gcm_kma = 0;
 	int aes_cmac_kmac = 0, aes_cmac_pcc = 0, hmac_kmac = 0;
 	int aes_ccm_kmac = 0, aes_ccm_kma = 0;
-	int aes_xts_km = 0, aes_xts_pcc = 0;
+	int aes_xts_km = 0, aes_xts_pcc = 0, aes_xts_full_km = 0;
 	int ecc_kdsa = 0;
 	int aes_cca = 0, aes_ep11 = 0, ecdsa_cca = 0, ecdsa_ep11 = 0;
 	int uv_pvsecrets = 0;
@@ -233,6 +233,12 @@ static void zpc_init(void)
 		    & MASK64(CPACF_KM_XTS_ENCRYPTED_AES_256))) {
 			aes_xts_km = 1;
 		}
+		if ((status_word[OFF64(CPACF_KM_FXTS_ENCRYPTED_AES_128)]
+			& MASK64(CPACF_KM_FXTS_ENCRYPTED_AES_128))
+			&& (status_word[OFF64(CPACF_KM_FXTS_ENCRYPTED_AES_256)]
+			& MASK64(CPACF_KM_FXTS_ENCRYPTED_AES_256))) {
+			aes_xts_full_km = 1;
+		}
 
 		memset(status_word, 0, sizeof(status_word));
 		cpacf_kmc(CPACF_KMC_QUERY, &status_word, NULL, NULL, 0);
@@ -347,6 +353,9 @@ static void zpc_init(void)
 		}
 	}
 
+	if (aes_xts_full_km == 1) {
+		DEBUG("detected message-security-assist extension 10");
+	}
 	if (hmac_kmac == 1) {
 		DEBUG("detected message-security-assist extension 11");
 	}
@@ -363,6 +372,10 @@ static void zpc_init(void)
 	if (aes_xts_km == 1 && aes_xts_pcc) {
 		hwcaps.aes_xts = 1;
 		DEBUG("detected aes-xts instruction set extensions");
+	}
+	if (aes_xts_full_km == 1) {
+		hwcaps.aes_xts_full = 1;
+		DEBUG("detected aes-xts-full instruction set extensions");
 	}
 	if (aes_cmac_kmac == 1 && aes_cmac_pcc == 1) {
 		hwcaps.aes_cmac = 1;
