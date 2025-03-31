@@ -22,6 +22,7 @@ struct hwcaps {
 	int aes_ecb;
 	int aes_cbc;
 	int aes_xts;
+	int aes_xts_full;
 	int aes_cmac;
 	int hmac_kmac;
 	int ecc_kdsa;

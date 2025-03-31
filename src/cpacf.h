@@ -21,6 +21,8 @@
 # define CPACF_KM_ENCRYPTED_AES_256	    28
 # define CPACF_KM_XTS_ENCRYPTED_AES_128	58
 # define CPACF_KM_XTS_ENCRYPTED_AES_256	60
+# define CPACF_KM_FXTS_ENCRYPTED_AES_128        90
+# define CPACF_KM_FXTS_ENCRYPTED_AES_256        92
 
 struct cpacf_km_aes_param {
 	u8 protkey[64]; /* WKa(K)|WKaVP */
@@ -34,6 +36,20 @@ struct cpacf_km_xts_aes_128_param {
 struct cpacf_km_xts_aes_256_param {
 	u8 protkey[64]; /* WKa(K)|WKaVP */
 	u8 xtsparam[16];
+};
+
+struct cpacf_km_xts_full_aes_128_param {
+	u8 protkey[32]; /* WKa(K) */
+	u8 tweak[16];
+	u8 nap[16];
+	u8 wkvp[32]; /* WKaVP */
+};
+
+struct cpacf_km_xts_full_aes_256_param {
+	u8 protkey[64]; /* WKa(K) */
+	u8 tweak[16];
+	u8 nap[16];
+	u8 wkvp[32]; /* WKaVP */
 };
 
 static inline int
