@@ -39,6 +39,7 @@ project(${ZPC_NAME}
 set(ZPC_HEADERS
     include/zpc/error.h
     include/zpc/aes_key.h
+    include/zpc/aes_xts_key.h
     include/zpc/aes_gcm.h
     include/zpc/aes_ccm.h
     include/zpc/aes_xts.h
@@ -57,6 +58,7 @@ set(ZPC_SOURCES
     src/misc.c
     src/misc_asm.S
     src/aes_key.c
+    src/aes_xts_key.c
     src/aes_ecb.c
     src/aes_cbc.c
     src/aes_xts.c

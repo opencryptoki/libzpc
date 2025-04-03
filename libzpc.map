@@ -113,4 +113,16 @@ global:
 local: *;
 } ZPC_1.2.0;
 
+ZPC_1.4.0 {
+global:
+	zpc_aes_xts_key_alloc;
+	zpc_aes_xts_key_set_size;
+	zpc_aes_xts_key_set_type;
+	zpc_aes_xts_key_import_clear;
+	zpc_aes_xts_key_import;
+	zpc_aes_xts_key_export;
+	zpc_aes_xts_key_generate;
+	zpc_aes_xts_key_free;
 
+local: *;
+} ZPC_1.3.0;
