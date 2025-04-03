@@ -124,5 +124,14 @@ global:
 	zpc_aes_xts_key_generate;
 	zpc_aes_xts_key_free;
 
+	zpc_aes_xts_full_alloc;
+	zpc_aes_xts_full_set_key;
+	zpc_aes_xts_full_set_iv;
+	zpc_aes_xts_full_export;
+	zpc_aes_xts_full_import;
+	zpc_aes_xts_full_encrypt;
+	zpc_aes_xts_full_decrypt;
+	zpc_aes_xts_full_free;
+
 local: *;
 } ZPC_1.3.0;

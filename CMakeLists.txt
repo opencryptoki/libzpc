@@ -43,6 +43,7 @@ set(ZPC_HEADERS
     include/zpc/aes_gcm.h
     include/zpc/aes_ccm.h
     include/zpc/aes_xts.h
+    include/zpc/aes_xts_full.h
     include/zpc/aes_cbc.h
     include/zpc/aes_ecb.h
     include/zpc/aes_cmac.h
@@ -62,6 +63,7 @@ set(ZPC_SOURCES
     src/aes_ecb.c
     src/aes_cbc.c
     src/aes_xts.c
+    src/aes_xts_full.c
     src/aes_cmac.c
     src/aes_ccm.c
     src/aes_gcm.c
