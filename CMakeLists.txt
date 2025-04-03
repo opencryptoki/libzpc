@@ -382,9 +382,11 @@ set(ZPC_TEST_SOURCES
     test/b_headers.c
     test/b_error.c
     test/b_aes_key.c
+    test/b_aes_xts_key.c
     test/b_aes_ecb.c
     test/b_aes_cbc.c
     test/b_aes_xts.c
+    test/b_aes_xts_full.c
     test/b_aes_cmac.c
     test/b_aes_ccm.c
     test/b_aes_gcm.c
@@ -397,10 +399,12 @@ set(ZPC_TEST_SOURCES
     test/t_environment.cc
     test/t_error.cc
     test/t_aes_key.cc
+    test/t_aes_xts_key.cc
     test/t_aes_ecb.cc
     test/t_aes_cbc.cc
     test/t_aes_cmac.cc
     test/t_aes_xts.cc
+    test/t_aes_xts_full.cc
     test/t_aes_ccm.cc
     test/t_aes_gcm.cc
     test/t_ecc_key.cc
