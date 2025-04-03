@@ -62,6 +62,11 @@ Additional hardware and software prerequisites for ECDSA:
 - CCA host library version 7.1 or later for CCA type keys
 - EP11 host library version 3.0 or later for EP11 type keys
 
+Additional hardware and software prerequisites for full-XTS:
+- Message security assist (MSA) 10 (IBM z17 or later)
+- A KVM guest in IBM Secure Execution mode for PVSECRET type keys
+- Kernel 6.13 or later with support for PVSECRET type keys
+
 Additional hardware and software prerequisites for HMAC:
 - Message security assist (MSA) 11 (IBM z17 or later)
 - A KVM guest in IBM Secure Execution mode for PVSECRET type keys
@@ -101,6 +106,10 @@ For AES, the following environment variables can be passed to `./runtest`:
 - `ZPC_TEST_AES_KEY_MKVP=<mkvp>` : Test the APQNs that match `<mkvp>`
 and key type.
 - `ZPC_TEST_AES_KEY_APQNS=<apqns>` : Test the `<apqns>`.
+
+For AES-XTS when using full-XTS keys, the following environment variables can be passed to `./runtest`:
+- `ZPC_TEST_AES_XTS_KEY_TYPE=<type>` : The only supported choice for `<type>` is `ZPC_AES_XTS_KEY_TYPE_PVSECRET`.
+- `ZPC_TEST_AES_XTS_KEY_SIZE=<size>` : The choices for `<size>` are `128`, and `256`. AES full-XTS tests are skipped if this variable is unset or its value is invalid.
 
 For ECDSA, the following environment variables can be passed to `./runtest`:
 - `ZPC_TEST_EC_KEY_TYPE=<type>` : The choices for `<type>` are `ZPC_EC_KEY_TYPE_CCA` and `ZPC_EC_KEY_TYPE_EP11`. ECDSA tests are skipped if this variable is unset or its value is invalid.
