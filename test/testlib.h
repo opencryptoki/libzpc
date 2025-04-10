@@ -806,7 +806,6 @@ extern const struct EC_TEST_VECTOR ec_tv[5];
 
 const char *testlib_env_aes_key_mkvp(void);
 int testlib_env_aes_key_apqns(const char *[257]);
-void testlib_env_aes_key_check(void);
 int testlib_env_aes_key_size(void);
 int testlib_env_aes_key_type(void);
 unsigned int testlib_env_aes_key_flags(void);
@@ -816,7 +815,6 @@ int testlib_env_aes_xts_key_type(void);
 
 const char *testlib_env_ec_key_mkvp(void);
 int testlib_env_ec_key_apqns(const char *[257]);
-void testlib_env_ec_key_check(void);
 zpc_ec_curve_t testlib_env_ec_key_curve(void);
 int testlib_env_ec_key_type(void);
 unsigned int testlib_env_ec_key_flags(void);
@@ -824,10 +822,8 @@ unsigned int testlib_env_ec_key_flags(void);
 zpc_hmac_hashfunc_t testlib_env_hmac_hashfunc(void);
 int testlib_env_hmac_key_type(void);
 
-int testlib_get_aes_pvsecret_id(int keysize, unsigned char outbuf[32]);
 int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int size);
 int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size, int fxts, int key_num);
-int testlib_get_ec_pvsecret_id(zpc_ec_curve_t curve, unsigned char outbuf[32]);
 int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
 int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
 int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, size_t size);
