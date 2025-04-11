@@ -166,6 +166,12 @@ zpc_aes_key_set_type(struct zpc_aes_key *aes_key, int type)
 	switch (type) {
 	case ZPC_AES_KEY_TYPE_CCA_DATA:        /* fall-through */
 	case ZPC_AES_KEY_TYPE_CCA_CIPHER:      /* fall-through */
+		if (swcaps.uv_pvsecrets) {
+			/* CCA adapters are not usable in a secure execution env. */
+			rc = ZPC_ERROR_NOTSUP;
+			DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+		}
+		break;
 	case ZPC_AES_KEY_TYPE_EP11:
 		break;
 	case ZPC_AES_KEY_TYPE_PVSECRET:

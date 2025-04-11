@@ -188,8 +188,14 @@ int zpc_ec_key_set_type(struct zpc_ec_key *ec_key, int type)
 	}
 
 	switch (type) {
-	case ZPC_EC_KEY_TYPE_CCA:        /* fall-through */
-	case ZPC_EC_KEY_TYPE_EP11:
+	case ZPC_EC_KEY_TYPE_CCA:
+		if (swcaps.uv_pvsecrets) {
+			/* CCA adapters are not usable in a secure execution env. */
+			rc = ZPC_ERROR_NOTSUP;
+			DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+		}
+		break;
+	case ZPC_EC_KEY_TYPE_EP11:        /* fall-through */
 	case ZPC_EC_KEY_TYPE_PVSECRET:
 		break;
 	default:
