@@ -1209,6 +1209,8 @@ int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_cur
 	unsigned char pvsec_id[32] = { 0, };
 	unsigned char privkey[256] = { 0, };
 	unsigned char pubkey[256] = { 0, };
+	const unsigned int curve2privlen[] = { 32, 48, 66, 32, 57 };
+	const unsigned int curve2publen[] = { 64, 96, 132 , 32, 57};
 	size_t idlen, privlen, publen;
 	int rc;
 
@@ -1230,6 +1232,15 @@ int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_cur
 	if (rc != 0) {
 		printf("[     INFO ] Cannot obtain clear public key bytes for 'EC-%s-PRIVATE-KEY' from list file.\n",
 			curve2string[curve]);
+		goto ret;
+	}
+
+	if (publen != curve2publen[curve]) {
+		printf("[  WARNING ] Clear public key bytes in list file for 'EC-%s-PRIVATE-KEY' have an invalid length of %ld bytes.\n",
+			curve2string[curve], publen);
+		if (publen == curve2privlen[curve]) {
+			printf("[     INFO ] Most likely the order is wrong: the public key comes first.\n");
+		}
 		goto ret;
 	}
 
