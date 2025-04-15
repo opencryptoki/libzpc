@@ -1458,8 +1458,6 @@ TEST(ecdsa_ctx, pvsecret_kat)
 
 	TESTLIB_EC_KERNEL_CAPS_CHECK(type, mkvp, apqns);
 
-	TESTLIB_EC_NEW_MK_CHECK(type, mkvp, apqns);
-
 	if (type != ZPC_EC_KEY_TYPE_PVSECRET)
 		GTEST_SKIP_("Skipping pvsecret_kat test. Only applicable for UV secrets.");
 

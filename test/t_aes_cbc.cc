@@ -1482,8 +1482,6 @@ TEST(aes_cbc, pvsecret_kat)
 
 	TESTLIB_AES_KERNEL_CAPS_CHECK(type);
 
-	TESTLIB_AES_NEW_MK_CHECK(type, mkvp, apqns);
-
 	rc = zpc_aes_key_alloc(&aes_key1);
 	EXPECT_EQ(rc, 0);
 	rc = zpc_aes_key_alloc(&aes_key2);
