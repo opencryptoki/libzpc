@@ -97,7 +97,7 @@ zpc_error_string(int err)
 		"Invalid usage of a gcm context with an internally created iv",
 		"Support for UV retrievable secrets is not available, but required for this function.",
 		"The given pvsecret type is not supported by libzpc.",
-		"The given pvsecret ID does not belong to a secret on this system.",
+		"The given pvsecret ID does either not exist or belongs to a different secret type.",
 		"PKEY_VERIFYKEY2 ioctl failed.",
 		"HMAC hash function not set.",
 		"HMAC hash function invalid.",

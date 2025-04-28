@@ -482,10 +482,10 @@ extern "C" {
 # define ZPC_ERROR_PVSECRET_TYPE_NOT_SUPPORTED         79
 
 /**
- * \def ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV
- * \brief the given pvsecret ID does not belong to a secret on this system.
+ * \def ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV_OR_INVALID_TYPE
+ * \brief the given pvsecret ID does either not exist or belongs to a different secret type.
  */
-# define ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV         80
+# define ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV_OR_INVALID_TYPE         80
 
 /**
  * \def ZPC_ERROR_IOCTLVERIFYKEY2

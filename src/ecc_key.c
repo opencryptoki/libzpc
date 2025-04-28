@@ -678,7 +678,7 @@ int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
 
 	if (ec_key->type == ZPC_EC_KEY_TYPE_PVSECRET) {
 		if (ec_key_blob_is_valid_pvsecret_id(ec_key, buf) != 0) {
-			rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV;
+			rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV_OR_INVALID_TYPE;
 			goto ret;
 		}
 	}
