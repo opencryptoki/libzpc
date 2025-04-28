@@ -493,7 +493,7 @@ int zpc_hmac_key_import(struct zpc_hmac_key *hmac_key, const unsigned char *buf,
 	}
 
 	if (hmac_key_blob_is_valid_pvsecret_id(hmac_key, buf) != 0) {
-		rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV;
+		rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV_OR_INVALID_TYPE;
 		goto ret;
 	}
 

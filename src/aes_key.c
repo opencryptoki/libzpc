@@ -695,7 +695,7 @@ zpc_aes_key_import(struct zpc_aes_key *aes_key, const unsigned char *buf,
 		}
 	} else {
 		if (aes_key_blob_is_valid_pvsecret_id(aes_key, buf) != 0) {
-			rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV;
+			rc = ZPC_ERROR_PVSECRET_ID_NOT_FOUND_IN_UV_OR_INVALID_TYPE;
 			goto ret;
 		}
 	}
