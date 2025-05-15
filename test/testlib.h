@@ -671,6 +671,121 @@ do {                                                                           \
         zpc_hmac_key_free(&key);                                               \
 } while (0)
 
+/*
+ * GTEST_SKIP_ assumes the caller to be the test function that is to
+ * be skipped. So this one has to be implemented as a macro.
+ */
+# define TESTLIB_ENV_AES_XTS_KEY_CHECK()                                       \
+do {                                                                           \
+        int size, type;                                                        \
+                                                                               \
+        size = testlib_env_aes_xts_key_size();                                 \
+        switch (size) {                                                        \
+        case 128:   /* fall-through */                                         \
+        case 256:   /* fall-through */                                         \
+            break;                                                             \
+        case -1:                                                               \
+            GTEST_SKIP_("ZPC_TEST_AES_XTS_KEY_SIZE environment variable not set."); \
+            break;                                                             \
+        default:                                                               \
+            GTEST_SKIP_("ZPC_TEST_AES_XTS_KEY_SIZE environment variable set to invalid key-size."); \
+            break;                                                             \
+        }                                                                      \
+                                                                               \
+        type = testlib_env_aes_xts_key_type();                                 \
+        switch (type) {                                                        \
+        case ZPC_AES_XTS_KEY_TYPE_PVSECRET:                                    \
+            break;                                                             \
+        case -1:                                                               \
+            GTEST_SKIP_("ZPC_TEST_AES_XTS_KEY_TYPE environment variable set to invalid value."); \
+        default:                                                               \
+            GTEST_SKIP_("ZPC_TEST_AES_XTS_KEY_TYPE environment variable not set."); \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+# define TESTLIB_AES_XTS_FULL_HW_CAPS_CHECK()                                  \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_xts_full *ctx;                                          \
+                                                                               \
+        rc = zpc_aes_xts_full_alloc(&ctx);                                     \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            GTEST_SKIP_("HW_CAPS check (AES-XTS-FULL): opening /dev/pkey failed."); \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-XTS-FULL): no hw capabilities for AES-XTS-FULL."); \
+            break;                                                             \
+        case ZPC_ERROR_MALLOC:                                                 \
+            GTEST_SKIP_("HW_CAPS check (AES-XTS-FULL): cannot allocate XTS-FULL ctx object."); \
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_xts_full_free(&ctx);                                       \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+/*
+ * Check availability of PVSECRET support. This requires that we are running
+ * in a secure execution guest under KVM.
+ */
+# define TESTLIB_AES_XTS_FULL_SW_CAPS_CHECK(type)                              \
+do {                                                                           \
+        int rc;                                                                \
+        struct zpc_aes_xts_key *xts_key;                                       \
+                                                                               \
+        rc = zpc_aes_xts_key_alloc(&xts_key);                                  \
+        if (rc != 0) {                                                         \
+            GTEST_SKIP_("SW_CAPS check (AES-XTS-FULL): cannot allocate key obj.");\
+            break;                                                             \
+        }                                                                      \
+        rc = zpc_aes_xts_key_set_type(xts_key, type);                          \
+        switch (rc) {                                                          \
+        case ZPC_ERROR_DEVPKEY:                                                \
+            zpc_aes_xts_key_free(&xts_key);                                    \
+            GTEST_SKIP_("SW_CAPS check (AES-XTS-FULL): opening /dev/pkey failed."); \
+            break;                                                             \
+        case ZPC_ERROR_HWCAPS:                                                 \
+            zpc_aes_xts_key_free(&xts_key);                                    \
+            GTEST_SKIP_("SW_CAPS check (AES-XTS-FULL): no HW capabilities for XTS-FULL."); \
+            break;                                                             \
+        case ZPC_ERROR_UV_PVSECRETS_NOT_AVAILABLE:                             \
+            zpc_aes_xts_key_free(&xts_key);                                    \
+            GTEST_SKIP_("SW_CAPS check (AES-XTS-FULL): PVSECRET support not available on this system.");\
+            break;                                                             \
+        default:                                                               \
+            zpc_aes_xts_key_free(&xts_key);                                    \
+            break;                                                             \
+        }                                                                      \
+} while (0)
+
+/*
+ * On a z17 with kernel 6.13 or later, full-xts support is available even
+ * outside of a secure execution guest. Just UV retrievable secrets are not
+ * supported. For kernel support try a clear_import with a key that has no
+ * type set. If this works, kernel support is available.
+ */
+# define TESTLIB_AES_XTS_FULL_KERNEL_CAPS_CHECK()                              \
+do {                                                                           \
+    int rc;                                                                    \
+    struct zpc_aes_xts_key *key;                                               \
+    unsigned char buf[32];                                                     \
+                                                                               \
+    rc = zpc_aes_xts_key_alloc(&key);                                          \
+    if (rc != 0) {                                                             \
+        zpc_aes_xts_key_free(&key);                                            \
+        GTEST_SKIP_("KERNEL_CAPS check (AES_XTS_FULL): cannot allocate key object."); \
+    }                                                                          \
+    rc = zpc_aes_xts_key_set_size(key, 128); /* cannot fail */                 \
+    rc = zpc_aes_xts_key_import_clear(key, buf);                               \
+    if (rc != 0) {                                                             \
+        zpc_aes_xts_key_free(&key);                                            \
+        GTEST_SKIP_("KERNEL_CAPS check (AES_XTS_FULL): no kernel support for XTS-FULL."); \
+    }                                                                          \
+    zpc_aes_xts_key_free(&key);                                                \
+} while (0)
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
@@ -696,6 +811,9 @@ int testlib_env_aes_key_size(void);
 int testlib_env_aes_key_type(void);
 unsigned int testlib_env_aes_key_flags(void);
 
+int testlib_env_aes_xts_key_size(void);
+int testlib_env_aes_xts_key_type(void);
+
 const char *testlib_env_ec_key_mkvp(void);
 int testlib_env_ec_key_apqns(const char *[257]);
 void testlib_env_ec_key_check(void);
@@ -708,12 +826,13 @@ int testlib_env_hmac_key_type(void);
 
 int testlib_get_aes_pvsecret_id(int keysize, unsigned char outbuf[32]);
 int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int size);
-int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size);
+int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size, int fxts, int key_num);
 int testlib_get_ec_pvsecret_id(zpc_ec_curve_t curve, unsigned char outbuf[32]);
 int testlib_set_ec_key_from_pvsecret(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
 int testlib_set_ec_key_from_file(struct zpc_ec_key *ec_key, int type, zpc_ec_curve_t curve);
 int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, size_t size);
 int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, size_t size);
+int testlib_set_aes_xts_key_from_pvsecret(struct zpc_aes_xts_key *aes_key, int keysize);
 
 unsigned char *testlib_hexstr2buf(const char *, size_t *);
 unsigned char *testlib_hexstr2fixedbuf(const char *hexstr, size_t tolen);

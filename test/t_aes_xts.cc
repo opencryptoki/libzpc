@@ -1871,8 +1871,8 @@ TEST(aes_xts, pvsecret_kat)
 		rc = zpc_aes_key_set_size(aes_key4, size);
 		EXPECT_EQ(rc, 0);
 
-		rc = testlib_set_aes_key_from_file(aes_key3, type2, size);
-		rc = testlib_set_aes_key_from_file(aes_key4, type2, size);
+		rc = testlib_set_aes_key_from_file(aes_key3, type2, size, 0, 1);
+		rc += testlib_set_aes_key_from_file(aes_key4, type2, size, 0, 2);
 		if (type2 == ZPC_AES_KEY_TYPE_CCA_DATA && rc != 0) {
 			type2 = ZPC_AES_KEY_TYPE_EP11;
 			continue;
