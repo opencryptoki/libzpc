@@ -8,6 +8,7 @@
 #include "testlib.h"
 
 #include "zpc/aes_key.h"
+#include "zpc/aes_xts_key.h"
 #include "zpc/ecc_key.h"
 #include "zpc/hmac.h"
 
@@ -30,6 +31,9 @@
 
 #define ENV_HMAC_KEY_TYPE	"ZPC_TEST_HMAC_KEY_TYPE"
 #define ENV_HMAC_HASH_FUNC	"ZPC_TEST_HMAC_HASH_FUNCTION"
+
+#define ENV_AES_XTS_KEY_TYPE       "ZPC_TEST_AES_XTS_KEY_TYPE"
+#define ENV_AES_XTS_KEY_SIZE       "ZPC_TEST_AES_XTS_KEY_SIZE"
 
 /*
  * This file must be created by the tester before running tests with key
@@ -388,6 +392,44 @@ ret:
 }
 
 int
+testlib_env_aes_xts_key_type(void)
+{
+	int type = -1;	/* Invalid key-type. */
+	char *env = NULL;
+
+	env = getenv(ENV_AES_XTS_KEY_TYPE);
+	if (env == NULL)
+		goto ret;
+
+	if (strcmp(env, "ZPC_AES_XTS_KEY_TYPE_PVSECRET") == 0)
+		type = ZPC_AES_XTS_KEY_TYPE_PVSECRET;
+
+ret:
+	return type;
+}
+
+int
+testlib_env_aes_xts_key_size(void)
+{
+	int size = -1;	/* Invalid key-size. */
+	long sizelong = LONG_MIN;
+	char *env = NULL, *endptr = NULL;
+
+	env = getenv(ENV_AES_XTS_KEY_SIZE);
+	if (env == NULL || env[0] == '\0')
+		goto ret;
+
+	sizelong = strtol(env, &endptr, 0);
+	if (*endptr != '\0' || sizelong < INT_MIN || sizelong > INT_MAX)
+		goto ret;
+
+	size = (int)sizelong;
+ret:
+	return size;
+}
+
+
+int
 testlib_env_ec_key_type(void)
 {
 	int type = -1;	/* Invalid key-type. */
@@ -736,6 +778,14 @@ static int pvsec_found(const char *buffer, int pvsectype)
 		if (strstr(buffer, "AES-256-KEY") != NULL)
 			return 1;
 		break;
+	case ZPC_XTS_SECRET_AES_XTS_128:
+		if (strstr(buffer, "AES-XTS-128-KEY") != NULL)
+			return 1;
+		break;
+	case ZPC_XTS_SECRET_AES_XTS_256:
+		if (strstr(buffer, "AES-XTS-256-KEY") != NULL)
+			return 1;
+		break;
 	case ZPC_EC_SECRET_ECDSA_P256:
 		if (strstr(buffer, "EC-SECP256R1-PRIVATE-KEY") != NULL)
 			return 1;
@@ -879,7 +929,7 @@ ret:
  *         2 no pvsecret found for given type
  */
 static int testlib_get_key_data(int size, unsigned char *outbuf,
-		size_t *outlen, testkey_extract_mode_t mode)
+		size_t *outlen, testkey_extract_mode_t mode, int fxts)
 {
 	int pvsectype, rc, lines_to_skip;
 
@@ -896,13 +946,19 @@ static int testlib_get_key_data(int size, unsigned char *outbuf,
 
 	switch (size) {
 	case 128:
-		pvsectype = ZPC_AES_SECRET_AES_128;
+		if (!fxts)
+			pvsectype = ZPC_AES_SECRET_AES_128;
+		else
+			pvsectype = ZPC_XTS_SECRET_AES_XTS_128;
 		break;
 	case 192:
 		pvsectype = ZPC_AES_SECRET_AES_192;
 		break;
 	case 256:
-		pvsectype = ZPC_AES_SECRET_AES_256;
+		if (!fxts)
+			pvsectype = ZPC_AES_SECRET_AES_256;
+		else
+			pvsectype = ZPC_XTS_SECRET_AES_XTS_256;
 		break;
 	case 512:
 		pvsectype = ZPC_HMAC_SECRET_HMAC_SHA_256;
@@ -925,7 +981,7 @@ int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int keysize)
 	size_t id_len, i;
 	int rc;
 
-	rc = testlib_get_key_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
+	rc = testlib_get_key_data(keysize, pvsec_id, &id_len, EXTRACT_ID, 0);
 	switch (rc) {
 	case 0:
 		rc = zpc_aes_key_import(aes_key, pvsec_id, 32);
@@ -950,14 +1006,18 @@ int testlib_set_aes_key_from_pvsecret(struct zpc_aes_key *aes_key, int keysize)
 	return rc;
 }
 
-int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size)
+int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int size,
+		int fxts, int key_num)
 {
 	unsigned char pvsec_id[32] = { 0, };
 	unsigned char keybytes[256] = { 0, };
 	size_t idlen, byteslen;
 	int rc;
+	unsigned char *tmp;
 
-	rc = testlib_get_key_data(size, pvsec_id, &idlen, EXTRACT_ID);
+	assert(key_num == 1 || key_num == 2);
+
+	rc = testlib_get_key_data(size, pvsec_id, &idlen, EXTRACT_ID, fxts);
 	switch (rc) {
 	case 0:
 		break;
@@ -971,14 +1031,25 @@ int testlib_set_aes_key_from_file(struct zpc_aes_key *aes_key, int type, int siz
 		goto ret;
 	}
 
-	rc = testlib_get_key_data(size, keybytes, &byteslen, EXTRACT_SECRETKEY);
+	rc = testlib_get_key_data(size, keybytes, &byteslen, EXTRACT_SECRETKEY, fxts);
 	if (rc != 0) {
 		printf("[     INFO ] Cannot obtain clear key bytes for 'AES-%d-KEY' from list file.\n",
 			size);
 		goto ret;
 	}
 
-	rc = zpc_aes_key_import_clear(aes_key, keybytes);
+	if ((!fxts && byteslen != (size_t)size / 8) ||
+		(fxts && byteslen != (size_t)size * 2 / 8)) {
+		printf("[  WARNING ] Clear key bytes in list file for 'AES-%s%d-KEY' have an invalid length of %ld bytes.\n",
+			fxts ? "XTS-" : "", size, byteslen);
+		goto ret;
+	}
+
+	tmp = &keybytes[0];
+	if (fxts && key_num == 2)
+		tmp += byteslen / 2; /* take 2nd half for key2 */
+
+	rc = zpc_aes_key_import_clear(aes_key, tmp);
 	if (rc != 0) {
 		printf("[     INFO ] Cannot import clear key data for %s-type 'AES-%d-KEY' from list file, rc = %d.\n",
 			type2string(type), size, rc);
@@ -1190,7 +1261,7 @@ int testlib_set_hmac_key_from_pvsecret(struct zpc_hmac_key *hmac_key, size_t key
 	size_t i, id_len;
 	int rc;
 
-	rc = testlib_get_key_data(keysize, pvsec_id, &id_len, EXTRACT_ID);
+	rc = testlib_get_key_data(keysize, pvsec_id, &id_len, EXTRACT_ID, 0);
 	switch (rc) {
 	case 0:
 		rc = zpc_hmac_key_import(hmac_key, pvsec_id, 32);
@@ -1222,7 +1293,7 @@ int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, size
 	size_t idlen, byteslen;
 	int rc;
 
-	rc = testlib_get_key_data(keysize, pvsec_id, &idlen, EXTRACT_ID);
+	rc = testlib_get_key_data(keysize, pvsec_id, &idlen, EXTRACT_ID, 0);
 	switch (rc) {
 	case 0:
 		break;
@@ -1236,7 +1307,7 @@ int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, size
 		goto ret;
 	}
 
-	rc = testlib_get_key_data(keysize, keybytes, &byteslen, EXTRACT_SECRETKEY);
+	rc = testlib_get_key_data(keysize, keybytes, &byteslen, EXTRACT_SECRETKEY, 0);
 	if (rc != 0) {
 		printf("[     INFO ] Cannot obtain clear key bytes for 'HMAC-SHA-%d-KEY' from list file.\n",
 			keysize == 512 ? 256 : 512);
@@ -1255,5 +1326,36 @@ int testlib_set_hmac_key_from_file(struct zpc_hmac_key *hmac_key, int type, size
 		type2string(type), keysize == 512 ? 256 : 512);
 
 ret:
+	return rc;
+}
+
+int testlib_set_aes_xts_key_from_pvsecret(struct zpc_aes_xts_key *aes_key, int keysize)
+{
+	unsigned char pvsec_id[32] = { 0, };
+	size_t id_len, i;
+	int rc;
+
+	rc = testlib_get_key_data(keysize, pvsec_id, &id_len, EXTRACT_ID, 1);
+	switch (rc) {
+	case 0:
+		rc = zpc_aes_xts_key_import(aes_key, pvsec_id, 32);
+		if (rc != 0) {
+			printf("[    ERROR ] zpc_aes_key_import from 'AES-XTS-%d-KEY' pvsecret failed with rc = %d.\n",
+					keysize, rc);
+			printf("Tried with ID:\n");
+			for (i = 0; i < sizeof(pvsec_id); i++)
+				printf("%02X%c",pvsec_id[i],((i+1)%16)?' ':'\n');
+		}
+		break;
+	case 1:
+		printf("[  WARNING ] Could not open pvsecret list file. Probably "
+			"ZPC_TEST_PVSECRET_LIST_FILE not set, or file does not exist.\n");
+		break;
+	case 2:
+		printf("[  WARNING ] No 'AES-XTS-%d-KEY' pvsecret available on this system.\n",
+			keysize);
+		break;
+	}
+
 	return rc;
 }
