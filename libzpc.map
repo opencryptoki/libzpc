@@ -110,11 +110,6 @@ global:
 	zpc_hmac_verify;
 	zpc_hmac_free;
 
-local: *;
-} ZPC_1.2.0;
-
-ZPC_1.4.0 {
-global:
 	zpc_aes_xts_key_alloc;
 	zpc_aes_xts_key_set_size;
 	zpc_aes_xts_key_set_type;
@@ -134,4 +129,4 @@ global:
 	zpc_aes_xts_full_free;
 
 local: *;
-} ZPC_1.3.0;
+} ZPC_1.2.0;
