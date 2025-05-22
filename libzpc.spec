@@ -1,5 +1,5 @@
 Name:		libzpc
-Version:	1.3.1
+Version:	1.4.0
 Release:	1%{?dist}
 Summary:	Open Source library for the IBM Z Protected-key crypto feature
 
@@ -88,6 +88,10 @@ The %{name}-static package contains the static library of %{name}.
 
 
 %changelog
+* Thu May 25 2025 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.4.0
+- Support for MSA 10 (XTS-FULL) and MSA 11 (HMAC)
+- Bug fixes.
+
 * Tue Mar 25 2025 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.3.1
 - Bug fixes.
 
