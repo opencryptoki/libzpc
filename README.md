@@ -110,6 +110,10 @@ and key type.
 For AES-XTS when using full-XTS keys, the following environment variables can be passed to `./runtest`:
 - `ZPC_TEST_AES_XTS_KEY_TYPE=<type>` : The only supported choice for `<type>` is `ZPC_AES_XTS_KEY_TYPE_PVSECRET`.
 - `ZPC_TEST_AES_XTS_KEY_SIZE=<size>` : The choices for `<size>` are `128`, and `256`. AES full-XTS tests are skipped if this variable is unset or its value is invalid.
+The pvsecret_kat test compares the results from using one full-XTS key to the results from using two separate AES keys with the same key material. This key material must be added to the pvsecret list file.
+When this key material is available in the pvsecret list file, also specify
+- `ZPC_TEST_AES_KEY_TYPE=<type>` and 
+- `ZPC_TEST_AES_KEY_APQNS=<apqns>` or `ZPC_TEST_AES_KEY_MKVP=<mkvp>`.
 
 For ECDSA, the following environment variables can be passed to `./runtest`:
 - `ZPC_TEST_EC_KEY_TYPE=<type>` : The choices for `<type>` are `ZPC_EC_KEY_TYPE_CCA` and `ZPC_EC_KEY_TYPE_EP11`. ECDSA tests are skipped if this variable is unset or its value is invalid.
@@ -133,6 +137,16 @@ list file. Example:
     7 HMAC-SHA-256-KEY:
      0xb620b6d76f89910aff90ff9 ...  <- the secret ID
      0xa783830e0bd6f3ae8cade16b3004 ...  <- the clear key 
+
+For PVSECRET type full-XTS keys we have a mixed setting of AES_XTS_KEY and AES_KEY definitions, for example:
+
+    5 AES-XTS-128-KEY:
+     0x8ace2a9b ... <- secret ID
+     0xbe0274e3f3b363 ... <- clear AES XTS key (2 x 16 bytes)
+    6 AES-XTS-256-KEY:
+     0x2b56938 ... <- secret ID
+     0xbf8260655f43 ... <- clear AES XTS key (2 x 32 bytes)
+    ...
 
 If clear key data is available, additional tests (pvsecret_kat) are performed.
 
