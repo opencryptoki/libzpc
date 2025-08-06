@@ -100,6 +100,9 @@ global:
 	zpc_hmac_key_alloc;
 	zpc_hmac_key_set_type;
 	zpc_hmac_key_set_hash_function;
+	zpc_hmac_key_import_clear;
+	zpc_hmac_key_import;
+	zpc_hmac_key_export;
 	zpc_hmac_key_generate;
 	zpc_hmac_key_free;
 
