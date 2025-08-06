@@ -1,0 +1,29 @@
+#!/bin/bash
+
+process_file() {
+	echo "API Header: $1"
+	PROTOTYPES="$(${CTAGS} -x --kinds-c=p $1 2> /dev/null | cut -d" " -f1)"
+	# echo "PROTOTYPES: ${PROTOTYPES}"
+	for func in ${PROTOTYPES} ; do
+		echo -n "  ${func}: "
+		grep -q $func ${LIBZPC_MAP} || echo -n "!!! un"
+		echo "mapped"
+	done
+}
+
+echo_exit() {
+	echo "$*"
+	exit 1
+}
+
+FILES=${@:-"$(ls include/zpc/*.h 2> /dev/null)"}
+CTAGS="$(command -v ctags)"
+LIBZPC_MAP=${LIBZPC_MAP:-"libzpc.map"}
+
+test -n "${CTAGS}" || echo_exit "Required command missing: ctags"
+test -r ${LIBZPC_MAP} || echo_exit "Required map-file missing: ${LIBZPC_MAP}"
+
+for file in ${FILES}; do
+	test -r ${file} || continue
+	process_file ${file}
+done
