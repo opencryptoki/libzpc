@@ -107,7 +107,7 @@ int zpc_aes_key_import(struct zpc_aes_key *key, const unsigned char *seckey,
 /**
  * Import an AES clear-key.
  * \param[in,out] key AES key
- * \param[in] clearkey AES clear-key
+ * \param[in] clrkey AES clear-key
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))

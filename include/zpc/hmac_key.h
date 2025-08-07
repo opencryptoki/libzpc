@@ -64,7 +64,7 @@ __attribute__((visibility("default")))
 int zpc_hmac_key_set_type(struct zpc_hmac_key *key, int type);
 /**
  * Set the hash function to be used in the context of an HMAC operation.
- * \param[in,out] ctx HMAC context
+ * \param[in,out] key HMAC key
  * \param[in] func HMAC hash function
  * The size of the HMAC key (64 bytes or 128 bytes) is given by the block size
  * of the hash function: for sha224 and sha256, the key size is set to 64 bytes,
@@ -76,8 +76,8 @@ int zpc_hmac_key_set_hash_function(struct zpc_hmac_key *key, zpc_hmac_hashfunc_t
 /**
  * Import an HMAC protected key origin (secure key or retrievable secret ID).
  * \param[in,out] key HMAC key
- * \param[in] seckey HMAC protected key origin
- * \param[in] seckeylen HMAC key origin length [bytes]
+ * \param[in] origin HMAC protected key origin
+ * \param[in] originlen HMAC key origin length [bytes]
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))
@@ -86,7 +86,7 @@ int zpc_hmac_key_import(struct zpc_hmac_key *key, const unsigned char *origin,
 /**
  * Import an HMAC clear-key.
  * \param[in,out] key HMAC key
- * \param[in] clearkey HMAC clear-key
+ * \param[in] clrkey HMAC clear-key
  * \param[in] keylen HMAC clear-key size [bytes]
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
@@ -96,8 +96,8 @@ int zpc_hmac_key_import_clear(struct zpc_hmac_key *key,
 /**
  * Export an HMAC protected key origin (secure key or retrievable secret ID).
  * \param[in,out] key HMAC key
- * \param[out] seckey HMAC protected key origin
- * \param[in,out] seckeylen origin length [bytes]
+ * \param[out] origin HMAC protected key origin
+ * \param[in,out] originlen origin length [bytes]
  * \return 0 on success. Otherwise, a non-zero error code is returned.
  */
 __attribute__((visibility("default")))

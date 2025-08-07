@@ -46,7 +46,7 @@ int zpc_aes_gcm_set_key(struct zpc_aes_gcm *ctx, struct zpc_aes_key *key);
  * Create the initialization vector to be used in the context
  * of an AES-GCM operation. The minimum and recommended iv length is 12 bytes.
  * \param[in,out] ctx AES-GCM context
- * \param[in/out] iv application provided buffer of at least ivlen bytes to
+ * \param[in,out] iv application provided buffer of at least ivlen bytes to
  * receive the internally created initialization vector
  * \param[in] ivlen initialization vector length [bytes]
  * \return 0 on success. Otherwise, a non-zero error code is returned.

@@ -75,7 +75,7 @@ int zpc_aes_xts_key_import(struct zpc_aes_xts_key *key, const unsigned char *sec
  * \param[in,out] key AES-XTS key. If the key object has no type set, a
  * full-xts protected key is created from the given key material. If the type
  * is set to ZPC_AES_XTS_KEY_TYPE_PVSECRET then the import is not possible.
- * \param[in] clearkey AES XTS clear-key. The application must provide
+ * \param[in] clrkey AES XTS clear-key. The application must provide
  * concatenated key material for two single AES keys of the specified size,
  * i.e. either 2 x 16 bytes or 2 x 32 bytes.
  * \return 0 on success. Otherwise, a non-zero error code is returned.
