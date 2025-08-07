@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['changelog_209',['Changelog',['../changes.html',1,'']]],
-  ['contributing_210',['Contributing',['../contrib.html',1,'']]]
+  ['changelog_0',['Changelog',['../changes.html',1,'']]],
+  ['contributing_1',['Contributing',['../contrib.html',1,'']]]
 ];
