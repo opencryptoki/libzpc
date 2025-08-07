@@ -18,7 +18,7 @@ extern "C" {
  * \brief AES full-xts key API.
  * 
  * Manage advanced Encryption Standard (AES) block cipher
- * \cite AES-XTS keys to be used in a full-xts context.
+ * \cite XTS keys to be used in a full-xts context.
  */
 
 # include <stddef.h>
