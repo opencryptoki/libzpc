@@ -410,13 +410,13 @@ extern "C" {
 # define ZPC_ERROR_EC_EP11_SPKI_INVALID_LENGTH  67
 
 /**
- * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_FOR_CURVE
+ * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_CURVE
  * \brief the imported buffer contains an EP11 SPKI with an invalid EC curve.
  */
 # define ZPC_ERROR_EC_EP11_SPKI_INVALID_CURVE  68
 
 /**
- * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_FOR_PUBKEY
+ * \def ZPC_ERROR_EC_EP11_SPKI_INVALID_PUBKEY
  * \brief the imported buffer contains an EP11 SPKI with an invalid public key.
  */
 # define ZPC_ERROR_EC_EP11_SPKI_INVALID_PUBKEY  69
@@ -506,7 +506,7 @@ extern "C" {
 # define ZPC_ERROR_HMAC_HASH_FUNCTION_INVALID          83
 
 /**
- * \def ZPC_ERROR_HMAC_KEYGEN_VIA_SYSFS_FAILED
+ * \def ZPC_ERROR_HMAC_KEYGEN_VIA_SYSFS
  * \brief HMAC key generation via sysfs attributes failed.
  */
 # define ZPC_ERROR_HMAC_KEYGEN_VIA_SYSFS               84
