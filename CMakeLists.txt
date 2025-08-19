@@ -276,6 +276,27 @@ target_link_options(
 )
 endif () # BUILD_ASAN
 
+set(OPENSSL_CONF
+    ${CMAKE_BINARY_DIR}/openssl.conf
+)
+set(OPENSSL_CONF_IN
+    ${CMAKE_SOURCE_DIR}/openssl.conf.in
+)
+set(HBKZPCPROVIDER_CONF
+    ${CMAKE_BINARY_DIR}/hbkzpcprovider.conf
+)
+set(HBKZPCPROVIDER_CONF_IN
+    ${CMAKE_SOURCE_DIR}/hbkzpcprovider.conf.in
+)
+set(ZPCPROVIDER_MODULE
+    zpcprovider.so
+)
+set(ZPCPROVIDER_MODULE_ABS
+    ${CMAKE_BINARY_DIR}/${ZPCPROVIDER_MODULE}
+)
+configure_file(${OPENSSL_CONF_IN} ${OPENSSL_CONF} @ONLY)
+configure_file(${HBKZPCPROVIDER_CONF_IN} ${HBKZPCPROVIDER_CONF} @ONLY)
+
 if(PkgConfig_FOUND)
     pkg_get_variable(OSSL_MODULESDIR libcrypto modulesdir)
 else()
