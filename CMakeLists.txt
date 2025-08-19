@@ -163,6 +163,17 @@ install(
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}
 )
 
+set(OPENSSL_CONF
+    ${CMAKE_BINARY_DIR}/openssl.cnf
+)
+set(OPENSSL_CONF_IN
+    ${CMAKE_SOURCE_DIR}/openssl.cnf.in
+)
+set(ZPCPROVIDER_MODULE
+    ${CMAKE_BINARY_DIR}/zpcprovider.so
+)
+configure_file(${OPENSSL_CONF_IN} ${OPENSSL_CONF} @ONLY)
+
 # install(
 #     FILES ${CMAKE_SOURCE_DIR}/man/zpcprovider.cnf.5
 #     DESTINATION ${CMAKE_INSTALL_MANDIR}/man5
