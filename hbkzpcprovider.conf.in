@@ -1,0 +1,6 @@
+[provider_sect]
+hbkzpc = hbkzpc_sect
+
+[hbkzpc_sect]
+module = @ZPCPROVIDER_MODULE@
+activate = 1
