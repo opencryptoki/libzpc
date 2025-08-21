@@ -86,14 +86,13 @@ set(ZPC_SOURCES
     src/zkey/lib/util_prg.c
 )
 
-find_library(PTHREAD
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads
     REQUIRED
-    NAMES pthread
 )
 
-find_library(JSON_C
+find_package(json-c
     REQUIRED
-    NAMES json-c
 )
 
 add_definitions(
@@ -101,7 +100,7 @@ add_definitions(
 )
 
 set(ZPC_LIBS
-	${PTHREAD} ${CMAKE_DL_LIBS}
+	Threads::Threads ${CMAKE_DL_LIBS}
 )
 
 add_library(zpc ${ZPC_SOURCES})
@@ -358,6 +357,7 @@ ExternalProject_Add(gtest
     PREFIX          ${CMAKE_BINARY_DIR}/gtest
     INSTALL_COMMAND ""
     TEST_COMMAND    ""
+    CMAKE_ARGS      "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
 )
 ExternalProject_Get_Property(gtest SOURCE_DIR BINARY_DIR)
 set(GTEST_INCLUDE_DIR
@@ -370,8 +370,8 @@ set(GTEST_LIB_DIR
 set(ZPC_TEST_LIBS
     ${GTEST_LIB_DIR}/libgtest_main.a
     ${GTEST_LIB_DIR}/libgtest.a
-    ${PTHREAD}
-    ${JSON_C}
+    Threads::Threads
+    json-c::json-c
     zpc
 )
 
