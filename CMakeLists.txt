@@ -326,8 +326,7 @@ set(NIST_ECDSA_SOURCE_DIR
 )
 add_custom_command(
   OUTPUT            nist_ecdsa.json
-  COMMAND           chmod 755 ${CMAKE_SOURCE_DIR}/misc/nist2json_ecdsa.pl && 
-                    ${CMAKE_SOURCE_DIR}/misc/nist2json_ecdsa.pl
+  COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_ecdsa.pl
                         ${NIST_ECDSA_SOURCE_DIR}/SigGenComponent.txt
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   DEPENDS           nist_ecdsa
