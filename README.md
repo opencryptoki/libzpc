@@ -90,6 +90,31 @@ See `cmake(1)`.
 Custom compile options can also be passed to `cmake` via the `CFLAGS` and `CXXFLAGS` environment variables in the usual way.
 
 
+Building on non-s390x architectures (cross-build)
+---
+
+Basic prerequisites for cross-builds:
+- Compiler/Toolchain for s390x
+- `-devel` packages of all required shared library for s390x
+
+Toolchain-file with the following settings:
+- `CMAKE_SYSTEM_NAME`: name of the target system, `Linux`.
+- `CMAKE_C_COMPILER`: Path or command of the cross-c-compiler.
+- `CMAKE_CXX_COMPILER`: Path or command of the cross-c++-compiler.
+- `CMAKE_FIND_ROOT_PATH`: Path to cross-development files (e.g. libraries
+  and headers).
+- `CMAKE_FIND_ROOT_PATH_MODE_<module>`: Search mode for modules `PROGRAM`,
+  `LIBRARY` and `INCLUDE`.
+
+The provided toolchain-file `s390x-tc-debian.cmake` can be used to cross-build on Debian systems.
+
+Building `libzpc` with a s390x cross-toolchain on Debian:
+    mkdir cross-build && cd cross-build
+    cmake -DCMAKE_TOOLCHAIN_FILE=../s390x-tc-debian.cmake ..
+    make
+
+See `cmake(1)`.
+
 Testing
 ---
 

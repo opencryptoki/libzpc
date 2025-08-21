@@ -1,0 +1,10 @@
+set(CMAKE_SYSTEM_NAME Linux)
+
+set(CMAKE_C_COMPILER   s390x-linux-gnu-gcc)
+set(CMAKE_CXX_COMPILER s390x-linux-gnu-g++)
+
+set(CMAKE_FIND_ROOT_PATH /usr/lib/s390x-linux-gnu /usr/include/s390x-linux-gnu)
+
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
