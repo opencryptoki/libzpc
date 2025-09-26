@@ -434,12 +434,17 @@ find_package(Doxygen)
 if (DOXYGEN_FOUND)
 
 set(DOXYFILE
-    ${CMAKE_SOURCE_DIR}/doc/Doxyfile
+    ${CMAKE_BINARY_DIR}/doc/Doxyfile
 )
+set(DOXYFILE_IN
+    ${CMAKE_SOURCE_DIR}/doc/Doxyfile.in
+)
+configure_file(${DOXYFILE_IN} ${DOXYFILE} @ONLY)
 add_custom_target(doc
     ALL
     COMMAND           ${DOXYGEN_EXECUTABLE} ${DOXYFILE}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    VERBATIM
 )
 
 endif ()
