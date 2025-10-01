@@ -149,6 +149,7 @@ set(ZPCPROVIDER_SOURCES
     src/provider.c
     src/object.c
     src/skeymgmt.c
+    src/cipher.c
 )
 
 add_library(zpcprovider MODULE ${ZPCPROVIDER_SOURCES})

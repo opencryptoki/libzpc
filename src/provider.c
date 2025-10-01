@@ -8,6 +8,7 @@
 #include "ossl.h"
 #include "provider.h"
 #include "skeymgmt.h"
+#include "cipher.h"
 
 static const OSSL_ITEM reason_strings[] = {
 	{ 0, NULL },
@@ -88,6 +89,9 @@ static const OSSL_ALGORITHM *prov_query_operation(void *vpctx, int operation_id,
 	switch (operation_id) {
 	case OSSL_OP_SKEYMGMT:
 		ops = skeymgmt_ops;
+		break;
+	case OSSL_OP_CIPHER:
+		ops = cipher_ops;
 		break;
 	default:
 		ops = NULL;
