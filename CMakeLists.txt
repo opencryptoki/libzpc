@@ -152,8 +152,8 @@ set(ZPCPROVIDER_SOURCES
 add_library(zpcprovider MODULE ${ZPCPROVIDER_SOURCES})
 set_target_properties(zpcprovider PROPERTIES PREFIX "")
 
-target_include_directories(zpcprovider PRIVATE src ${OPENSSL_INCLUDE_DIR})
-target_link_libraries(zpcprovider PRIVATE OpenSSL::Crypto)
+target_include_directories(zpcprovider PRIVATE src include ${OPENSSL_INCLUDE_DIR})
+target_link_libraries(zpcprovider PRIVATE zpc OpenSSL::Crypto)
 
 install(
     TARGETS zpcprovider
