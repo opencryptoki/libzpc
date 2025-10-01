@@ -96,6 +96,11 @@ find_package(json-c
     REQUIRED
 )
 
+find_package(OpenSSL
+    3.0.7
+    REQUIRED
+)
+
 add_definitions(
     -D_GNU_SOURCE
 )
