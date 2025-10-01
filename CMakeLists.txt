@@ -147,6 +147,8 @@ install(
 
 set(ZPCPROVIDER_SOURCES
     src/provider.c
+    src/object.c
+    src/skeymgmt.c
 )
 
 add_library(zpcprovider MODULE ${ZPCPROVIDER_SOURCES})
