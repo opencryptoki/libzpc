@@ -143,6 +143,34 @@ install(
 )
 
 ###########################################################
+# zpcprovider
+
+set(ZPCPROVIDER_SOURCES
+    src/provider.c
+)
+
+add_library(zpcprovider MODULE ${ZPCPROVIDER_SOURCES})
+set_target_properties(zpcprovider PROPERTIES PREFIX "")
+
+target_include_directories(zpcprovider PRIVATE src ${OPENSSL_INCLUDE_DIR})
+target_link_libraries(zpcprovider PRIVATE OpenSSL::Crypto)
+
+install(
+    TARGETS zpcprovider
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}
+)
+
+# install(
+#     FILES ${CMAKE_SOURCE_DIR}/man/zpcprovider.cnf.5
+#     DESTINATION ${CMAKE_INSTALL_MANDIR}/man5
+# )
+#
+# install(
+#     FILES ${CMAKE_SOURCE_DIR}/man/zpcprovider.7
+#     DESTINATION ${CMAKE_INSTALL_MANDIR}/man7
+# )
+
+###########################################################
 # Test
 
 option(BUILD_TEST OFF)
