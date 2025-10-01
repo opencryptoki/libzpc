@@ -1,10 +1,11 @@
-###########################################################
-set(ZPC_NAME          "libzpc"                            )
-set(ZPC_DESCRIPTION   "IBM Z Protected-key Crypto library")
-set(ZPC_VERSION_MAJOR 1                                   )
-set(ZPC_VERSION_MINOR 5                                   )
-set(ZPC_VERSION_PATCH 0                                   )
-###########################################################
+###############################################################################
+set(ZPC_NAME          "libzpc"                                                )
+set(ZPC_DESCRIPTION   "IBM Z Protected-key Crypto library"                    )
+set(ZPC_VERSION_MAJOR 1                                                       )
+set(ZPC_VERSION_MINOR 5                                                       )
+set(ZPC_VERSION_PATCH 0                                                       )
+set(ZPC_VERSION ${ZPC_VERSION_MAJOR}.${ZPC_VERSION_MINOR}.${ZPC_VERSION_PATCH})
+###############################################################################
 
 cmake_minimum_required(
     VERSION 3.10
@@ -45,7 +46,7 @@ string(APPEND
 endif () # BUILD_ASAN
 
 project(${ZPC_NAME}
-    VERSION     ${ZPC_VERSION_MAJOR}.${ZPC_VERSION_MINOR}.${ZPC_VERSION_PATCH}
+    VERSION     ${ZPC_VERSION}
     DESCRIPTION ${ZPC_DESCRIPTION}
     LANGUAGES   CXX C ASM
 )
@@ -115,6 +116,10 @@ find_package(OpenSSL
     REQUIRED
 )
 
+find_package(PkgConfig
+    QUIET
+)
+
 add_definitions(
     -D_GNU_SOURCE
 )
@@ -137,6 +142,81 @@ target_compile_definitions(
     ZPC_VERSION_PATCH=${ZPC_VERSION_PATCH}
 )
 include(GNUInstallDirs)
+
+###########################################################
+# zpcprovider
+
+set(ZPCPROVIDER_SOURCES
+    src/provider.c
+)
+
+add_library(
+    zpcprovider MODULE
+    ${ZPCPROVIDER_SOURCES}
+)
+
+set_target_properties(
+    zpcprovider
+    PROPERTIES
+    PREFIX ""
+)
+
+target_include_directories(
+    zpcprovider
+    PRIVATE
+    src
+    include
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+target_compile_definitions(
+    zpcprovider
+    PRIVATE
+    PROV_VERSION="${ZPC_VERSION}"
+)
+
+target_link_libraries(
+    zpcprovider
+    PRIVATE
+    OpenSSL::Crypto
+)
+
+target_link_options(
+    zpcprovider
+    PRIVATE
+    -Wl,--version-script=${CMAKE_SOURCE_DIR}/zpcprovider.map
+)
+
+if (BUILD_ASAN)
+target_link_options(
+    zpcprovider
+    BEFORE PUBLIC -fsanitize=undefined
+    PUBLIC -fsanitize=address
+)
+endif () # BUILD_ASAN
+
+if(PkgConfig_FOUND)
+    pkg_get_variable(OSSL_MODULESDIR libcrypto modulesdir)
+else()
+    set(OSSL_MODULESDIR ${CMAKE_INSTALL_LIBEXECDIR})
+endif()
+message(STATUS "OpenSSL module install directory: ${OSSL_MODULESDIR}")
+
+install(
+    TARGETS zpcprovider
+    LIBRARY
+    DESTINATION ${OSSL_MODULESDIR}
+)
+
+install(
+    FILES ${CMAKE_BINARY_DIR}/hbkzpcprovider.conf.5
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man5
+)
+
+install(
+    FILES ${CMAKE_BINARY_DIR}/hbkzpcprovider.7
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man7
+)
 
 ###########################################################
 # Test
