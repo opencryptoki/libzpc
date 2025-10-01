@@ -137,6 +137,9 @@ install(
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )
 
+###########################################################
+# Test
+
 option(BUILD_TEST OFF)
 
 if (BUILD_TEST)
