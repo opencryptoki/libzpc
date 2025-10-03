@@ -470,6 +470,14 @@ target_include_directories(runtest PRIVATE include src ${GTEST_INCLUDE_DIR})
 include(GoogleTest)
 gtest_discover_tests(runtest)
 
+set (ZPCPROVIDER_TEST_SOURCES
+    test/tprovider.c
+)
+add_executable(runprovidertest ${ZPCPROVIDER_TEST_SOURCES})
+add_dependencies(runprovidertest zpcprovider)
+target_include_directories(runprovidertest PRIVATE src ${OPENSSL_INCLUDE_DIR})
+target_link_libraries(runprovidertest PRIVATE OpenSSL::Crypto)
+
 endif ()
 
 ###########################################################
