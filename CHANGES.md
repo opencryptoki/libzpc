@@ -1,6 +1,10 @@
 Changelog {#changes}
 ===
 
+**Version 1.4.1**
+
+- Bug fixes
+
 **Version 1.4.0**
 
 - Support for MSA 10 (XTS-FULL) and MSA 11 (HMAC)
