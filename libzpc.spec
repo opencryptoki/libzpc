@@ -75,7 +75,7 @@ developing applications that use %{name}.
 
 
 %changelog
-* Thu May 25 2025 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.4.0
+* Thu May 22 2025 Joerg Schmidbauer <jschmidb@de.ibm.com> - 1.4.0
 - Support for MSA 10 (XTS-FULL) and MSA 11 (HMAC)
 - Bug fixes.
 
