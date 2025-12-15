@@ -115,6 +115,20 @@ Building `libzpc` with a s390x cross-toolchain on Debian:
 
 See `cmake(1)`.
 
+
+Building RPM packages
+---
+
+Building `libzpc` RPM packages:
+
+    sudo dnf builddep --spec libzpc.spec
+    rpmdev-spectool --get-files --sourcedir libzpc.spec
+    rpmbuild -ba libzpc.spec
+
+The build results will be in ~/rpmbuild/RPMS and ~/rpmbuild/SRPMS
+respectively.
+
+
 Testing
 ---
 
