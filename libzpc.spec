@@ -37,15 +37,6 @@ The %{name}-devel package contains libraries and header files for
 developing applications that use %{name}.
 
 
-%package	static
-Summary:	Static library version %{name}
-Requires:	%{name}-devel%{?_isa} = %{version}-%{release}
-
-
-%description	static
-The %{name}-static package contains the static library of %{name}.
-
-
 %prep
 %autosetup %{name}-%{version}
 
@@ -81,10 +72,6 @@ The %{name}-static package contains the static library of %{name}.
 %{_includedir}/zpc/
 %{_libdir}/pkgconfig/%{name}.pc
 %{_libdir}/%{name}.so
-
-
-%files static
-%{_libdir}/%{name}.a
 
 
 %changelog
