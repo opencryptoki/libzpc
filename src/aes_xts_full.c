@@ -28,7 +28,8 @@
 
 static int __aes_xts_full_set_iv(struct zpc_aes_xts_full *, const u8 *);
 static int __aes_xts_full_set_intermediate_state(struct zpc_aes_xts_full *, const u8 state[32]);
-static int __aes_xts_full_crypt(struct zpc_aes_xts_full *, u8 *, const u8 *, size_t, unsigned long);
+static int __aes_xts_full_crypt(struct zpc_aes_xts_full *, u8 *, const u8 *,
+    size_t, unsigned long, size_t *);
 static void __aes_xts_full_reset(struct zpc_aes_xts_full *);
 static void __aes_xts_full_reset_iv(struct zpc_aes_xts_full *);
 
@@ -294,6 +295,9 @@ int zpc_aes_xts_full_encrypt(struct zpc_aes_xts_full *aes_xts, u8 * c,
 	unsigned long flags = 0;
 	u8 *param;
 	int rc, rv;
+	const u8 *in_pos = m;
+	u8 *out_pos = c;
+	size_t bytes_processed = 0, len = mlen;
 
 	UNUSED(rv);
 
@@ -337,7 +341,8 @@ int zpc_aes_xts_full_encrypt(struct zpc_aes_xts_full *aes_xts, u8 * c,
 	param = aes_xts->param_km;
 
 	for (;;) {
-		rc = __aes_xts_full_crypt(aes_xts, c, m, mlen, flags);
+		rc = __aes_xts_full_crypt(aes_xts, out_pos, in_pos, len, flags,
+			&bytes_processed);
 		if (rc == 0) {
 			break;
 		} else {
@@ -359,6 +364,10 @@ int zpc_aes_xts_full_encrypt(struct zpc_aes_xts_full *aes_xts, u8 * c,
 
 				rv = pthread_mutex_unlock(&aes_xts->xts_key->lock);
 				assert(rv == 0);
+
+				in_pos += bytes_processed;
+				out_pos += bytes_processed;
+				len -= bytes_processed;
 			}
 			if (rc)
 				break;
@@ -377,6 +386,9 @@ int zpc_aes_xts_full_decrypt(struct zpc_aes_xts_full *aes_xts, u8 * m,
 	unsigned long flags = CPACF_M;  /* decrypt */
 	u8 *param;
 	int rc, rv;
+	const u8 *in_pos = c;
+	u8 *out_pos = m;
+	size_t bytes_processed = 0, len = clen;
 
 	UNUSED(rv);
 
@@ -420,7 +432,8 @@ int zpc_aes_xts_full_decrypt(struct zpc_aes_xts_full *aes_xts, u8 * m,
 	param = aes_xts->param_km;
 
 	for (;;) {
-		rc = __aes_xts_full_crypt(aes_xts, m, c, clen, flags);
+		rc = __aes_xts_full_crypt(aes_xts, out_pos, in_pos, len, flags,
+			&bytes_processed);
 		if (rc == 0) {
 			break;
 		} else {
@@ -442,6 +455,10 @@ int zpc_aes_xts_full_decrypt(struct zpc_aes_xts_full *aes_xts, u8 * m,
 
 				rv = pthread_mutex_unlock(&aes_xts->xts_key->lock);
 				assert(rv == 0);
+
+				in_pos += bytes_processed;
+				out_pos += bytes_processed;
+				len -= bytes_processed;
 			}
 			if (rc)
 				break;
@@ -515,7 +532,8 @@ static int __aes_xts_full_set_intermediate_state(struct zpc_aes_xts_full *aes_xt
 }
 
 static int __aes_xts_full_crypt(struct zpc_aes_xts_full *aes_xts, u8 * out,
-		const u8 * in, size_t inlen, unsigned long flags)
+		const u8 * in, size_t inlen, unsigned long flags,
+		size_t * bytes_processed)
 {
 	int rc, cc;
 	size_t rem;
@@ -525,7 +543,8 @@ static int __aes_xts_full_crypt(struct zpc_aes_xts_full *aes_xts, u8 * out,
 	inlen &= ~(size_t)0xf;
 
 	if (rem == 0) {
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in, inlen);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in,
+			inlen, bytes_processed);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -539,7 +558,8 @@ static int __aes_xts_full_crypt(struct zpc_aes_xts_full *aes_xts, u8 * out,
 
 	if (!(flags & CPACF_M)) {
 		/* ciphertext-stealing (encrypt) */
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in, inlen + 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in,
+			inlen + 16, bytes_processed);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -550,7 +570,8 @@ static int __aes_xts_full_crypt(struct zpc_aes_xts_full *aes_xts, u8 * out,
 		memcpy(tmp + rem, out + inlen + rem, 16 - rem);
 		memcpy(out + inlen + 16, out + inlen, rem);
 
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen, tmp, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen,
+			tmp, 16, bytes_processed);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -562,7 +583,8 @@ static int __aes_xts_full_crypt(struct zpc_aes_xts_full *aes_xts, u8 * out,
 		u8 nap_n1[16];
 
 		if (inlen) {
-			cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in, inlen);
+			cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out, in,
+				inlen, bytes_processed);
 			assert(cc == 0 || cc == 2 || cc == 1);
 			if (cc == 1) {
 				rc = ZPC_ERROR_WKVPMISMATCH;
@@ -573,13 +595,15 @@ static int __aes_xts_full_crypt(struct zpc_aes_xts_full *aes_xts, u8 * out,
 		memcpy(xtsparam, aes_xts->param_km + AES_FXTS_TWEAK_OFFSET(aes_xts->xts_key->keysize), 16);
 		memcpy(nap_n1, aes_xts->param_km + AES_FXTS_NAP_OFFSET(aes_xts->xts_key->keysize), 16);
 
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, buf, in + inlen, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, buf,
+			in + inlen, 16, bytes_processed);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
 			goto ret;
 		}
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen, in + inlen, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen,
+			in + inlen, 16, bytes_processed);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
@@ -593,7 +617,8 @@ static int __aes_xts_full_crypt(struct zpc_aes_xts_full *aes_xts, u8 * out,
 		memcpy(aes_xts->param_km + AES_FXTS_TWEAK_OFFSET(aes_xts->xts_key->keysize), xtsparam, 16);
 		memcpy(aes_xts->param_km + AES_FXTS_NAP_OFFSET(aes_xts->xts_key->keysize), nap_n1, 16);
 
-		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen, tmp, 16);
+		cc = cpacf_km(aes_xts->fc | flags, aes_xts->param_km, out + inlen,
+			tmp, 16, bytes_processed);
 		assert(cc == 0 || cc == 2 || cc == 1);
 		if (cc == 1) {
 			rc = ZPC_ERROR_WKVPMISMATCH;
