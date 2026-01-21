@@ -180,6 +180,7 @@ set(ZPCPROVIDER_SOURCES
     src/provider.c
     src/object.c
     src/map.c
+    src/store.c
 )
 
 add_library(

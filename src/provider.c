@@ -11,6 +11,7 @@
 
 #include "ossl.h"
 #include "provider.h"
+#include "store.h"
 
 #define C(str)	(void *)(str)
 static const OSSL_ITEM reason_strings[] = {
@@ -281,6 +282,9 @@ static const OSSL_ALGORITHM *prov_query_operation(void *vpctx, int operation_id,
 		return NULL;
 
 	switch (operation_id) {
+	case OSSL_OP_STORE:
+		ops = store_ops;
+		break;
 	default:
 		ops = NULL;
 		goto out;
