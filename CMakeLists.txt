@@ -144,6 +144,30 @@ target_compile_definitions(
 include(GNUInstallDirs)
 
 ###########################################################
+# URI
+
+set (URI_SOURCES
+    src/uri.c
+)
+
+add_library(
+    uri OBJECT
+    ${URI_SOURCES}
+)
+
+set_target_properties(
+    uri
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
+target_include_directories(
+    uri
+    PRIVATE
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+###########################################################
 # zpcprovider
 
 set(ZPCPROVIDER_SOURCES
@@ -180,6 +204,7 @@ target_link_libraries(
     zpcprovider
     PRIVATE
     OpenSSL::Crypto
+    $<TARGET_OBJECTS:uri>
 )
 
 target_link_options(
