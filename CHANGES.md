@@ -1,6 +1,10 @@
 Changelog {#changes}
 ===
 
+**Version 1.5.0**
+
+- Support for live guest relocation
+
 **Version 1.4.1**
 
 - Bug fixes

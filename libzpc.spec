@@ -1,5 +1,5 @@
 Name:		libzpc
-Version:	1.4.1
+Version:	1.5.0
 Release:	1%{?dist}
 Summary:	Open Source library for the IBM Z Protected-key crypto feature
 
@@ -75,6 +75,9 @@ developing applications that use %{name}.
 
 
 %changelog
+* Thu Feb 05 2026 Holger Dengler <dengler@linux.ibm.com> - 1.5.0
+- Support for live guest relocation.
+
 * Mon Dec 15 2025 Holger Dengler <dengler@linux.ibm.com> - 1.4.1
 - Bug fixes.
 
