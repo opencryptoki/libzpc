@@ -8,5 +8,6 @@ var searchData=
   ['aes_5fkey_2eh_5',['aes_key.h',['../aes__key_8h.html',1,'']]],
   ['aes_5fxts_2eh_6',['aes_xts.h',['../aes__xts_8h.html',1,'']]],
   ['aes_5fxts_5ffull_2eh_7',['aes_xts_full.h',['../aes__xts__full_8h.html',1,'']]],
-  ['aes_5fxts_5fkey_2eh_8',['aes_xts_key.h',['../aes__xts__key_8h.html',1,'']]]
+  ['aes_5fxts_5fkey_2eh_8',['aes_xts_key.h',['../aes__xts__key_8h.html',1,'']]],
+  ['architectures_20cross_20build_9',['Building on non-s390x architectures (cross-build)',['../index.html#autotoc_md2',1,'']]]
 ];
