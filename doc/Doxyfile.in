@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = libzpc
-PROJECT_NUMBER         = 1.4
+PROJECT_NUMBER         = 1.5
 PROJECT_BRIEF          = "IBM Z Protected-key Crypto library"
 PROJECT_LOGO           =
 OUTPUT_DIRECTORY       = @CMAKE_BINARY_DIR@/doc/
