@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include "provider.h"
+#include "zpc/ecc_key.h"
 
 struct data {
 	size_t plen;
@@ -18,6 +19,7 @@ struct obj {
 	struct provider_ctx *pctx;
 
 	/* zpc keys */
+	struct zpc_ec_key *ec_key;
 
 	/* origin path attrs */
 	char *origin_type;
