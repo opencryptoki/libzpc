@@ -4,9 +4,12 @@
 #include <openssl/crypto.h>
 
 #include "object.h"
+#include "zpc/ecc_key.h"
 
 static void _obj_free(struct obj *obj)
 {
+	zpc_ec_key_free(&obj->ec_key);
+
 	OPENSSL_free(obj->origin_type);
 	OPENSSL_free(obj->origin_alg);
 	OPENSSL_free(obj->origin_blob.p);
