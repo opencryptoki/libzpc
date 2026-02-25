@@ -1,0 +1,20 @@
+set breakpoint pending on
+break kmgmt_new
+break kmgmt_dup
+break kmgmt_free
+break kmgmt_load
+break kmgmt_has
+break kmgmt_match
+break kmgmt_export_types
+break kmgmt_export_types_ex
+break kmgmt_set_params
+break kmgmt_settable_params
+break ec_get_params
+break ec_export
+break ed_get_params
+break ed_export
+break ec_gettable_params
+break ed_gettable_params
+break ec_query_operation_name
+break ed25519_query_operation_name
+break ed448_query_operation_name
