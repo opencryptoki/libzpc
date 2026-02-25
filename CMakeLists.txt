@@ -154,6 +154,7 @@ include(GNUInstallDirs)
 
 set(ZPCPROVIDER_SOURCES
     src/provider.c
+    src/object.c
 )
 
 add_library(
