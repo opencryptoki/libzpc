@@ -1,0 +1,8 @@
+set breakpoint pending on
+break prov_init
+break prov_teardown
+break prov_gettable_params
+break prov_get_params
+break prov_query_operation
+break prov_get_capabilities
+break prov_get_reason_strings

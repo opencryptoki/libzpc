@@ -1,0 +1,7 @@
+set breakpoint pending on
+break dec_newctx
+break dec_freectx
+break dec_pem_der_decode
+break dec_der_ec_decode
+break dec_der_ed25519_decode
+break dec_der_ed448_decode
