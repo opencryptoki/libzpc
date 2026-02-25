@@ -173,6 +173,7 @@ target_include_directories(
 set(ZPCPROVIDER_SOURCES
     src/provider.c
     src/object.c
+    src/map.c
 )
 
 add_library(
