@@ -1,0 +1,25 @@
+set breakpoint pending on
+break ecdsa_get_ctx_params
+break ecdsa_gettable_ctx_params
+break ecdsa_newctx
+break ecdsa_set_ctx_params
+break ecdsa_settable_ctx_params
+break ed25519_newctx
+break ed448_newctx
+break ed_digest_sign_init
+break ed_digest_verify_init
+break eddsa_get_ctx_params
+break eddsa_gettable_ctx_params
+break eddsa_set_ctx_params
+break eddsa_settable_ctx_params
+break sig_digest_sign_final
+break sig_digest_sign_init
+break sig_digest_update
+break sig_digest_verify_final
+break sig_digest_verify_init
+break sig_freectx
+break sig_dupctx
+break sig_sign
+break sig_sign_init
+break sig_verify
+break sig_verify_init
