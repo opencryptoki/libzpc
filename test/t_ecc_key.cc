@@ -489,7 +489,7 @@ TEST(ec_key, export)
 {
 	struct zpc_ec_key *ec_key, *ec_key2;
 	u8 buf[2000], buf2[2000];
-	unsigned int buflen, buflen2, flags;
+	size_t buflen, buflen2, flags;
 	const char *apqns[257];
 	int rc, type;
 	zpc_ec_curve_t curve;
@@ -583,7 +583,8 @@ TEST(ec_key, export_public)
 {
 	struct zpc_ec_key *ec_key;
 	u8 buf[132];
-	unsigned int buflen, flags;
+	unsigned int flags;
+	size_t buflen;
 	const char *apqns[257];
 	int rc, type;
 	zpc_ec_curve_t curve;
@@ -656,8 +657,8 @@ TEST(ec_key, import)
 {
 	struct zpc_ec_key *ec_key, *ec_key2;
 	u8 buf[10000], buf2[10000];
-	unsigned int buflen = sizeof(buf);
-	unsigned int buf2len = sizeof(buf2);
+	size_t buflen = sizeof(buf);
+	size_t buf2len = sizeof(buf2);
 	unsigned int flags;
 	const char *apqns[257];
 	const char *mkvp;
@@ -757,10 +758,10 @@ TEST(ec_key, spki_test)
 	struct zpc_ec_key *ec_key, *ec_key2;
 	unsigned int pubkeylen, privkeylen, blob_len, pubkey_offset;
 	u8 buf[3000] = {0}, buf2[3000] = {0}, buf3[132] = {0}, buf4[3000] = {0};
-	unsigned int buflen = sizeof(buf);
-	unsigned int buf2len = sizeof(buf2);
-	unsigned int buf3len = sizeof(buf3);
-	unsigned int buf4len = sizeof(buf4);
+	size_t buflen = sizeof(buf);
+	size_t buf2len = sizeof(buf2);
+	size_t buf3len = sizeof(buf3);
+	size_t buf4len = sizeof(buf4);
 	unsigned int flags;
 	const char *apqns[257];
 	const char *mkvp;

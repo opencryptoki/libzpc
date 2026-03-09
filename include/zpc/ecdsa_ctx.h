@@ -58,8 +58,8 @@ int zpc_ecdsa_ctx_set_key(struct zpc_ecdsa_ctx *ctx, struct zpc_ec_key *key);
  */
 __attribute__((visibility("default")))
 int zpc_ecdsa_sign(struct zpc_ecdsa_ctx *ctx,
-				const unsigned char *hash, unsigned int hash_len,
-				unsigned char *signature, unsigned int *sig_len);
+				const unsigned char *hash, size_t hash_len,
+				unsigned char *signature, size_t *sig_len);
 
 /**
  * Do an ECDSA verify operation.
@@ -72,8 +72,8 @@ int zpc_ecdsa_sign(struct zpc_ecdsa_ctx *ctx,
  */
 __attribute__((visibility("default")))
 int zpc_ecdsa_verify(struct zpc_ecdsa_ctx *ctx,
-				const unsigned char *hash, unsigned int hash_len,
-				const unsigned char *signature, unsigned int sig_len);
+				const unsigned char *hash, size_t hash_len,
+				const unsigned char *signature, size_t sig_len);
 
 /**
  * Free an ECDSA context.

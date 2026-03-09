@@ -43,13 +43,13 @@ const u16 curve2pvsecret_type[] = {
 
 static void __ec_key_reset(struct zpc_ec_key *);
 static int ec_key_check_ep11_spki(const struct zpc_ec_key *ec_key,
-						const unsigned char *spki, unsigned int spki_len);
+						const unsigned char *spki, size_t spki_len);
 static void ec_key_use_maced_spki_from_buf(struct zpc_ec_key *ec_key,
-						const unsigned char *spki, unsigned int spki_len);
+						const unsigned char *spki, size_t spki_len);
 static int ec_key_use_raw_spki_from_buf(struct zpc_ec_key *ec_key,
-						const unsigned char *spki, unsigned int spki_len);
+						const unsigned char *spki, size_t spki_len);
 static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
-						const unsigned char *spki, unsigned int spki_len);
+						const unsigned char *spki, size_t spki_len);
 static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key,
 						const unsigned char *buf);
 static int ec_key_blob_is_pkey_extractable(struct zpc_ec_key *ec_key,
@@ -492,7 +492,7 @@ ret:
 
 int
 zpc_ec_key_export(struct zpc_ec_key *ec_key, unsigned char *buf,
-				unsigned int *buflen)
+				size_t *buflen)
 {
 	int rc, rv;
 
@@ -558,7 +558,7 @@ ret:
 }
 
 int zpc_ec_key_export_public(struct zpc_ec_key *ec_key,
-						unsigned char *buf, unsigned int *buflen)
+						unsigned char *buf, size_t *buflen)
 {
 	int rc, rv;
 
@@ -613,7 +613,7 @@ ret:
 }
 
 int zpc_ec_key_import(struct zpc_ec_key *ec_key, const unsigned char *buf,
-				unsigned int buflen)
+				size_t buflen)
 {
 	target_t target;
 	int rc, rv, seclen;
@@ -789,8 +789,8 @@ ret:
 }
 
 int zpc_ec_key_import_clear(struct zpc_ec_key *ec_key, const unsigned char *pubkey,
-						unsigned int publen, const unsigned char *privkey,
-						unsigned int privlen)
+						size_t publen, const unsigned char *privkey,
+						size_t privlen)
 {
 	unsigned int flags;
 	int rc, rv;
@@ -1057,7 +1057,7 @@ ret:
 int zpc_ec_key_reencipher(struct zpc_ec_key *ec_key, unsigned int method)
 {
 	struct ec_key reenc;
-	unsigned int seckeylen;
+	size_t seckeylen;
 	target_t target;
 	int rv, rc = ZPC_ERROR_APQNSNOTSET;
 	size_t i;
@@ -1343,8 +1343,8 @@ int ec_key_pvsec2prot(struct zpc_ec_key *ec_key)
 }
 
 int ec_key_clr2sec(struct zpc_ec_key *ec_key, unsigned int flags,
-			const unsigned char *pubkey, unsigned int publen,
-			const unsigned char *privkey, unsigned int privlen)
+			const unsigned char *pubkey, size_t publen,
+			const unsigned char *privkey, size_t privlen)
 {
 	target_t target;
 	int rv, rc = ZPC_ERROR_APQNSNOTSET;
@@ -1400,7 +1400,7 @@ int ec_key_sec2prot(struct zpc_ec_key *ec_key, enum ec_key_sec sec)
 {
 	struct pkey_kblob2pkey3 io;
 	struct ec_key *key = NULL;
-	unsigned int keybuf_len;
+	size_t keybuf_len;
 	int rc, i;
 
 	assert(sec == EC_KEY_SEC_OLD || sec == EC_KEY_SEC_CUR);
@@ -1442,7 +1442,7 @@ int ec_key_sec2prot(struct zpc_ec_key *ec_key, enum ec_key_sec sec)
 }
 
 int ec_key_clr2prot(struct zpc_ec_key *ec_key, const unsigned char *privkey,
-					unsigned int privlen)
+					size_t privlen)
 {
 	struct pkey_kblob2pkey3 io;
 	unsigned char buf[sizeof(struct clearkeytoken) + 80];
@@ -1529,7 +1529,7 @@ int ec_key_spki_valid_for_pubkey(const struct zpc_ec_key *ec_key,
 }
 
 static int ec_key_check_ep11_spki(const struct zpc_ec_key *ec_key,
-							const unsigned char *spki, unsigned int spki_len)
+							const unsigned char *spki, size_t spki_len)
 {
 	if (spki_len > curve2macedspkilen[ec_key->curve] &&
 		spki_len < curve2rawspkilen[ec_key->curve])
@@ -1550,7 +1550,7 @@ static int ec_key_check_ep11_spki(const struct zpc_ec_key *ec_key,
 }
 
 static void ec_key_use_maced_spki_from_buf(struct zpc_ec_key *ec_key,
-						const unsigned char *spki, unsigned int spki_len)
+						const unsigned char *spki, size_t spki_len)
 {
 	memcpy(ec_key->pub.spki, spki, spki_len);
 	ec_key->pub.spkilen = spki_len;
@@ -1563,7 +1563,7 @@ static void ec_key_use_maced_spki_from_buf(struct zpc_ec_key *ec_key,
 }
 
 static int ec_key_use_raw_spki_from_buf(struct zpc_ec_key *ec_key,
-						const unsigned char *spki, unsigned int spki_len)
+						const unsigned char *spki, size_t spki_len)
 {
 	target_t target;
 	int rc = -EIO, rv;
@@ -1600,7 +1600,7 @@ static int ec_key_use_raw_spki_from_buf(struct zpc_ec_key *ec_key,
 }
 
 static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
-						const unsigned char *spki, unsigned int spki_len)
+						const unsigned char *spki, size_t spki_len)
 {
 	(void)spki_len; /* suppress unused parm compiler warning */
 
@@ -1618,7 +1618,7 @@ static int ec_key_spki_has_valid_mkvp(const struct zpc_ec_key *ec_key,
 static int ec_key_blob_has_valid_mkvp(struct zpc_ec_key *ec_key, const unsigned char *buf)
 {
 	const unsigned char *mkvp;
-	unsigned int mkvp_len;
+	size_t mkvp_len;
 
 	if (ec_key->mkvp_set == 0)
 		return 1; /* cannot judge */

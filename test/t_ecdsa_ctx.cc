@@ -105,7 +105,8 @@ TEST(ecdsa_ctx, set_key)
 {
 	struct zpc_ec_key *ec_key;
 	struct zpc_ecdsa_ctx *ec_ctx;
-	unsigned int pubkeylen, privkeylen, flags = 0;
+	size_t pubkeylen, privkeylen;
+	unsigned int flags = 0;
 	const char *mkvp, *apqns[257];
 	int rc, type;
 	zpc_ec_curve_t curve;
@@ -183,7 +184,8 @@ TEST(ecdsa_ctx, sign)
 	struct zpc_ecdsa_ctx *ec_ctx;
 	const char *mkvp, *apqns[257];
 	u8 msg[1000], signature[200];
-	unsigned int msg_len, sig_len, flags;
+	size_t msg_len, sig_len;
+	unsigned int flags;
 	int rc, type;
 	zpc_ec_curve_t curve;
 	const unsigned int test_msglen_from_curve[] = { 32, 48, 64, 500, 1000 };
@@ -260,8 +262,8 @@ TEST(ecdsa_ctx, verify)
 	const char *mkvp, *apqns[257];
 	u8 signature[200];
 	u8 buf[200];
-	unsigned int signature_len, hash_len, sig_len, buflen;
-	unsigned int pubkeylen, flags;
+	size_t signature_len, hash_len, sig_len, buflen, pubkeylen;
+	unsigned int flags;
 	int rc, type;
 	zpc_ec_curve_t curve;
 
@@ -397,7 +399,7 @@ TEST(ecdsa_ctx, sv)
 	struct zpc_ec_key *ec_key1, *ec_key2;
 	struct zpc_ecdsa_ctx *ec_ctx1, *ec_ctx2;
 	u8 sigbuf[200];
-	unsigned int hash_len, sig_len, pubkeylen, privkeylen;
+	size_t hash_len, sig_len, pubkeylen, privkeylen;
 	const char *mkvp, *apqns[257];
 	unsigned int flags;
 	int rc, type;
@@ -607,8 +609,8 @@ static zpc_ec_curve_t __str2curve(const char *str)
 }
 
 static void __get_ec_params_from_json(json_object *jtmp, zpc_ec_curve_t curve,
-				u8 *priv, unsigned int *privlen, u8 *pub, unsigned int *publen,
-				u8 *msg, unsigned int *msglen, u8 *sig, unsigned int *siglen)
+				u8 *priv, size_t *privlen, u8 *pub, size_t *publen,
+				u8 *msg, size_t *msglen, u8 *sig, size_t *siglen)
 {
 	json_object *jd, *jx, *jy, *jmsg, *jsig_r, *jsig_s;
 	json_bool b;
@@ -683,8 +685,8 @@ static void __get_ec_params_from_json(json_object *jtmp, zpc_ec_curve_t curve,
 }
 
 static void __get_ed_params_from_json(json_object *jtmp,
-		u8 *priv, unsigned int *privlen, u8 *pub, unsigned int *publen,
-		u8 *msg, unsigned int *msglen, u8 *sig, unsigned int *siglen)
+		u8 *priv, size_t *privlen, u8 *pub, size_t *publen,
+		u8 *msg, size_t *msglen, u8 *sig, size_t *siglen)
 {
 	json_object *jd, *jq, *jm, *js;
 	json_bool b;
@@ -763,8 +765,8 @@ static void __get_result_from_json(json_object *jresult, int *valid)
  * Get key material from json 'key' entry
  */
 static void __get_key_from_json(json_object *jkey, zpc_ec_curve_t curve,
-							unsigned char *pubbuf, unsigned int *publen,
-							unsigned char *privbuf, unsigned int *privlen)
+							unsigned char *pubbuf, size_t *publen,
+							unsigned char *privbuf, size_t *privlen)
 {
 	json_object *jwx, *jwy, *jsk, *jpk;
 	json_bool b;
@@ -827,7 +829,7 @@ done:
 }
 
 static void __get_bytes_from_json(json_object *jobj, unsigned char *buf,
-							unsigned int *len)
+							size_t *len)
 {
 	const char *str;
 	u8 *bytes = NULL;
@@ -849,9 +851,9 @@ static void __get_bytes_from_json(json_object *jobj, unsigned char *buf,
 }
 
 static void __run_sign_verify_test(zpc_ecdsa_ctx *ec_ctx,
-						unsigned char *msgbuf, unsigned int msglen,
-						unsigned char *sigbuf1, unsigned int *siglen1,
-						unsigned int privlen)
+						unsigned char *msgbuf, size_t msglen,
+						unsigned char *sigbuf1, size_t *siglen1,
+						size_t privlen)
 {
 	int rc;
 
@@ -865,8 +867,8 @@ static void __run_sign_verify_test(zpc_ecdsa_ctx *ec_ctx,
 }
 
 static void __run_verify_kat_test(zpc_ecdsa_ctx *ec_ctx, zpc_ec_curve_t curve,
-						unsigned char *msgbuf, unsigned int msglen,
-						unsigned char *sigbuf2, unsigned int siglen2,
+						unsigned char *msgbuf, size_t msglen,
+						unsigned char *sigbuf2, size_t siglen2,
 						int expected_valid)
 {
 	int rc;
@@ -933,8 +935,8 @@ static void __run_nist_tests(json_object *jtestgroups, struct zpc_ec_key *ec_key
 
 			u8 pubbuf[200] = { 0 }, privbuf[100] = { 0 };
 			u8 sigbuf1[200] = { 0 }, sigbuf2[200] = { 0 }, msgbuf[4096] = { 0 };
-			unsigned int siglen1 = sizeof(sigbuf1), siglen2 = sizeof(sigbuf2);
-			unsigned int privlen, publen, msglen;
+			size_t siglen1 = sizeof(sigbuf1), siglen2 = sizeof(sigbuf2);
+			size_t privlen, publen, msglen;
 
 			jtmp = json_object_array_get_idx(jtests, j);
 			ASSERT_NE(jtmp, nullptr);
@@ -1002,8 +1004,8 @@ static void __run_wycheproof_tests(json_object *jtestgroups, struct zpc_ec_key *
 
 		u8 sigbuf1[200] = { 0 }, sigbuf2[200] = { 0 }, msgbuf[4096] = { 0 };
 		u8 pubbuf[200] = { 0 }, privbuf[100] = { 0 };
-		unsigned int siglen1 = sizeof(sigbuf1), siglen2 = sizeof(sigbuf2);
-		unsigned int privlen, publen, msglen;
+		size_t siglen1 = sizeof(sigbuf1), siglen2 = sizeof(sigbuf2);
+		size_t privlen, publen, msglen;
 
 		jtmp = json_object_array_get_idx(jtestgroups, i);
 		ASSERT_NE(jtmp, nullptr);
@@ -1115,7 +1117,7 @@ static void __run_json(const char *json)
 
 TEST(ecdsa_ctx, rederive_protected_key)
 {
-	unsigned int pubkeylen, privkeylen, msg_len, sig_len;
+	size_t pubkeylen, privkeylen, msg_len, sig_len;
 	zpc_ec_curve_t curve;
 	unsigned char buf[4096];
 	const char *mkvp, *apqns[257];
@@ -1206,7 +1208,7 @@ ret:
 
 TEST(ecdsa_ctx, reencipher)
 {
-	unsigned int pubkeylen, privkeylen, msg_len, sig_len;
+	size_t pubkeylen, privkeylen, msg_len, sig_len;
 	unsigned char buf[4096];
 	const char *mkvp, *apqns[257];
 	struct zpc_ec_key *ec_key;
@@ -1298,9 +1300,9 @@ TEST(ecdsa_ctx, reencipher)
 
 TEST(ecdsa_ctx, use_existing)
 {
-	unsigned int pubkeylen, privkeylen, msg_len, sig_len, signature_len;
+	size_t pubkeylen, privkeylen, msg_len, sig_len, signature_len;
 	unsigned char buf[4096], signature[132];
-	unsigned int buflen;
+	size_t buflen;
 	const char *mkvp, *apqns[257];
 	struct zpc_ec_key *ec_key, *ec_key2;
 	struct zpc_ecdsa_ctx *ec_ctx;
@@ -1435,8 +1437,8 @@ TEST(ecdsa_ctx, use_existing)
 TEST(ecdsa_ctx, pvsecret_kat)
 {
 	unsigned char sig1[132], sig2[132], pubkey[200], msg[32];
-	unsigned int sig1_len = sizeof(sig1), sig2_len = sizeof(sig2);
-	unsigned int msg_len = sizeof(msg), publen = sizeof(pubkey);
+	size_t sig1_len = sizeof(sig1), sig2_len = sizeof(sig2);
+	size_t msg_len = sizeof(msg), publen = sizeof(pubkey);
 	const char *mkvp, *apqns[257];
 	struct zpc_ec_key *ec_key1, *ec_key2;
 	struct zpc_ecdsa_ctx *ec_ctx1, *ec_ctx2;
@@ -1579,7 +1581,7 @@ static void __task(struct zpc_ec_key *ec_key)
 {
 	struct zpc_ecdsa_ctx *ec_ctx;
 	unsigned char sigbuf[200];
-	unsigned int msglen, siglen;
+	size_t msglen, siglen;
 	int rc, i;
 
 	const u8 *msg = ec_tv[ec_key->curve].msg;
@@ -1624,7 +1626,7 @@ static void __task(struct zpc_ec_key *ec_key)
 
 TEST(ecdsa_ctx, threads)
 {
-	unsigned int pubkeylen, privkeylen;
+	size_t pubkeylen, privkeylen;
 	const char *mkvp, *apqns[257];
 	struct zpc_ec_key *ec_key;
 	unsigned int flags;

@@ -27,19 +27,19 @@
 extern const size_t curve2siglen[];
 
 static int __ec_sign(struct zpc_ecdsa_ctx *, const unsigned char *hash,
-		unsigned int hash_len, unsigned char *signature, unsigned int *sig_len);
+		size_t hash_len, unsigned char *signature, size_t *sig_len);
 static int __ec_verify(struct zpc_ecdsa_ctx *, const unsigned char *hash,
-		unsigned int hash_len, const unsigned char *signature, unsigned int sig_len);
+		size_t hash_len, const unsigned char *signature, size_t sig_len);
 static void __ec_ctx_reset(struct zpc_ecdsa_ctx *);
 static void __copy_hash_to_sign_param(struct zpc_ecdsa_ctx *ctx,
-		const unsigned char *hash, unsigned int hash_len);
+		const unsigned char *hash, size_t hash_len);
 static void __get_signature_from_sign_param(struct zpc_ecdsa_ctx *ctx,
-		unsigned char *signature, unsigned int sig_len);
+		unsigned char *signature, size_t sig_len);
 static void __copy_pubkey_to_verify_param(struct zpc_ecdsa_ctx *ctx);
 static void __copy_protkey_to_sign_param(struct zpc_ecdsa_ctx *ctx);
 static void __copy_args_to_verify_param(struct zpc_ecdsa_ctx *ctx,
-		const unsigned char *hash, unsigned int hash_len,
-		const unsigned char *signature, unsigned int sig_len);
+		const unsigned char *hash, size_t hash_len,
+		const unsigned char *signature, size_t sig_len);
 static void __cleanup_verify_param(struct zpc_ecdsa_ctx *ctx);
 static void __cleanup_sign_param(struct zpc_ecdsa_ctx *ctx);
 
@@ -182,8 +182,8 @@ ret:
 }
 
 int zpc_ecdsa_sign(struct zpc_ecdsa_ctx *ctx,
-			const unsigned char *hash, unsigned int hash_len,
-			unsigned char *signature, unsigned int *sig_len)
+			const unsigned char *hash, size_t hash_len,
+			unsigned char *signature, size_t *sig_len)
 {
 	int rc, rv, i;
 
@@ -274,8 +274,8 @@ ret:
 }
 
 int zpc_ecdsa_verify(struct zpc_ecdsa_ctx *ctx,
-			const unsigned char *hash, unsigned int hash_len,
-			const unsigned char *signature, unsigned int sig_len)
+			const unsigned char *hash, size_t hash_len,
+			const unsigned char *signature, size_t sig_len)
 {
 	int rc, rv;
 
@@ -358,8 +358,8 @@ void zpc_ecdsa_ctx_free(struct zpc_ecdsa_ctx **ctx)
 }
 
 static int __ec_sign(struct zpc_ecdsa_ctx *ctx,
-				const unsigned char *hash, unsigned int hash_len,
-				unsigned char *signature, unsigned int *sig_len)
+				const unsigned char *hash, size_t hash_len,
+				unsigned char *signature, size_t *sig_len)
 {
 	void *param;
 	int rc, cc;
@@ -391,8 +391,8 @@ err:
 }
 
 static int __ec_verify(struct zpc_ecdsa_ctx *ctx,
-				const unsigned char *hash, unsigned int hash_len,
-				const unsigned char *signature, unsigned int sig_len)
+				const unsigned char *hash, size_t hash_len,
+				const unsigned char *signature, size_t sig_len)
 {
 	void *param;
 	int rc = ZPC_ERROR_EC_SIGNATURE_INVALID, cc;
@@ -431,7 +431,7 @@ static void __ec_ctx_reset(struct zpc_ecdsa_ctx *ctx)
 }
 
 static void __copy_hash_to_sign_param(struct zpc_ecdsa_ctx *ctx,
-						const unsigned char *hash, unsigned int hash_len)
+						const unsigned char *hash, size_t hash_len)
 {
 	switch (ctx->ec_key->curve) {
 	case ZPC_EC_CURVE_P256:
@@ -455,7 +455,7 @@ static void __copy_hash_to_sign_param(struct zpc_ecdsa_ctx *ctx,
 }
 
 static void __get_signature_from_sign_param(struct zpc_ecdsa_ctx *ctx,
-								unsigned char *signature, unsigned int sig_len)
+								unsigned char *signature, size_t sig_len)
 {
 	switch (ctx->ec_key->curve) {
 	case ZPC_EC_CURVE_P256:
@@ -538,8 +538,8 @@ static void __copy_protkey_to_sign_param(struct zpc_ecdsa_ctx *ctx)
 }
 
 static void __copy_args_to_verify_param(struct zpc_ecdsa_ctx *ctx,
-						const unsigned char *hash, unsigned int hash_len,
-						const unsigned char *signature, unsigned int sig_len)
+						const unsigned char *hash, size_t hash_len,
+						const unsigned char *signature, size_t sig_len)
 {
 	switch (ctx->ec_key->curve) {
 	case ZPC_EC_CURVE_P256:

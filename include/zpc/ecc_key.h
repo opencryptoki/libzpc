@@ -125,7 +125,7 @@ int zpc_ec_key_set_apqns(struct zpc_ec_key *key, const char *apqns[]);
  */
 __attribute__((visibility("default")))
 int zpc_ec_key_import(struct zpc_ec_key *key, const unsigned char *seckey,
-					unsigned int seckeylen);
+					size_t seckeylen);
 
 /**
  * Import an EC clear-key pair. At least one of the key parts must be non-NULL.
@@ -150,8 +150,8 @@ int zpc_ec_key_import(struct zpc_ec_key *key, const unsigned char *seckey,
  */
 __attribute__((visibility("default")))
 int zpc_ec_key_import_clear(struct zpc_ec_key *key,
-					const unsigned char *pubkey, unsigned int publen,
-					const unsigned char *privkey, unsigned int privlen);
+					const unsigned char *pubkey, size_t publen,
+					const unsigned char *privkey, size_t privlen);
 
 /**
  * Export an EC secure-key. Depending on the key type (CCA or EP11), the secure
@@ -166,7 +166,7 @@ int zpc_ec_key_import_clear(struct zpc_ec_key *key,
  */
 __attribute__((visibility("default")))
 int zpc_ec_key_export(struct zpc_ec_key *key, unsigned char *seckey,
-					unsigned int *seckeylen);
+					size_t *seckeylen);
 
 /**
  * Export an EC public-key.
@@ -180,7 +180,7 @@ int zpc_ec_key_export(struct zpc_ec_key *key, unsigned char *seckey,
  */
 __attribute__((visibility("default")))
 int zpc_ec_key_export_public(struct zpc_ec_key *key, unsigned char *pubkey,
-					unsigned int *pubkeylen);
+					size_t *pubkeylen);
 
 /**
  * Generate an EC secure-key.
