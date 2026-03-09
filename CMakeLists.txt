@@ -183,6 +183,7 @@ set(ZPCPROVIDER_SOURCES
     src/store.c
     src/keymgmt.c
     src/algid.c
+    src/signature.c
 )
 
 add_library(
