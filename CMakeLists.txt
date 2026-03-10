@@ -184,6 +184,7 @@ set(ZPCPROVIDER_SOURCES
     src/keymgmt.c
     src/algid.c
     src/signature.c
+    src/tls.c
 )
 
 add_library(
