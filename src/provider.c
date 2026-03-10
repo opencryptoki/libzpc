@@ -15,6 +15,7 @@
 #include "store.h"
 #include "keymgmt.h"
 #include "signature.h"
+#include "tls.h"
 
 #define C(str)	(void *)(str)
 static const OSSL_ITEM reason_strings[] = {
@@ -305,6 +306,17 @@ out:
 	return ops;
 }
 
+static int prov_get_capabilities(void *vpctx __unused, const char *capability,
+				 OSSL_CALLBACK *cb, void *arg)
+{
+	int rv = OSSL_RV_OK;
+
+	if (OPENSSL_strcasecmp(capability, "TLS-GROUP") == 0)
+		rv = tls_group_capabilities(cb, arg);
+
+	return rv;
+}
+
 static const OSSL_ITEM *prov_get_reason_strings(void *vpctx __unused)
 {
 	return reason_strings;
@@ -316,6 +328,7 @@ static const OSSL_DISPATCH provider_dispatch_table[] = {
 	{ OSSL_FUNC_PROVIDER_GETTABLE_PARAMS, FUNC(prov_gettable_params) },
 	{ OSSL_FUNC_PROVIDER_GET_PARAMS, FUNC(prov_get_params) },
 	{ OSSL_FUNC_PROVIDER_QUERY_OPERATION, FUNC(prov_query_operation) },
+	{ OSSL_FUNC_PROVIDER_GET_CAPABILITIES, FUNC(prov_get_capabilities) },
 	{ OSSL_FUNC_PROVIDER_GET_REASON_STRINGS, FUNC(prov_get_reason_strings) },
 	{ 0, NULL }
 #undef FUNC
