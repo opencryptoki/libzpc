@@ -168,6 +168,52 @@ target_include_directories(
 )
 
 ###########################################################
+# ASN.1
+
+add_custom_command(
+  OUTPUT asn1_gen.c
+  COMMAND ${CMAKE_C_COMPILER} -I${OPENSSL_INCLUDE_DIR} -x c -E ${CMAKE_SOURCE_DIR}/src/asn1_gen.c.in
+          | grep -v "^#"
+          | sed -n -e "1,/^BEGIN:$$/!p"
+          | clang-format --assume-filename=.c
+          > asn1_gen.c
+  MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/src/asn1_gen.c.in
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+add_custom_target(
+    asn1_gen
+    DEPENDS asn1_gen.c
+)
+
+set (ASN1_SOURCES
+    src/asn1.c
+)
+
+add_library(
+    asn1 OBJECT
+    ${ASN1_SOURCES}
+)
+
+set_target_properties(
+    asn1
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
+target_include_directories(
+    asn1
+    PRIVATE
+    ${OPENSSL_INCLUDE_DIR}
+    ${CMAKE_BINARY_DIR}
+)
+
+add_dependencies(
+    asn1
+    asn1_gen
+)
+
+###########################################################
 # zpcprovider
 
 set(ZPCPROVIDER_SOURCES
@@ -212,6 +258,7 @@ target_link_libraries(
     OpenSSL::Crypto
     $<TARGET_OBJECTS:uri>
     $<TARGET_OBJECTS:zpc>
+    $<TARGET_OBJECTS:asn1>
 )
 
 target_link_options(
