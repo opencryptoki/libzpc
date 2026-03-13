@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: MIT
+// Copyright contributors to the libzpc project
+#include <openssl/asn1t.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+
+BEGIN:
+IMPLEMENT_ASN1_FUNCTIONS(HBKZPC)
+IMPLEMENT_PEM_write_bio(HBKZPC, HBKZPC, HBKZPC_PEM_STRING, HBKZPC)
+IMPLEMENT_PEM_read_bio(HBKZPC, HBKZPC, HBKZPC_PEM_STRING, HBKZPC)
