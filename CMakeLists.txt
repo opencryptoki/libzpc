@@ -231,6 +231,7 @@ set(ZPCPROVIDER_SOURCES
     src/algid.c
     src/signature.c
     src/tls.c
+    src/decoder.c
 )
 
 add_library(
