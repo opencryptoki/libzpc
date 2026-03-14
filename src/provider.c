@@ -16,6 +16,7 @@
 #include "keymgmt.h"
 #include "signature.h"
 #include "tls.h"
+#include "decoder.h"
 
 #define C(str)	(void *)(str)
 static const OSSL_ITEM reason_strings[] = {
@@ -294,6 +295,9 @@ static const OSSL_ALGORITHM *prov_query_operation(void *vpctx, int operation_id,
 		break;
 	case OSSL_OP_SIGNATURE:
 		ops = signature_ops;
+		break;
+	case OSSL_OP_DECODER:
+		ops = decoder_ops;
 		break;
 	default:
 		ops = NULL;
