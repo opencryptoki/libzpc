@@ -33,4 +33,9 @@ struct parsed_uri {
 struct parsed_uri *parsed_uri_new(const char *uri);
 void parsed_uri_free(struct parsed_uri *puri);
 
+char *uri_compose_new(const char *origin_type, const char *origin_alg,
+		      const char *origin_blob, const char *origin_spki,
+		      const char *comment,
+		      const char *mkvp, const char *apqns);
+
 #endif /*  _URI_H */

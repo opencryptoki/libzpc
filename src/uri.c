@@ -22,6 +22,69 @@
 #define URI_Q_MKVP		"mkvp" SEP_KEYVALUE
 #define URI_Q_APQNS		"apqns" SEP_KEYVALUE
 
+#ifndef ROUND
+#define ROUND(a, b)		((((a) + (b - 1)) / (b)) * b)
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a)		(sizeof(a) / sizeof(*a))
+#endif
+
+struct astr {
+	char *b;
+	size_t bsz;
+};
+
+struct astr *astr_new(void)
+{
+	return OPENSSL_zalloc(sizeof(struct astr));
+}
+
+static void astr_free(struct astr *a)
+{
+	if (!a)
+		return;
+	OPENSSL_free(a->b);
+	OPENSSL_free(a);
+}
+
+#define ASTR_CHUNK_SZ		32
+static int astr_append(struct astr *a, const char *str)
+{
+	size_t sz = 1;
+
+	if (!a)
+		return 1;
+
+	if (!str || !strlen(str))
+		return 0;
+
+	/* required size */
+	sz += strlen(str);
+	sz += a->b ? strlen(a->b) : 0;
+	sz = ROUND(sz, ASTR_CHUNK_SZ);
+
+	if (sz > a->bsz) {
+		char *p;
+
+		if (!(p = OPENSSL_realloc(a->b, sz)))
+			return 1;
+		if (!a->bsz)
+			p[0] = '\0';
+		a->b = p;
+	}
+	a->bsz = sz;
+
+	strncpy(a->b + strlen(a->b), str, a->bsz - strlen(a->b));
+	return 0;
+}
+#undef ASTR_CHUNK_SZ
+
+static const char *astr_cstring(struct astr *a)
+{
+	return a ? a->b : NULL;
+}
+
 static void decode_pct(char *s)
 {
 	char *rp, *wp, *endptr;
@@ -217,4 +280,57 @@ struct parsed_uri *parsed_uri_new(const char *uri)
 err:
 	parsed_uri_free(puri);
 	return NULL;
+}
+
+char *uri_compose_new(const char *origin_type, const char *origin_alg,
+		      const char *origin_blob, const char *origin_pubkey,
+		      const char *comment,
+		      const char *mkvp, const char *apqns)
+{
+	struct attr pattrs[] = {
+		{ .key = URI_P_ORIGIN_TYPE, .value = origin_type },
+		{ .key = URI_P_ORIGIN_ALG, .value = origin_alg },
+		{ .key = URI_P_ORIGIN_BLOB, .value = origin_blob },
+		{ .key = URI_P_ORIGIN_PUBKEY, .value = origin_pubkey },
+		{ .key = URI_P_COMMENT, .value = comment },
+	};
+	struct attr qattrs[] = {
+		{ .key = URI_Q_MKVP, .value = mkvp },
+		{ .key = URI_Q_APQNS, .value = apqns },
+	};
+	const char *sep = URI_PROTOCOL;
+	struct astr *astr = NULL;
+	char *rc = NULL;
+
+	astr = astr_new();
+	for (size_t i = 0; i < ARRAY_SIZE(pattrs); i++) {
+		struct attr *a = &pattrs[i];
+		if (!a->value)
+			continue;
+
+		if (astr_append(astr, sep) ||
+		    astr_append(astr, a->key) ||
+		    astr_append(astr, a->value))
+			goto out;
+		sep = SEP_PATHATTRS;
+	}
+
+	sep = SEP_PATHQUERY;
+
+	for (size_t i = 0; i < ARRAY_SIZE(qattrs); i++) {
+		struct attr *a = &qattrs[i];
+		if (!a->value)
+			continue;
+
+		if (astr_append(astr, sep) ||
+		    astr_append(astr, a->key) ||
+		    astr_append(astr, a->value))
+			goto out;
+		sep = SEP_QUERYATTRS;
+	}
+
+	rc = OPENSSL_strdup(astr_cstring(astr));
+out:
+	astr_free(astr);
+	return rc;
 }
