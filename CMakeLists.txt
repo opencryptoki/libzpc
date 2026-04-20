@@ -327,6 +327,55 @@ install(
 )
 
 ###########################################################
+# zpckey
+
+set(ZPCKEY_SOURCES
+    src/zpckey.c
+)
+
+add_executable(zpckey ${ZPCKEY_SOURCES})
+
+target_include_directories(
+    zpckey
+    PRIVATE
+    src
+    ${OPENSSL_INCLUDE_DIR}
+    ${CMAKE_BINARY_DIR}
+)
+
+target_compile_definitions(
+    zpckey
+    PRIVATE
+    ZPCKEY_VERSION="${ZPC_VERSION}"
+)
+
+target_link_libraries(
+    zpckey
+    PRIVATE
+    OpenSSL::Crypto
+    $<TARGET_OBJECTS:uri>
+    $<TARGET_OBJECTS:asn1>
+)
+
+if (BUILD_ASAN)
+target_link_options(
+    zpckey
+    BEFORE PUBLIC -fsanitize=undefined
+    PUBLIC -fsanitize=address
+)
+endif () # BUILD_ASAN
+
+install(
+    TARGETS zpckey
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(
+    FILES ${CMAKE_BINARY_DIR}/zpckey.1
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+)
+
+###########################################################
 # Test
 
 option(BUILD_TEST OFF)
