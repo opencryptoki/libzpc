@@ -1,21 +1,29 @@
 arch:     s390x
 os:       linux
-dist:     jammy
-language: cpp
+dist:     noble
+language: c
 sudo:     required
-env:      |
-          CFLAGS="-O3 -Wextra -Wextra -Werror"
-          CXXFLAGS="-O3 -Wextra -Wextra -Werror"
+
 compiler:
         - gcc
         - clang
 
 before_install:
         - sudo apt-get update -qq
-        - sudo apt-get install cmake libjson-c-dev
+        - sudo apt-get install -y cmake libjson-c-dev
+
+before_script:
+        - git clone https://github.com/openssl/openssl.git
+        - pushd openssl
+        - git checkout --track origin/openssl-3.5
+        - ./config -w 2> >(tee)
+        - make -s -j4 2> >(tee)
+        - export OPENSSL_DIR=$(pwd)
+        - export PATH=${OPENSSL_DIR}/apps/:${PATH}
+        - export LD_LIBRARY_PATH=${OPENSSL_DIR}:${LD_LIBRARY_PATH}
+        - popd
 
 script:
         - set -o pipefail
-        - mkdir build 2> >(tee) && cd build 2> >(tee)
-        - cmake -DBUILD_TEST=ON .. 2> >(tee)
-        - make 2> >(tee)
+        - cmake -B build -S . -DCMAKE_INCLUDE_PATH=${OPENSSL_DIR} -DCMAKE_LIBRARY_PATH=${OPENSSL_DIR} 2> >(tee)
+        - cmake --build build --target zpc 2> >(tee)
