@@ -182,6 +182,7 @@ set(ZPCPROVIDER_SOURCES
     src/map.c
     src/store.c
     src/keymgmt.c
+    src/algid.c
 )
 
 add_library(
