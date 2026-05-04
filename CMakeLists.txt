@@ -395,6 +395,7 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
 set(ZPCPKCS11_SOURCES
     src/pkcs11/pkcs11.c
     src/pkcs11/openssl.c
+    src/pkcs11/config.c
 )
 
 add_library(
@@ -419,6 +420,7 @@ target_compile_definitions(
     ZPCPKCS11_VERSION_MAJOR=${ZPC_VERSION_MAJOR}
     ZPCPKCS11_VERSION_MINOR=${ZPC_VERSION_MINOR}
     ZPCPKCS11_VERSION_PATCH=${ZPC_VERSION_PATCH}
+    SYSCONFDIR="${CMAKE_INSTALL_FULL_SYSCONFDIR}"
 )
 
 target_include_directories(

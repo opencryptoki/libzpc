@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include "pkcs11.h"
 #include "openssl.h"
+#include "config.h"
 
 #define PKCS11_MANUFACTURER	"IBM"
 #define PKCS11_LIBRARY_DESC	"ZPC PKCS#11 provider"
@@ -55,6 +56,9 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 	}
 
 	if (openssl_init() != 1)
+		goto cleanup;
+
+	if (config_process(NULL) != 1)
 		goto cleanup;
 
 	pthread_once(&atfork_once, register_atfork);
