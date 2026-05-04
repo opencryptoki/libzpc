@@ -3,6 +3,7 @@
 #include <string.h>
 #include <pthread.h>
 #include "pkcs11.h"
+#include "openssl.h"
 
 #define PKCS11_MANUFACTURER	"IBM"
 #define PKCS11_LIBRARY_DESC	"ZPC PKCS#11 provider"
@@ -53,10 +54,17 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 			return CKR_CANT_LOCK;
 	}
 
+	if (openssl_init() != 1)
+		goto cleanup;
+
 	pthread_once(&atfork_once, register_atfork);
 
 	api_initialized = CK_TRUE;
 	return CKR_OK;
+
+cleanup:
+	openssl_term();
+	return CKR_FUNCTION_FAILED;
 }
 
 CK_RV C_Finalize(CK_VOID_PTR pReserved)
@@ -66,6 +74,8 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 
 	if (!api_initialized)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	openssl_term();
 
 	api_initialized = CK_FALSE;
 	return CKR_OK;

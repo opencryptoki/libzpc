@@ -394,6 +394,7 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
 
 set(ZPCPKCS11_SOURCES
     src/pkcs11/pkcs11.c
+    src/pkcs11/openssl.c
 )
 
 add_library(
@@ -408,6 +409,11 @@ set_target_properties(zpcpkcs11
     LINK_FLAGS            "-Wl,--version-script=${CMAKE_SOURCE_DIR}/zpcpkcs11.map"
 )
 
+target_link_libraries(
+    zpcpkcs11 PRIVATE
+    OpenSSL::Crypto
+)
+
 target_compile_definitions(
     zpcpkcs11 PRIVATE
     ZPCPKCS11_VERSION_MAJOR=${ZPC_VERSION_MAJOR}
@@ -418,6 +424,7 @@ target_compile_definitions(
 target_include_directories(
     zpcpkcs11 PRIVATE
     src/pkcs11
+    ${OPENSSL_INCLUDE_DIR}
 )
 
 if(PkgConfig_FOUND)
