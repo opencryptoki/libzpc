@@ -388,6 +388,54 @@ install(
 )
 
 ###########################################################
+# zpcpkcs11
+
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
+
+set(ZPCPKCS11_SOURCES
+    src/pkcs11/pkcs11.c
+)
+
+add_library(
+    zpcpkcs11 MODULE
+    ${ZPCPKCS11_SOURCES}
+)
+
+set_target_properties(zpcpkcs11
+    PROPERTIES
+    PREFIX                ""
+    C_VISIBILITY_PRESET   default
+    LINK_FLAGS            "-Wl,--version-script=${CMAKE_SOURCE_DIR}/zpcpkcs11.map"
+)
+
+target_compile_definitions(
+    zpcpkcs11 PRIVATE
+    ZPCPKCS11_VERSION_MAJOR=${ZPC_VERSION_MAJOR}
+    ZPCPKCS11_VERSION_MINOR=${ZPC_VERSION_MINOR}
+    ZPCPKCS11_VERSION_PATCH=${ZPC_VERSION_PATCH}
+)
+
+target_include_directories(
+    zpcpkcs11 PRIVATE
+    src/pkcs11
+)
+
+if(PkgConfig_FOUND)
+    pkg_get_variable(P11KIT_MODULEDIR p11-kit-1 p11_module_path)
+endif()
+if(NOT P11KIT_MODULEDIR)
+    set(P11KIT_MODULEDIR "${CMAKE_INSTALL_LIBDIR}/pkcs11")
+endif()
+message(STATUS "PKCS#11 module install directory: ${P11KIT_MODULEDIR}")
+
+install(
+    TARGETS zpcpkcs11
+    LIBRARY DESTINATION ${P11KIT_MODULEDIR}
+)
+
+endif() # CMAKE_SYSTEM_PROCESSOR == s390x
+
+###########################################################
 # Test
 
 option(BUILD_TEST OFF)
