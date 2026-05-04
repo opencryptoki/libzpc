@@ -147,11 +147,11 @@ if (BUILD_TEST)
 
 enable_testing()
 
-set(GTEST_URL
-    https://github.com/google/googletest/archive/refs/tags/release-1.11.0.zip
+set(GTEST_GIT
+    https://github.com/google/googletest.git
 )
-set(GTEST_SHA256
-    353571c2440176ded91c2de6d6cd88ddd41401d14692ec1f99e35d013feda55a
+set(GTEST_TAG
+    release-1.12.1
 )
 
 set(WYCHEPROOF_GIT
@@ -356,8 +356,8 @@ ExternalProject_Add(wycheproof
 )
 
 ExternalProject_Add(gtest
-    URL             ${GTEST_URL}
-    URL_HASH        SHA256=${GTEST_SHA256}
+    GIT_REPOSITORY    ${GTEST_GIT}
+    GIT_TAG           ${GTEST_TAG}
     PREFIX          ${CMAKE_BINARY_DIR}/gtest
     INSTALL_COMMAND ""
     TEST_COMMAND    ""
