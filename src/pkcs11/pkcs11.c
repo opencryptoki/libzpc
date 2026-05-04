@@ -58,7 +58,7 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 	if (openssl_init() != 1)
 		goto cleanup;
 
-	if (config_process(NULL) != 1)
+	if (config_process(openssl_process_config) != 1)
 		goto cleanup;
 
 	pthread_once(&atfork_once, register_atfork);
