@@ -6,6 +6,11 @@
 
 #define PKCS11_MANUFACTURER	"IBM"
 #define PKCS11_LIBRARY_DESC	"ZPC PKCS#11 provider"
+#define PKCS11_SLOT_DESC	"ZPC PKCS#11 slot"
+#define PKCS11_TOKEN_LABEL	"ZPC"
+#define PKCS11_TOKEN_MODEL	"ZPC"
+#define PKCS11_TOKEN_SN		"01"
+#define PKCS11_SLOT_NUMBER	0
 
 #define UNUSED(x)   (void)(x)
 
@@ -98,24 +103,98 @@ CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList,
 		    CK_ULONG_PTR pulCount)
 {
-	UNUSED(tokenPresent);
-	UNUSED(pSlotList);
-	UNUSED(pulCount);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!pulCount)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	(void)tokenPresent;
+
+	if (pSlotList) {
+		if (*pulCount < 1)
+			return CKR_BUFFER_TOO_SMALL;
+
+		pSlotList[0] = PKCS11_SLOT_NUMBER;
+	}
+
+	*pulCount = 1;
+
+	return CKR_OK;
 }
 
 CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 {
-	UNUSED(slotID);
-	UNUSED(pInfo);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!pInfo)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (slotID != PKCS11_SLOT_NUMBER)
+		return CKR_SLOT_ID_INVALID;
+
+	memset(pInfo->slotDescription, ' ', sizeof(pInfo->slotDescription));
+	memcpy(pInfo->slotDescription, PKCS11_SLOT_DESC,
+	       strlen(PKCS11_SLOT_DESC));
+
+	memset(pInfo->manufacturerID, ' ', sizeof(pInfo->manufacturerID));
+	memcpy(pInfo->manufacturerID, PKCS11_MANUFACTURER,
+	       strlen(PKCS11_MANUFACTURER));
+
+	pInfo->flags = CKF_TOKEN_PRESENT | CKF_HW_SLOT;
+
+	pInfo->hardwareVersion.major = ZPCPKCS11_VERSION_MAJOR;
+	pInfo->hardwareVersion.minor = ZPCPKCS11_VERSION_MINOR;
+
+	pInfo->firmwareVersion.major = ZPCPKCS11_VERSION_MAJOR;
+	pInfo->firmwareVersion.minor = ZPCPKCS11_VERSION_MINOR;
+
+	return CKR_OK;
 }
 
 CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 {
-	UNUSED(slotID);
-	UNUSED(pInfo);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!pInfo)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (slotID != PKCS11_SLOT_NUMBER)
+		return CKR_SLOT_ID_INVALID;
+
+	memset(pInfo->label, ' ', sizeof(pInfo->label));
+	memcpy(pInfo->label, PKCS11_TOKEN_LABEL, strlen(PKCS11_TOKEN_LABEL));
+
+	memset(pInfo->manufacturerID, ' ', sizeof(pInfo->manufacturerID));
+	memcpy(pInfo->manufacturerID, PKCS11_MANUFACTURER,
+	       strlen(PKCS11_MANUFACTURER));
+
+	memset(pInfo->model, ' ', sizeof(pInfo->model));
+	memcpy(pInfo->model, PKCS11_TOKEN_MODEL, strlen(PKCS11_TOKEN_MODEL));
+
+	memset(pInfo->serialNumber, ' ', sizeof(pInfo->serialNumber));
+	memcpy(pInfo->serialNumber, PKCS11_TOKEN_SN, strlen(PKCS11_TOKEN_SN));
+
+	pInfo->flags = CKF_WRITE_PROTECTED | CKF_USER_PIN_INITIALIZED |
+		       CKF_TOKEN_INITIALIZED;
+
+	pInfo->ulMaxSessionCount = CK_EFFECTIVELY_INFINITE;
+	pInfo->ulSessionCount = CK_UNAVAILABLE_INFORMATION;
+	pInfo->ulMaxRwSessionCount = CK_EFFECTIVELY_INFINITE;
+	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
+	pInfo->ulMaxPinLen = CK_EFFECTIVELY_INFINITE;
+	pInfo->ulMinPinLen = 0;
+	pInfo->ulTotalPublicMemory = CK_UNAVAILABLE_INFORMATION;
+	pInfo->ulFreePublicMemory = CK_UNAVAILABLE_INFORMATION;
+	pInfo->ulTotalPrivateMemory = CK_UNAVAILABLE_INFORMATION;
+	pInfo->ulFreePrivateMemory = CK_UNAVAILABLE_INFORMATION;
+
+	pInfo->hardwareVersion.major = ZPCPKCS11_VERSION_MAJOR;
+	pInfo->hardwareVersion.minor = ZPCPKCS11_VERSION_MINOR;
+
+	pInfo->firmwareVersion.major = ZPCPKCS11_VERSION_MAJOR;
+	pInfo->firmwareVersion.minor = ZPCPKCS11_VERSION_MINOR;
+
+	memset(pInfo->utcTime, ' ', sizeof(pInfo->utcTime));
+
+	return CKR_OK;
 }
 
 CK_RV C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
