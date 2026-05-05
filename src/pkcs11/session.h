@@ -4,6 +4,7 @@
 #define SESSION_H
 
 #include "pkcs11.h"
+#include "utils.h"
 
 struct pkcs11_session {
 	CK_SESSION_HANDLE handle;
@@ -12,6 +13,11 @@ struct pkcs11_session {
 	CK_FLAGS op_active;
 	CK_FLAGS op_multi_init;
 	CK_FLAGS op_multi;
+
+	struct {
+		struct dyn_array found;
+		size_t pos;
+	} find;
 };
 
 int session_init(struct pkcs11_session **sess, CK_SLOT_ID slot, CK_FLAGS flags);

@@ -5,6 +5,7 @@
 
 #include <openssl/evp.h>
 #include "pkcs11.h"
+#include "utils.h"
 
 #define MAX_ATTRIBUTES	64
 
@@ -58,5 +59,8 @@ int object_add_ec_ed_public_key(const char *label, CK_ULONG id,
 				const unsigned char *spki, size_t spki_len,
 				size_t prime_len,
 				EVP_PKEY *pkey);
+
+int object_list_find(CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+		     struct dyn_array *result);
 
 #endif
