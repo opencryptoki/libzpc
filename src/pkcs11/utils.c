@@ -2,6 +2,7 @@
 // Copyright contributors to the libzpc project
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include "utils.h"
 
 #define DYN_ARRAY_CHUNK_SIZE	32
@@ -92,4 +93,18 @@ int dyn_array_set(struct dyn_array *da, size_t index, void *element)
 
 	da->elements[index] = element;
 	return 1;
+}
+
+void *memdup(const void *p, size_t len)
+{
+	void *ret;
+
+	if (!p || len == 0)
+		return NULL;
+
+	ret = malloc(len);
+	if (ret)
+		memcpy(ret, p, len);
+
+	return ret;
 }
