@@ -8,10 +8,12 @@
 #include <openssl/params.h>
 
 #include <zpc/error.h>
+#include <zpc/init.h>
 
 #include "ossl.h"
 #include "provider.h"
 #include "store.h"
+#include "keymgmt.h"
 
 #define C(str)	(void *)(str)
 static const OSSL_ITEM reason_strings[] = {
@@ -285,6 +287,9 @@ static const OSSL_ALGORITHM *prov_query_operation(void *vpctx, int operation_id,
 	case OSSL_OP_STORE:
 		ops = store_ops;
 		break;
+	case OSSL_OP_KEYMGMT:
+		ops = keymgmt_ops;
+		break;
 	default:
 		ops = NULL;
 		goto out;
@@ -361,4 +366,14 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
 		       void **provctx)
 {
 	return prov_init(handle, in, out, provctx);
+}
+
+__attribute__((constructor)) static void prov_module_init(void)
+{
+	zpc_init();
+}
+
+__attribute__((destructor)) static void prov_module_fini(void)
+{
+	zpc_fini();
 }
