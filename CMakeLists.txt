@@ -101,7 +101,7 @@ add_definitions(
 )
 
 set(ZPC_LIBS
-	Threads::Threads ${CMAKE_DL_LIBS}
+    Threads::Threads ${CMAKE_DL_LIBS}
 )
 
 add_library(
@@ -214,19 +214,19 @@ set(NIST_AES_SOURCE_DIR
     ${SOURCE_DIR}
 )
 add_custom_command(
-  OUTPUT            nist_aes_ecb.json
-  COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_ecb.pl
-                        ${NIST_AES_SOURCE_DIR}/ECBMMT*
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS           nist_aes
+    OUTPUT            nist_aes_ecb.json
+    COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_ecb.pl
+                          ${NIST_AES_SOURCE_DIR}/ECBMMT*
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS           nist_aes
 )
 add_custom_target(nist_aes_ecb_json ALL DEPENDS nist_aes_ecb.json)
 add_custom_command(
-  OUTPUT            nist_aes_cbc.json
-  COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_cbc.pl
-                        ${NIST_AES_SOURCE_DIR}/CBCMMT*
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS           nist_aes
+    OUTPUT            nist_aes_cbc.json
+    COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_cbc.pl
+                          ${NIST_AES_SOURCE_DIR}/CBCMMT*
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS           nist_aes
 )
 add_custom_target(nist_aes_cbc_json ALL DEPENDS nist_aes_cbc.json)
 
@@ -244,11 +244,11 @@ set(NIST_AES_XTS_SOURCE_DIR
     ${SOURCE_DIR}
 )
 add_custom_command(
-  OUTPUT            nist_aes_xts.json
-  COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_xts.pl
-                        ${NIST_AES_XTS_SOURCE_DIR}/'format tweak value input - 128 hex str'/*
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS           nist_aes_xts
+    OUTPUT            nist_aes_xts.json
+    COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_xts.pl
+                           ${NIST_AES_XTS_SOURCE_DIR}/'format tweak value input - 128 hex str'/*
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS           nist_aes_xts
 )
 add_custom_target(nist_aes_xts_json ALL DEPENDS nist_aes_xts.json)
 
@@ -266,11 +266,11 @@ set(NIST_AES_GCM_SOURCE_DIR
     ${SOURCE_DIR}
 )
 add_custom_command(
-  OUTPUT            nist_aes_gcm.json
-  COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_gcm.pl
-                        ${NIST_AES_GCM_SOURCE_DIR}/*
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS           nist_aes_gcm
+    OUTPUT            nist_aes_gcm.json
+    COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_aes_gcm.pl
+                          ${NIST_AES_GCM_SOURCE_DIR}/*
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS           nist_aes_gcm
 )
 add_custom_target(nist_aes_gcm_json ALL DEPENDS nist_aes_gcm.json)
 
@@ -316,20 +316,20 @@ set(NIST_ECDSA_SOURCE_DIR
     ${SOURCE_DIR}
 )
 add_custom_command(
-  OUTPUT            nist_ecdsa.json
-  COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_ecdsa.pl
-                        ${NIST_ECDSA_SOURCE_DIR}/SigGenComponent.txt
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS           nist_ecdsa
+    OUTPUT            nist_ecdsa.json
+    COMMAND           ${CMAKE_SOURCE_DIR}/misc/nist2json_ecdsa.pl
+                          ${NIST_ECDSA_SOURCE_DIR}/SigGenComponent.txt
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS           nist_ecdsa
 )
 add_custom_target(nist_ecdsa_json ALL DEPENDS nist_ecdsa.json)
 
 add_custom_command(
-  OUTPUT            nist_eddsa.json
-  COMMAND           ${CMAKE_COMMAND} -E copy 
-                        ${CMAKE_SOURCE_DIR}/misc/nist_eddsa.json
-                        ${CMAKE_BINARY_DIR}
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    OUTPUT            nist_eddsa.json
+    COMMAND           ${CMAKE_COMMAND} -E copy
+                          ${CMAKE_SOURCE_DIR}/misc/nist_eddsa.json
+                          ${CMAKE_BINARY_DIR}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 add_custom_target(nist_eddsa_json ALL DEPENDS nist_eddsa.json)
 
@@ -346,10 +346,10 @@ ExternalProject_Add(wycheproof
 ExternalProject_Add(gtest
     GIT_REPOSITORY    ${GTEST_GIT}
     GIT_TAG           ${GTEST_TAG}
-    PREFIX          ${CMAKE_BINARY_DIR}/gtest
-    INSTALL_COMMAND ""
-    TEST_COMMAND    ""
-    CMAKE_ARGS      "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+    PREFIX            ${CMAKE_BINARY_DIR}/gtest
+    INSTALL_COMMAND   ""
+    TEST_COMMAND      ""
+    CMAKE_ARGS        "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
 )
 ExternalProject_Get_Property(gtest SOURCE_DIR BINARY_DIR)
 set(GTEST_INCLUDE_DIR
