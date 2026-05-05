@@ -398,6 +398,7 @@ set(ZPCPKCS11_SOURCES
     src/pkcs11/config.c
     src/pkcs11/utils.c
     src/pkcs11/object.c
+    src/pkcs11/session.c
 )
 
 add_library(
