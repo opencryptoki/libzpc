@@ -6,6 +6,7 @@
 #include "openssl.h"
 #include "config.h"
 #include "object.h"
+#include "session.h"
 
 #define PKCS11_MANUFACTURER	"IBM"
 #define PKCS11_LIBRARY_DESC	"ZPC PKCS#11 provider"
@@ -59,6 +60,9 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 	if (openssl_init() != 1)
 		goto cleanup;
 
+	if (session_list_init() != 1)
+		goto cleanup;
+
 	if (object_list_init() != 1)
 		goto cleanup;
 
@@ -72,6 +76,7 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 
 cleanup:
 	object_list_term();
+	session_list_term();
 	openssl_term();
 	return CKR_FUNCTION_FAILED;
 }
@@ -85,6 +90,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
 	object_list_term();
+	session_list_term();
 	openssl_term();
 
 	api_initialized = CK_FALSE;
@@ -196,9 +202,12 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 		       CKF_TOKEN_INITIALIZED;
 
 	pInfo->ulMaxSessionCount = CK_EFFECTIVELY_INFINITE;
-	pInfo->ulSessionCount = CK_UNAVAILABLE_INFORMATION;
 	pInfo->ulMaxRwSessionCount = CK_EFFECTIVELY_INFINITE;
-	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
+
+	if (!session_get_counts(&pInfo->ulSessionCount,
+				&pInfo->ulRwSessionCount))
+		return CKR_FUNCTION_FAILED;
+
 	pInfo->ulMaxPinLen = CK_EFFECTIVELY_INFINITE;
 	pInfo->ulMinPinLen = 0;
 	pInfo->ulTotalPublicMemory = CK_UNAVAILABLE_INFORMATION;
@@ -280,31 +289,64 @@ CK_RV C_SetPIN(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR pOldPin,
 CK_RV C_OpenSession(CK_SLOT_ID slotID, CK_FLAGS flags, CK_VOID_PTR pApplication,
 		    CK_NOTIFY Notify, CK_SESSION_HANDLE_PTR phSession)
 {
-	UNUSED(slotID);
-	UNUSED(flags);
 	UNUSED(pApplication);
 	UNUSED(Notify);
-	UNUSED(phSession);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+
+	if (!phSession)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (slotID != PKCS11_SLOT_NUMBER)
+		return CKR_SLOT_ID_INVALID;
+	if ((flags & CKF_SERIAL_SESSION) == 0)
+		return CKR_SESSION_PARALLEL_NOT_SUPPORTED;
+	if ((flags & CKF_ASYNC_SESSION) != 0)
+		return CKR_SESSION_ASYNC_NOT_SUPPORTED;
+
+	if (!session_add_session(slotID, flags, phSession))
+		return CKR_FUNCTION_FAILED;
+
+	return CKR_OK;
 }
 
 CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 {
-	UNUSED(hSession);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_remove_session(hSession))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	return CKR_OK;
 }
 
 CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
 {
-	UNUSED(slotID);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (slotID != PKCS11_SLOT_NUMBER)
+		return CKR_SLOT_ID_INVALID;
+
+	if (!session_remove_all())
+		return CKR_FUNCTION_FAILED;
+
+	return CKR_OK;
 }
 
 CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 {
-	UNUSED(hSession);
-	UNUSED(pInfo);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+
+	if (!pInfo)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	*pInfo = sess->info;
+	return CKR_OK;
 }
 
 CK_RV C_GetOperationState(CK_SESSION_HANDLE hSession,
@@ -314,7 +356,11 @@ CK_RV C_GetOperationState(CK_SESSION_HANDLE hSession,
 	UNUSED(hSession);
 	UNUSED(pOperationState);
 	UNUSED(pulOperationStateLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	return CKR_STATE_UNSAVEABLE;
 }
 
 CK_RV C_SetOperationState(CK_SESSION_HANDLE hSession,
@@ -328,30 +374,69 @@ CK_RV C_SetOperationState(CK_SESSION_HANDLE hSession,
 	UNUSED(ulOperationStateLen);
 	UNUSED(hEncryptionKey);
 	UNUSED(hAuthenticationKey);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	return CKR_STATE_UNSAVEABLE;
 }
 
 CK_RV C_Login(CK_SESSION_HANDLE hSession, CK_USER_TYPE userType,
 	      CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	UNUSED(hSession);
-	UNUSED(userType);
+	struct pkcs11_session *sess;
+
 	UNUSED(pPin);
 	UNUSED(ulPinLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (userType != CKU_USER)
+		return CKR_USER_TYPE_INVALID;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	if (session_get_login_state() == CK_TRUE)
+		return CKR_USER_ALREADY_LOGGED_IN;
+
+	session_set_login_state(CK_TRUE);
+
+	return CKR_OK;
 }
 
 CK_RV C_Logout(CK_SESSION_HANDLE hSession)
 {
-	UNUSED(hSession);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	if (session_get_login_state() == CK_FALSE)
+		return CKR_USER_NOT_LOGGED_IN;
+
+	session_set_login_state(CK_FALSE);
+
+	return CKR_OK;
 }
 
 CK_RV C_SessionCancel(CK_SESSION_HANDLE hSession, CK_FLAGS flags)
 {
-	UNUSED(hSession);
-	UNUSED(flags);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	if (!session_op_cleanup(sess, flags))
+		return CKR_OPERATION_CANCEL_FAILED;
+
+	return CKR_OK;
 }
 
 /* Object management functions */
@@ -444,9 +529,11 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 CK_RV C_EncryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 	      CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_ENCRYPT);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -488,9 +575,11 @@ CK_RV C_EncryptFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pLastEncryptedPart,
 CK_RV C_DecryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 		    CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_DECRYPT);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -531,8 +620,9 @@ CK_RV C_DecryptFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pLastPart,
 
 CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_DIGEST);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -578,9 +668,11 @@ CK_RV C_DigestFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDigest,
 CK_RV C_SignInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 		 CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_SIGN);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -616,9 +708,11 @@ CK_RV C_SignFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature,
 CK_RV C_SignRecoverInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 			CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_SIGN_RECOVER);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -639,9 +733,11 @@ CK_RV C_SignRecover(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData,
 CK_RV C_VerifyInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 		   CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_VERIFY);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -679,9 +775,11 @@ CK_RV C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
 			  CK_MECHANISM_PTR pMechanism,
 			  CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_VERIFY_RECOVER);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -849,13 +947,15 @@ CK_RV C_GenerateRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pRandomData,
 CK_RV C_GetFunctionStatus(CK_SESSION_HANDLE hSession)
 {
 	UNUSED(hSession);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+
+	return CKR_FUNCTION_NOT_PARALLEL;
 }
 
 CK_RV C_CancelFunction(CK_SESSION_HANDLE hSession)
 {
 	UNUSED(hSession);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+
+	return CKR_FUNCTION_NOT_PARALLEL;
 }
 
 /* Message-based encryption and decryption functions (v3.0) */
@@ -864,9 +964,11 @@ CK_RV C_MessageEncryptInit(CK_SESSION_HANDLE hSession,
 			   CK_MECHANISM_PTR pMechanism,
 			   CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_MESSAGE_ENCRYPT);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -927,9 +1029,11 @@ CK_RV C_MessageDecryptInit(CK_SESSION_HANDLE hSession,
 			   CK_MECHANISM_PTR pMechanism,
 			   CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_MESSAGE_DECRYPT);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -992,9 +1096,11 @@ CK_RV C_MessageDecryptFinal(CK_SESSION_HANDLE hSession)
 CK_RV C_MessageSignInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 			CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_MESSAGE_SIGN);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1047,9 +1153,10 @@ CK_RV C_MessageVerifyInit(CK_SESSION_HANDLE hSession,
 			  CK_MECHANISM_PTR pMechanism,
 			  CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_MESSAGE_VERIFY);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1104,13 +1211,27 @@ CK_RV C_LoginUser(CK_SESSION_HANDLE hSession, CK_USER_TYPE userType,
 		  CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen,
 		  CK_UTF8CHAR_PTR pUsername, CK_ULONG ulUsernameLen)
 {
-	UNUSED(hSession);
-	UNUSED(userType);
+	struct pkcs11_session *sess;
+
 	UNUSED(pPin);
 	UNUSED(ulPinLen);
 	UNUSED(pUsername);
 	UNUSED(ulUsernameLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (userType != CKU_USER)
+		return CKR_USER_TYPE_INVALID;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	if (session_get_login_state() == CK_TRUE)
+		return CKR_USER_ALREADY_LOGGED_IN;
+
+	session_set_login_state(CK_TRUE);
+
+	return CKR_OK;
 }
 
 CK_RV C_EncapsulateKey(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
@@ -1152,11 +1273,13 @@ CK_RV C_VerifySignatureInit(CK_SESSION_HANDLE hSession,
 			    CK_BYTE_PTR pSignature,
 			    CK_ULONG ulSignatureLen)
 {
-	UNUSED(hSession);
-	UNUSED(pMechanism);
 	UNUSED(hKey);
 	UNUSED(pSignature);
 	UNUSED(ulSignatureLen);
+
+	if (!pMechanism)
+		return C_SessionCancel(hSession, CKF_SIGN);
+
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
