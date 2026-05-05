@@ -198,6 +198,19 @@ err:
 	return 0;
 }
 
+static CK_ATTRIBUTE *object_find_attr(struct pkcs11_object *obj,
+				      CK_ATTRIBUTE_TYPE type)
+{
+	CK_ULONG i;
+
+	for (i = 0; i < obj->num_attrs; i++) {
+		if (obj->attrs[i].type == type)
+			return &obj->attrs[i];
+	}
+
+	return NULL;
+}
+
 void object_free(struct pkcs11_object *obj)
 {
 	if (!obj)
@@ -347,4 +360,50 @@ int object_add_ec_ed_public_key(const char *label, CK_ULONG id,
 err:
 	object_free(obj);
 	return 0;
+}
+
+static int object_match_attrs(CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+			      struct pkcs11_object *obj)
+{
+	CK_ULONG i;
+	CK_ATTRIBUTE *attr;
+
+	for (i = 0; i < ulCount; i++) {
+		attr = object_find_attr(obj, pTemplate[i].type);
+		if (!attr)
+			return 0;
+		if (attr->ulValueLen != pTemplate[i].ulValueLen)
+			return 0;
+		if (attr->ulValueLen == 0)
+			continue;
+		if (!attr->pValue || !pTemplate[i].pValue)
+			return 0;
+		if (memcmp(attr->pValue, pTemplate[i].pValue,
+			   attr->ulValueLen) != 0)
+			return 0;
+	}
+
+	return 1;
+}
+
+int object_list_find(CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+		     struct dyn_array *result)
+{
+	struct pkcs11_object *obj;
+	size_t i;
+
+	for (i = 0; i < dyn_array_size(&objects); i++) {
+		if (!dyn_array_get(&objects, i, (void **)&obj))
+			break;
+		if (!obj)
+			continue;
+
+		if (!object_match_attrs(pTemplate, ulCount, obj))
+			continue;
+
+		if (!dyn_array_add(result, obj, NULL))
+			return 0;
+	}
+
+	return 1;
 }

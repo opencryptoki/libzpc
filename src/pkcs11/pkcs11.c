@@ -502,26 +502,91 @@ CK_RV C_SetAttributeValue(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject,
 CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate,
 			CK_ULONG ulCount)
 {
-	UNUSED(hSession);
-	UNUSED(pTemplate);
-	UNUSED(ulCount);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pTemplate && ulCount != 0)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_init(sess, CKF_FIND_OBJECTS);
+	if (rc != CKR_OK)
+		return rc;
+
+	sess->find.pos = 0;
+	if (!dyn_array_init(&sess->find.found)) {
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	if (!object_list_find(pTemplate, ulCount, &sess->find.found)) {
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+done:
+	if (rc != CKR_OK)
+		session_op_cleanup(sess, CKF_FIND_OBJECTS);
+
+	return rc;
 }
 
 CK_RV C_FindObjects(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE_PTR phObject,
 		    CK_ULONG ulMaxObjectCount, CK_ULONG_PTR pulObjectCount)
 {
-	UNUSED(hSession);
-	UNUSED(phObject);
-	UNUSED(ulMaxObjectCount);
-	UNUSED(pulObjectCount);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	struct pkcs11_object *obj;
+	CK_ULONG i;
+	CK_RV rc;
+
+	if (!phObject || !pulObjectCount)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_FIND_OBJECTS);
+	if (rc != CKR_OK)
+		return rc;
+
+	*pulObjectCount = 0;
+	for (i = 0; i < ulMaxObjectCount; i++) {
+		if (!dyn_array_get(&sess->find.found, sess->find.pos,
+				   (void **)&obj))
+			break;
+
+		phObject[i] = obj->handle;
+		(*pulObjectCount)++;
+		sess->find.pos++;
+	}
+
+	return CKR_OK;
 }
 
 CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 {
-	UNUSED(hSession);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_FIND_OBJECTS);
+	if (rc != CKR_OK)
+		return rc;
+
+	session_op_cleanup(sess, CKF_FIND_OBJECTS);
+
+	return CKR_OK;
 }
 
 /* Encryption functions */

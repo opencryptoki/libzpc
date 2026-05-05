@@ -114,6 +114,11 @@ int session_op_cleanup(struct pkcs11_session *sess, CK_FLAGS op_flags)
 	if (!sess)
 		return 0;
 
+	if (sess->op_active & op_flags & CKF_FIND_OBJECTS) {
+		dyn_array_free(&sess->find.found);
+		sess->find.pos = 0;
+	}
+
 	// TODO implement cleanup of operation state
 
 	sess->op_active &= ~op_flags;
