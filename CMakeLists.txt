@@ -396,6 +396,7 @@ set(ZPCPKCS11_SOURCES
     src/pkcs11/pkcs11.c
     src/pkcs11/openssl.c
     src/pkcs11/config.c
+    src/pkcs11/utils.c
 )
 
 add_library(
