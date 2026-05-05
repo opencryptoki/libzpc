@@ -5,10 +5,18 @@
 #include <string.h>
 #include <stdio.h>
 #include "object.h"
+#include "utils.h"
 
 static CK_BBOOL ck_true = CK_TRUE;
 static CK_BBOOL ck_false = CK_FALSE;
 
+/*
+ * The object list is populated exclusively during C_Initialize and torn down
+ * during C_Finalize. Both are single-threaded by the PKCS#11 spec. After
+ * C_Initialize returns the list is read-only, so no locking is needed for
+ * concurrent read access from multiple threads.
+ */
+static struct dyn_array objects;
 static object_id_t object_id_counter = 0;
 
 static int object_add_attr(struct pkcs11_object *obj, CK_ATTRIBUTE_TYPE type,
@@ -198,5 +206,145 @@ void object_free(struct pkcs11_object *obj)
 	if (obj->label)
 		free((void *)obj->label);
 
+	if (obj->keytype == CKK_EC || obj->keytype == CKK_EC_EDWARDS) {
+		if (obj->data.ec_ed.ec_params)
+			free(obj->data.ec_ed.ec_params);
+		if (obj->data.ec_ed.ec_point)
+			free(obj->data.ec_ed.ec_point);
+		if (obj->data.ec_ed.spki)
+			free(obj->data.ec_ed.spki);
+		if (obj->data.ec_ed.pkey)
+			EVP_PKEY_free(obj->data.ec_ed.pkey);
+	}
+
 	free(obj);
+}
+
+int object_list_init(void)
+{
+	if (!dyn_array_init(&objects))
+		return 0;
+
+	return 1;
+}
+
+void object_list_term(void)
+{
+	struct pkcs11_object *obj;
+	size_t i;
+
+	for (i = 0; i < dyn_array_size(&objects); i++) {
+		if (!dyn_array_get(&objects, i, (void **)&obj))
+			break;
+		if (obj)
+			object_free(obj);
+	}
+
+	dyn_array_free(&objects);
+}
+
+
+int object_add_ec_ed_private_key(const char *label, CK_ULONG id,
+				 CK_KEY_TYPE keytype,
+				 const unsigned char *ec_params,
+				 size_t ec_params_len,
+				 const unsigned char *spki, size_t spki_len,
+				 size_t prime_len,
+				 EVP_PKEY *pkey)
+{
+	struct pkcs11_object *obj = NULL;
+	size_t index;
+
+	if (!object_init(&obj, label, id, CKO_PRIVATE_KEY, keytype))
+		goto err;
+
+	obj->data.ec_ed.ec_params = memdup(ec_params, ec_params_len);
+	obj->data.ec_ed.ec_params_len = ec_params_len;
+	if (!obj->data.ec_ed.ec_params)
+		goto err;
+	obj->data.ec_ed.spki = memdup(spki, spki_len);
+	obj->data.ec_ed.spki_len = spki_len;
+	if (!obj->data.ec_ed.spki && obj->data.ec_ed.spki_len != 0)
+		goto err;
+	obj->data.ec_ed.prime_len = prime_len;
+
+	if (!object_add_attr(obj, CKA_EC_PARAMS, obj->data.ec_ed.ec_params,
+			     obj->data.ec_ed.ec_params_len))
+		goto err;
+	if (!object_add_attr(obj, CKA_VALUE, NULL, 0))
+		goto err;
+	if (!object_add_attr(obj, CKA_PUBLIC_KEY_INFO, obj->data.ec_ed.spki,
+			     obj->data.ec_ed.spki_len))
+		goto err;
+
+	if (!EVP_PKEY_up_ref(pkey))
+		goto err;
+	obj->data.ec_ed.pkey = pkey;
+
+	if (!dyn_array_add(&objects, obj, &index))
+		goto err;
+
+	obj->handle = index + 1; /* zero handle = invalid */
+
+	return 1;
+
+err:
+	object_free(obj);
+	return 0;
+}
+
+int object_add_ec_ed_public_key(const char *label, CK_ULONG id,
+				CK_KEY_TYPE keytype,
+				const unsigned char *ec_params,
+				size_t ec_params_len,
+				const unsigned char *ec_point,
+				size_t ec_point_len,
+				const unsigned char *spki, size_t spki_len,
+				size_t prime_len,
+				EVP_PKEY *pkey)
+{
+	struct pkcs11_object *obj = NULL;
+	size_t index;
+
+	if (!object_init(&obj, label, id, CKO_PUBLIC_KEY, keytype))
+		goto err;
+
+	obj->data.ec_ed.ec_params = memdup(ec_params, ec_params_len);
+	obj->data.ec_ed.ec_params_len = ec_params_len;
+	if (!obj->data.ec_ed.ec_params)
+		goto err;
+	obj->data.ec_ed.ec_point = memdup(ec_point, ec_point_len);
+	obj->data.ec_ed.ec_point_len = ec_point_len;
+	if (!obj->data.ec_ed.ec_point)
+		goto err;
+	obj->data.ec_ed.spki = memdup(spki, spki_len);
+	obj->data.ec_ed.spki_len = spki_len;
+	if (!obj->data.ec_ed.spki && obj->data.ec_ed.spki_len != 0)
+		goto err;
+	obj->data.ec_ed.prime_len = prime_len;
+
+	if (!object_add_attr(obj, CKA_EC_PARAMS, obj->data.ec_ed.ec_params,
+			     obj->data.ec_ed.ec_params_len))
+		goto err;
+	if (!object_add_attr(obj, CKA_EC_POINT, obj->data.ec_ed.ec_point,
+			     obj->data.ec_ed.ec_point_len))
+		goto err;
+	if (!object_add_attr(obj, CKA_PUBLIC_KEY_INFO, obj->data.ec_ed.spki,
+			     obj->data.ec_ed.spki_len))
+		goto err;
+
+	if (!EVP_PKEY_up_ref(pkey))
+		goto err;
+	obj->data.ec_ed.pkey = pkey;
+
+	if (!dyn_array_add(&objects, obj, &index))
+		goto err;
+
+	obj->handle = index + 1; /* zero handle = invalid */
+
+	return 1;
+
+err:
+	object_free(obj);
+	return 0;
 }

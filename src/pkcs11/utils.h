@@ -18,4 +18,6 @@ int dyn_array_add(struct dyn_array *da, void *element, size_t *index);
 int dyn_array_get(const struct dyn_array *da, size_t index, void **element);
 int dyn_array_set(struct dyn_array *da, size_t index, void *element);
 
+void *memdup(const void *p, size_t len);
+
 #endif

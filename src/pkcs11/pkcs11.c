@@ -5,6 +5,7 @@
 #include "pkcs11.h"
 #include "openssl.h"
 #include "config.h"
+#include "object.h"
 
 #define PKCS11_MANUFACTURER	"IBM"
 #define PKCS11_LIBRARY_DESC	"ZPC PKCS#11 provider"
@@ -58,6 +59,9 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 	if (openssl_init() != 1)
 		goto cleanup;
 
+	if (object_list_init() != 1)
+		goto cleanup;
+
 	if (config_process(openssl_process_config) != 1)
 		goto cleanup;
 
@@ -67,6 +71,7 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 	return CKR_OK;
 
 cleanup:
+	object_list_term();
 	openssl_term();
 	return CKR_FUNCTION_FAILED;
 }
@@ -79,6 +84,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 	if (!api_initialized)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
+	object_list_term();
 	openssl_term();
 
 	api_initialized = CK_FALSE;
