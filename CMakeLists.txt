@@ -104,17 +104,17 @@ set(ZPC_LIBS
 	Threads::Threads ${CMAKE_DL_LIBS}
 )
 
-add_library(zpc ${ZPC_SOURCES})
-
-set_target_properties(zpc
-    PROPERTIES
-    VERSION               ${ZPC_VERSION_MAJOR}.${ZPC_VERSION_MINOR}.${ZPC_VERSION_PATCH}
-    SOVERSION             ${ZPC_VERSION_MAJOR}
-    PUBLIC_HEADER         "${ZPC_HEADERS}"
-    C_VISIBILITY_PRESET   hidden
-    CXX_VISIBILITY_PRESET hidden
-    LINK_FLAGS            "-Wl,--version-script=${CMAKE_SOURCE_DIR}/libzpc.map"
+add_library(
+    zpc OBJECT
+    ${ZPC_SOURCES}
 )
+
+set_target_properties(
+    zpc
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
 target_include_directories(zpc PRIVATE include src src/zkey)
 target_link_libraries(zpc ${ZPC_LIBS})
 target_compile_definitions(
@@ -123,20 +123,7 @@ target_compile_definitions(
     ZPC_VERSION_MINOR=${ZPC_VERSION_MINOR}
     ZPC_VERSION_PATCH=${ZPC_VERSION_PATCH}
 )
-configure_file(libzpc.pc.in libzpc.pc @ONLY)
 include(GNUInstallDirs)
-
-install(
-    TARGETS zpc
-    LIBRARY DESTINATION       ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION       ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/zpc/
-)
-
-install(
-    FILES       ${CMAKE_BINARY_DIR}/libzpc.pc
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
-)
 
 ###########################################################
 # Test
@@ -376,7 +363,7 @@ set(ZPC_TEST_LIBS
     ${GTEST_LIB_DIR}/libgtest.a
     Threads::Threads
     json-c::json-c
-    zpc
+    $<TARGET_OBJECTS:zpc>
 )
 
 set(ZPC_TEST_SOURCES
