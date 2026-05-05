@@ -175,6 +175,7 @@ set(ZPCPROVIDER_SOURCES
     src/object.c
     src/map.c
     src/store.c
+    src/keymgmt.c
 )
 
 add_library(
@@ -207,6 +208,7 @@ target_link_libraries(
     PRIVATE
     OpenSSL::Crypto
     $<TARGET_OBJECTS:uri>
+    $<TARGET_OBJECTS:zpc>
 )
 
 target_link_options(
