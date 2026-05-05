@@ -157,10 +157,22 @@ static int openssl_process_ec_key(const char *label, EVP_PKEY *pkey,
 			return 0;
 	}
 
-	// TODO create a object with this info
+	if (keypair &&
+	    !object_add_ec_ed_private_key(label, lineno, CKK_EC,
+					  ec_params, ec_params_len,
+					  spki, spki_len, prime_len, pkey))
+		goto out;
+
+	if (ec_point &&
+	    !object_add_ec_ed_public_key(label, lineno, CKK_EC,
+					 ec_params, ec_params_len,
+					 ec_point, ec_point_len,
+					 spki, spki_len, prime_len, pkey))
+		goto out;
 
 	rc = 1;
 
+out:
 	if (spki)
 		OPENSSL_free(spki);
 
@@ -196,10 +208,22 @@ static int openssl_process_ed_key(const char *label, EVP_PKEY *pkey,
 			return 0;
 	}
 
-	// TODO create a object with this info
+	if (keypair &&
+	    !object_add_ec_ed_private_key(label, lineno, CKK_EC_EDWARDS,
+					  ec_params, ec_params_len,
+					  spki, spki_len, 0, pkey))
+		goto out;
+
+	if (ec_point_len > 0 &&
+	    !object_add_ec_ed_public_key(label, lineno, CKK_EC_EDWARDS,
+					 ec_params, ec_params_len,
+					 ec_point, ec_point_len,
+					 spki, spki_len, 0, pkey))
+		goto out;
 
 	rc = 1;
 
+out:
 	if (spki)
 		OPENSSL_free(spki);
 
