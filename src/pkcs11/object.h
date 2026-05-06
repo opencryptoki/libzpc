@@ -38,6 +38,9 @@ struct pkcs11_object {
 
 int object_init(struct pkcs11_object **obj, const char *label, CK_ULONG id,
 		CK_OBJECT_CLASS class, CK_KEY_TYPE keytype);
+int object_get_size(struct pkcs11_object *obj, CK_ULONG *obj_size);
+CK_RV object_get_attributes(struct pkcs11_object *obj, CK_ATTRIBUTE_PTR pTemplate,
+			   CK_ULONG ulCount);
 void object_free(struct pkcs11_object *obj);
 
 int object_list_init(void);
@@ -62,5 +65,7 @@ int object_add_ec_ed_public_key(const char *label, CK_ULONG id,
 
 int object_list_find(CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
 		     struct dyn_array *result);
+
+int object_list_get(CK_OBJECT_HANDLE handle, struct pkcs11_object **obj);
 
 #endif
