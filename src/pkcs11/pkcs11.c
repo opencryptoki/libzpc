@@ -29,6 +29,35 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved);
 static volatile CK_BBOOL api_initialized = CK_FALSE;
 static pthread_once_t atfork_once = PTHREAD_ONCE_INIT;
 
+static struct {
+	CK_MECHANISM_TYPE type;
+	CK_MECHANISM_INFO info;
+} mech_list[] = {
+	{ CKM_ECDSA, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA1, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA224, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA256, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA384, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA512, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA3_224, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA3_256, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA3_384, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_ECDSA_SHA3_512, {256, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+	{ CKM_EDDSA, {255, 448, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+			CKF_EC_F_P | CKF_EC_COMPRESS}},
+};
+static size_t mech_list_len = sizeof(mech_list) / sizeof(mech_list[0]);
+
 /* General purpose functions */
 
 static void child_fork_initializer(void)
@@ -239,19 +268,52 @@ CK_RV C_GetMechanismList(CK_SLOT_ID slotID,
 			 CK_MECHANISM_TYPE_PTR pMechanismList,
 			 CK_ULONG_PTR pulCount)
 {
-	UNUSED(slotID);
-	UNUSED(pMechanismList);
-	UNUSED(pulCount);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_ULONG i;
+
+	if (!pulCount)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (slotID != PKCS11_SLOT_NUMBER)
+		return CKR_SLOT_ID_INVALID;
+
+	if (!pMechanismList) {
+		*pulCount = mech_list_len;
+		return CKR_OK;
+	}
+
+	if (*pulCount < mech_list_len) {
+		*pulCount = mech_list_len;
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	for (i = 0; i < mech_list_len; i++)
+		pMechanismList[i] = mech_list[i].type;
+	*pulCount = mech_list_len;
+
+	return CKR_OK;
 }
 
 CK_RV C_GetMechanismInfo(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
 			 CK_MECHANISM_INFO_PTR pInfo)
 {
-	UNUSED(slotID);
-	UNUSED(type);
-	UNUSED(pInfo);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_ULONG i;
+
+	if (!pInfo)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (slotID != PKCS11_SLOT_NUMBER)
+		return CKR_SLOT_ID_INVALID;
+
+	for (i = 0; i < mech_list_len; i++) {
+		if (mech_list[i].type == type) {
+			*pInfo = mech_list[i].info;
+			return CKR_OK;
+		}
+	}
+
+	return CKR_MECHANISM_INVALID;
 }
 
 CK_RV C_InitToken(CK_SLOT_ID slotID, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen,
