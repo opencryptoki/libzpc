@@ -3,8 +3,10 @@
 #ifndef SESSION_H
 #define SESSION_H
 
+#include <openssl/evp.h>
 #include "pkcs11.h"
 #include "utils.h"
+#include "object.h"
 
 struct pkcs11_session {
 	CK_SESSION_HANDLE handle;
@@ -18,6 +20,20 @@ struct pkcs11_session {
 		struct dyn_array found;
 		size_t pos;
 	} find;
+	struct {
+		CK_MECHANISM_TYPE mechanism;
+		struct pkcs11_object *key;
+		EVP_MD_CTX *md_ctx;
+		EVP_PKEY_CTX *pkey_ctx;
+	} sign;
+	struct {
+		CK_MECHANISM_TYPE mechanism;
+		struct pkcs11_object *key;
+		CK_BYTE *signature;
+		CK_ULONG signature_len;
+		EVP_MD_CTX *md_ctx;
+		EVP_PKEY_CTX *pkey_ctx;
+	} verify;
 };
 
 int session_init(struct pkcs11_session **sess, CK_SLOT_ID slot, CK_FLAGS flags);

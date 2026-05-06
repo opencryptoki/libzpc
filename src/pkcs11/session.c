@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <pthread.h>
 #include "session.h"
+#include "signature.h"
 #include "utils.h"
 
 /*
@@ -118,8 +119,10 @@ int session_op_cleanup(struct pkcs11_session *sess, CK_FLAGS op_flags)
 		dyn_array_free(&sess->find.found);
 		sess->find.pos = 0;
 	}
-
-	// TODO implement cleanup of operation state
+	if (sess->op_active & op_flags & CKF_SIGN)
+		signature_sign_cleanup(sess);
+	if (sess->op_active & op_flags & CKF_VERIFY)
+		signature_verify_cleanup(sess);
 
 	sess->op_active &= ~op_flags;
 	sess->op_multi_init &= ~op_flags;

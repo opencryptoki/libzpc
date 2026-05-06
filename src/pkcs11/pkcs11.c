@@ -7,6 +7,7 @@
 #include "config.h"
 #include "object.h"
 #include "session.h"
+#include "signature.h"
 
 #define PKCS11_MANUFACTURER	"IBM"
 #define PKCS11_LIBRARY_DESC	"ZPC PKCS#11 provider"
@@ -819,41 +820,105 @@ CK_RV C_DigestFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDigest,
 CK_RV C_SignInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 		 CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hKey);
+	struct pkcs11_session *sess;
+	struct pkcs11_object *key;
+	CK_RV rc;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
 	if (!pMechanism)
 		return C_SessionCancel(hSession, CKF_SIGN);
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	if (!object_list_get(hKey, &key))
+		return CKR_OBJECT_HANDLE_INVALID;
+
+	rc = session_op_init(sess, CKF_SIGN);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_sign_init(sess, key, pMechanism);
+	if (rc != CKR_OK)
+		session_op_cleanup(sess, CKF_SIGN);
+
+	return rc;
 }
 
 CK_RV C_Sign(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen,
 	     CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen)
 {
-	UNUSED(hSession);
-	UNUSED(pData);
-	UNUSED(ulDataLen);
-	UNUSED(pSignature);
-	UNUSED(pulSignatureLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pulSignatureLen || (!pData && ulDataLen != 0))
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_single(sess, CKF_SIGN);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_sign(sess, pData, ulDataLen,
+			    pSignature, pulSignatureLen);
+
+	if (!((rc == CKR_OK && !pSignature) || rc == CKR_BUFFER_TOO_SMALL))
+		session_op_cleanup(sess, CKF_SIGN);
+
+	return rc;
 }
 
 CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
 		   CK_ULONG ulPartLen)
 {
-	UNUSED(hSession);
-	UNUSED(pPart);
-	UNUSED(ulPartLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pPart && ulPartLen != 0)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_SIGN);
+	if (rc != CKR_OK)
+		return rc;
+
+	return signature_sign_update(sess, pPart, ulPartLen);
 }
 
 CK_RV C_SignFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature,
 		  CK_ULONG_PTR pulSignatureLen)
 {
-	UNUSED(hSession);
-	UNUSED(pSignature);
-	UNUSED(pulSignatureLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pulSignatureLen)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_SIGN);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_sign_final(sess, pSignature, pulSignatureLen);
+
+	if (!((rc == CKR_OK && !pSignature) || rc == CKR_BUFFER_TOO_SMALL))
+		session_op_cleanup(sess, CKF_SIGN);
+
+	return rc;
 }
 
 CK_RV C_SignRecoverInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
@@ -884,42 +949,105 @@ CK_RV C_SignRecover(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData,
 CK_RV C_VerifyInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 		   CK_OBJECT_HANDLE hKey)
 {
-	UNUSED(hKey);
+	struct pkcs11_session *sess;
+	struct pkcs11_object *key;
+	CK_RV rc;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
 	if (!pMechanism)
 		return C_SessionCancel(hSession, CKF_VERIFY);
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	if (!object_list_get(hKey, &key))
+		return CKR_OBJECT_HANDLE_INVALID;
+
+	rc = session_op_init(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_verify_init(sess, key, pMechanism, NULL, 0);
+	if (rc != CKR_OK)
+		session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_Verify(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData,
 	       CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
 	       CK_ULONG ulSignatureLen)
 {
-	UNUSED(hSession);
-	UNUSED(pData);
-	UNUSED(ulDataLen);
-	UNUSED(pSignature);
-	UNUSED(ulSignatureLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pSignature || ulSignatureLen == 0 ||
+	    (!pData && ulDataLen != 0))
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_single(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_verify(sess, pData, ulDataLen,
+			      pSignature, ulSignatureLen);
+
+	session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_VerifyUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
 		     CK_ULONG ulPartLen)
 {
-	UNUSED(hSession);
-	UNUSED(pPart);
-	UNUSED(ulPartLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pPart && ulPartLen != 0)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	return signature_verify_update(sess, pPart, ulPartLen);
 }
 
 CK_RV C_VerifyFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature,
 		    CK_ULONG ulSignatureLen)
 {
-	UNUSED(hSession);
-	UNUSED(pSignature);
-	UNUSED(ulSignatureLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pSignature || ulSignatureLen == 0)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_verify_final(sess, pSignature, ulSignatureLen);
+
+	session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
@@ -1424,38 +1552,105 @@ CK_RV C_VerifySignatureInit(CK_SESSION_HANDLE hSession,
 			    CK_BYTE_PTR pSignature,
 			    CK_ULONG ulSignatureLen)
 {
-	UNUSED(hKey);
-	UNUSED(pSignature);
-	UNUSED(ulSignatureLen);
+	struct pkcs11_session *sess;
+	struct pkcs11_object *key;
+	CK_RV rc;
+
+	if (!pSignature || ulSignatureLen == 0)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
 	if (!pMechanism)
-		return C_SessionCancel(hSession, CKF_SIGN);
+		return C_SessionCancel(hSession, CKF_VERIFY);
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	if (!object_list_get(hKey, &key))
+		return CKR_OBJECT_HANDLE_INVALID;
+
+	rc = session_op_init(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_verify_init(sess, key, pMechanism,
+				   pSignature, ulSignatureLen);
+	if (rc != CKR_OK)
+		session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_VerifySignature(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData,
 			CK_ULONG ulDataLen)
 {
-	UNUSED(hSession);
-	UNUSED(pData);
-	UNUSED(ulDataLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pData && ulDataLen != 0)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_single(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_verify(sess, pData, ulDataLen,
+			      sess->verify.signature,
+			      sess->verify.signature_len);
+
+	session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_VerifySignatureUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
 			      CK_ULONG ulPartLen)
 {
-	UNUSED(hSession);
-	UNUSED(pPart);
-	UNUSED(ulPartLen);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!pPart && ulPartLen != 0)
+		return CKR_ARGUMENTS_BAD;
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	return signature_verify_update(sess, pPart, ulPartLen);
 }
 
 CK_RV C_VerifySignatureFinal(CK_SESSION_HANDLE hSession)
 {
-	UNUSED(hSession);
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	struct pkcs11_session *sess;
+	CK_RV rc;
+
+	if (!api_initialized)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!session_get_session(hSession, &sess))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	rc = session_op_multi(sess, CKF_VERIFY);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = signature_verify_final(sess, sess->verify.signature,
+				    sess->verify.signature_len);
+
+	session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_GetSessionValidationFlags(CK_SESSION_HANDLE hSession,

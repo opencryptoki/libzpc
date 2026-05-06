@@ -301,3 +301,60 @@ out_close:
 out:
 	return rc;
 }
+
+EVP_PKEY_CTX *openssl_get_pkey_context(EVP_PKEY *pkey)
+{
+	EVP_PKEY_CTX *ctx;
+
+	ctx = EVP_PKEY_CTX_new_from_pkey(ossl_lib_context, pkey, NULL);
+	if (!ctx) {
+		fprintf(stderr,
+			"zpcpkcs11: EVP_PKEY_CTX_new_from_pkey failed\n");
+		ERR_print_errors_fp(stderr);
+		return NULL;
+	}
+
+	return ctx;
+}
+
+EVP_MD_CTX *openssl_get_digest_sign_context(EVP_PKEY *pkey,
+					    const char *mdname)
+{
+	EVP_MD_CTX *ctx;
+
+	ctx = EVP_MD_CTX_new();
+	if (!ctx)
+		return NULL;
+
+	if (EVP_DigestSignInit_ex(ctx, NULL, mdname, ossl_lib_context, NULL,
+				  pkey, NULL) != 1) {
+		fprintf(stderr,
+			"zpcpkcs11: EVP_DigestSignInit_ex failed\n");
+		ERR_print_errors_fp(stderr);
+		EVP_MD_CTX_free(ctx);
+		return NULL;
+	}
+
+	return ctx;
+}
+
+EVP_MD_CTX *openssl_get_digest_verify_context(EVP_PKEY *pkey,
+					      const char *mdname)
+{
+	EVP_MD_CTX *ctx = NULL;
+
+	ctx = EVP_MD_CTX_new();
+	if (!ctx)
+		return NULL;
+
+	if (EVP_DigestVerifyInit_ex(ctx, NULL, mdname, ossl_lib_context, NULL,
+				    pkey, NULL) != 1) {
+		fprintf(stderr,
+			"zpcpkcs11: EVP_DigestVerifyInit_ex failed\n");
+		ERR_print_errors_fp(stderr);
+		EVP_MD_CTX_free(ctx);
+		return NULL;
+	}
+
+	return ctx;
+}
