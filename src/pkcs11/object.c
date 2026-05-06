@@ -211,6 +211,70 @@ static CK_ATTRIBUTE *object_find_attr(struct pkcs11_object *obj,
 	return NULL;
 }
 
+int object_get_size(struct pkcs11_object *obj, CK_ULONG *obj_size)
+{
+	CK_ULONG i, size = 0, attr_size;
+
+	if (!obj || !obj_size)
+		return 0;
+
+	for (i = 0; i < obj->num_attrs; i++) {
+		attr_size = (CK_ULONG)sizeof(CK_ATTRIBUTE) + obj->attrs[i].ulValueLen;
+		if (attr_size < obj->attrs[i].ulValueLen)
+			return 0;
+		if (size + attr_size < size)
+			return 0;
+		size += attr_size;
+	}
+
+	*obj_size = size;
+
+	return 1;
+}
+
+CK_RV object_get_attributes(struct pkcs11_object *obj, CK_ATTRIBUTE_PTR pTemplate,
+			   CK_ULONG ulCount)
+{
+	CK_ULONG i;
+	CK_RV rc = CKR_OK;
+	CK_ATTRIBUTE *attr;
+
+	if (!obj || (!pTemplate && ulCount != 0))
+		return CKR_ARGUMENTS_BAD;
+
+	for (i = 0; i < ulCount; i++) {
+		attr = object_find_attr(obj, pTemplate[i].type);
+		if (!attr) {
+			pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+			rc = CKR_ATTRIBUTE_TYPE_INVALID;
+			continue;
+		}
+
+		if (pTemplate[i].type == CKA_VALUE &&
+		    obj->class == CKO_PRIVATE_KEY) {
+			pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+			rc = CKR_ATTRIBUTE_SENSITIVE;
+			continue;
+		}
+
+		if (!pTemplate[i].pValue) {
+			pTemplate[i].ulValueLen = attr->ulValueLen;
+			continue;
+		}
+
+		if (pTemplate[i].ulValueLen < attr->ulValueLen) {
+			pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+			rc = CKR_BUFFER_TOO_SMALL;
+			continue;
+		}
+
+		memcpy(pTemplate[i].pValue, attr->pValue, attr->ulValueLen);
+		pTemplate[i].ulValueLen = attr->ulValueLen;
+	}
+
+	return rc;
+}
+
 void object_free(struct pkcs11_object *obj)
 {
 	if (!obj)
@@ -404,6 +468,20 @@ int object_list_find(CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
 		if (!dyn_array_add(result, obj, NULL))
 			return 0;
 	}
+
+	return 1;
+}
+
+int object_list_get(CK_OBJECT_HANDLE handle, struct pkcs11_object **obj)
+{
+	if (handle == CK_INVALID_HANDLE)
+		return 0;
+
+	if (!dyn_array_get(&objects, handle - 1, (void **)obj))
+		return 0;
+
+	if (!*obj)
+		return 0;
 
 	return 1;
 }
