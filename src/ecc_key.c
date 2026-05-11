@@ -446,8 +446,10 @@ int zpc_ec_key_set_apqns(struct zpc_ec_key *ec_key, const char *apqns[])
 	}
 
 	ec_key->apqns = calloc(napqns, sizeof(*(ec_key->apqns)));
-	if (ec_key->apqns == NULL)
-		return ZPC_ERROR_MALLOC;
+	if (ec_key->apqns == NULL) {
+		rc = ZPC_ERROR_MALLOC;
+		goto ret;
+	}
 
 	for (i = 0; i < napqns; i++) {
 		rc = sscanf(apqns[i], " %x.%x ", &card, &domain);
