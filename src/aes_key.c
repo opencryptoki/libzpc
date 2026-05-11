@@ -410,8 +410,10 @@ zpc_aes_key_set_apqns(struct zpc_aes_key *aes_key, const char *apqns[])
 	}
 
 	aes_key->apqns = calloc(napqns, sizeof(*(aes_key->apqns)));
-	if (aes_key->apqns == NULL)
-		return ZPC_ERROR_MALLOC;
+	if (aes_key->apqns == NULL) {
+		rc = ZPC_ERROR_MALLOC;
+		goto ret;
+	}
 
 	for (i = 0; i < napqns; i++) {
 		rc = sscanf(apqns[i], " %x.%x ", &card, &domain);
