@@ -129,8 +129,9 @@ include(GNUInstallDirs)
 # Test
 
 option(BUILD_TEST OFF)
+option(BUILD_INTERNAL_TEST OFF)
 
-if (BUILD_TEST)
+if (BUILD_INTERNAL_TEST)
 
 enable_testing()
 
@@ -411,7 +412,7 @@ target_include_directories(runtest PRIVATE include src ${GTEST_INCLUDE_DIR})
 include(GoogleTest)
 gtest_discover_tests(runtest)
 
-endif ()
+endif () # BUILD_INTERNAL_TEST
 
 ###########################################################
 # doc
