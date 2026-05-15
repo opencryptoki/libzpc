@@ -1,5 +1,9 @@
 .vscode/
 
+# ignore key-files
+*.pem
+*.der
+
 # ignore common build directory
 /build/
 
