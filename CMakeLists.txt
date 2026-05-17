@@ -51,6 +51,33 @@ project(${ZPC_NAME}
     LANGUAGES   CXX C ASM
 )
 
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads
+    REQUIRED
+)
+
+find_package(json-c
+    REQUIRED
+)
+
+find_package(OpenSSL
+    3.0.7
+    REQUIRED
+)
+
+find_package(PkgConfig
+    QUIET
+)
+
+add_definitions(
+    -D_GNU_SOURCE
+)
+
+###########################################################
+# zpc
+
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
+
 set(ZPC_HEADERS
     include/zpc/init.h
     include/zpc/error.h
@@ -102,28 +129,6 @@ set(ZPC_SOURCES
     src/zkey/lib/util_prg.c
 )
 
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads
-    REQUIRED
-)
-
-find_package(json-c
-    REQUIRED
-)
-
-find_package(OpenSSL
-    3.0.7
-    REQUIRED
-)
-
-find_package(PkgConfig
-    QUIET
-)
-
-add_definitions(
-    -D_GNU_SOURCE
-)
-
 set(ZPC_LIBS
     Threads::Threads ${CMAKE_DL_LIBS}
 )
@@ -147,6 +152,9 @@ target_compile_definitions(
     ZPC_VERSION_MINOR=${ZPC_VERSION_MINOR}
     ZPC_VERSION_PATCH=${ZPC_VERSION_PATCH}
 )
+
+endif() # CMAKE_SYSTEM_PROCESSOR == s390x
+
 include(GNUInstallDirs)
 
 ###########################################################
@@ -221,6 +229,8 @@ add_dependencies(
 
 ###########################################################
 # zpcprovider
+
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
 
 set(ZPCPROVIDER_SOURCES
     src/provider.c
@@ -326,6 +336,8 @@ install(
     DESTINATION ${CMAKE_INSTALL_MANDIR}/man7
 )
 
+endif() # CMAKE_SYSTEM_PROCESSOR == s390x
+
 ###########################################################
 # zpckey
 
@@ -381,6 +393,7 @@ install(
 option(BUILD_TEST OFF)
 option(BUILD_INTERNAL_TEST OFF)
 
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
 if (BUILD_INTERNAL_TEST)
 
 enable_testing()
@@ -663,6 +676,7 @@ include(GoogleTest)
 gtest_discover_tests(runtest)
 
 endif () # BUILD_INTERNAL_TEST
+endif () # CMAKE_SYSTEM_PROCESSOR == s390x
 
 ###########################################################
 # doc
