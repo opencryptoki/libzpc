@@ -1,0 +1,88 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Copyright contributors to the libzpc project
+
+export OPENSSL_CONF=${OPENSSL_CONF:-"build/openssl.conf"}
+OPENSSL=${OPENSSL:-"openssl"}
+ZPCKEY=${ZPCKEY:-"build/zpckey"}
+ZPC_KEY_DIR=${ZPC_KEY_DIR:-"."}
+V=${V:-"0"}
+
+ALGS=( "prime256v1" "secp384r1" "secp521r1" "ED25519"     "ED448" )
+ZPCS=( "p-256"      "p-384"     "p-521"     "ed25519"     "ed448" )
+CLRS=( "p256"       "p384"      "p521"      "ed25519"     "ed448" )
+
+tap13() {
+	local rc="$1"
+	local idx="$2"
+	local text="$3"
+	local log="$4"
+
+	case ${rc} in
+	0)
+		echo "ok ${idx} - ${text}"
+		if [ ${V} -eq 1 ]; then
+			echo " ---"
+			echo "${log}"
+			echo " ---"
+		fi
+		;;
+	77)
+		echo "ok ${idx} # SKIP"
+		;;
+	*)
+		echo "not ok ${idx} - ${text}"
+		echo " ---"
+		echo "${log}"
+		echo " ---"
+		;;
+	esac
+
+	return 0
+}
+
+pkey() {
+	local key="$1"
+
+	[ -n "${key}" ] || return 77
+
+	${OPENSSL} pkey			\
+	  -in ${key}			\
+	  -pubin			\
+	  -text				\
+	  -pubout			\
+	2>&1				\
+	|| return 99
+
+	return 0
+}
+
+uv_pkey() {
+	fail=0
+	tc=0
+	for ((i=0; i<${#ALGS[@]}; i++)); do
+		ALG="${ALGS[$i]}"
+		ZPC="${ZPCS[$i]}"
+		ZPC_PEM="${ZPC_KEY_DIR}/${ZPC}-hbkzpc.pem"
+
+		tc=$(( ${tc} + 1 ))
+		log=$(pkey "${ZPC_PEM}")
+		rc="$?"
+		[ ${rc} -ne 0 ] && fail=1
+		tap13 "${rc}" "${tc}" "Pkey (PEM) for ${ALG}" "${log}"
+
+		tc=$(( ${tc} + 1 ))
+		ZPC_URI=$(${ZPCKEY} show --in "${ZPC_PEM}")
+		log=$(pkey "${ZPC_URI}")
+		rc="$?"
+		[ ${rc} -ne 0 ] && fail=1
+		tap13 "${rc}" "${tc}" "Pkey (URI) for ${ALG}" "${log}"
+	done
+
+	return ${fail}
+}
+
+if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
+	uv_pkey
+	exit $?
+fi
