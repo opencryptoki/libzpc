@@ -1,6 +1,13 @@
 test
 ===
 
+t_ossl_*testsuite*
+---
+Test suites using `openssl` command line tooling for provider tests.
+
+internal tests
+===
+
 testlib
 ---
 Functions used by multiple test suites.
