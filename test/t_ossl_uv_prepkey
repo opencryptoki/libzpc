@@ -1,0 +1,99 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Copyright contributors to the libzpc project
+
+OPENSSL_CONF=${OPENSSL_CONF:-"build/openssl.conf"}
+OPENSSL=${OPENSSL:-"openssl"}
+ZPCKEY=${ZPCKEY:-"build/zpckey"}
+ZPC_SEC_DIR=${ZPC_SEC_DIR:-"."}
+ZPC_KEY_DIR=${ZPC_KEY_DIR:-"."}
+V=${V:-"0"}
+
+ALGS=( "prime256v1" "secp384r1" "secp521r1" "ED25519"     "ED448" )
+ZPCS=( "p-256"      "p-384"     "p-521"     "ed25519"     "ed448" )
+CLRS=( "p256"       "p384"      "p521"      "ed25519"     "ed448" )
+
+prepare_key() {
+	local alg="$1"
+	local zpc="$2"
+	local clr="$3"
+	local ZPC_PEM="${ZPC_KEY_DIR}/${ZPC}-hbkzpc.pem"
+	local CLR_PEM="${ZPC_SEC_DIR}/${clr}.key"
+	local CLR_PUB_PEM="${ZPC_KEY_DIR}/${clr}-pub.pem"
+
+	[ -r "${CLR_PEM}" ] || return 77
+
+	echo "--- prepare key for ${ALG} ---"
+
+	${OPENSSL} pkey			\
+	  -in "${CLR_PEM}"		\
+	  -pubout			\
+	  -outform "PEM"		\
+	  -out "${CLR_PUB_PEM}"		\
+	|| return 99
+
+
+	${ZPCKEY} compose		\
+	  --origin-type "uv"		\
+	  --origin-alg ${alg}		\
+	  --uv-secret-name "${zpc}"	\
+	  --pubkey "${CLR_PUB_PEM}"	\
+	  --comment "TEST"		\
+	  --outform "PEM"		\
+	  --out ${ZPC_PEM}		\
+	|| return 99
+
+	return 0
+}
+
+tap13() {
+	local rc="$1"
+	local idx="$2"
+	local text="$3"
+	local log="$4"
+
+	case ${rc} in
+	0)
+		echo "ok ${idx} - ${text}"
+		if [ ${V} -eq 1 ]; then
+			echo " ---"
+			echo "${log}"
+			echo " ---"
+		fi
+		;;
+	77)
+		echo "ok ${idx} # SKIP"
+		;;
+	*)
+		echo "not ok ${idx} - ${text}"
+		echo " ---"
+		echo "${log}"
+		echo " ---"
+		;;
+	esac
+
+	return 0
+}
+
+main() {
+	fail=0
+	tc=0
+	for ((i=0; i<${#ALGS[@]}; i++)); do
+		local ALG="${ALGS[$i]}"
+		local ZPC="${ZPCS[$i]}"
+		local CLR="${CLRS[$i]}"
+
+		tc=$(( ${tc} + 1 ))
+
+		log=$(prepare_key "${ALG}" "${ZPC}" "${CLR}")
+		rc="$?"
+		[ ${rc} -ne 0 ] && fail=1
+		tap13 "${rc}" "${tc}" "Prepare keys for ${ALG}" "${log}"
+	done
+	return ${fail}
+}
+
+if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
+	main
+	exit $?
+fi
