@@ -442,3 +442,17 @@ add_custom_target(doc
 endif ()
 
 endif ()
+
+###########################################################
+# man
+
+find_program(PANDOC pandoc)
+
+if (PANDOC)
+
+add_custom_target(
+    man ALL
+    COMMAND ${CMAKE_SOURCE_DIR}/conv_man.sh "${CMAKE_SOURCE_DIR}/man" "${CMAKE_BINARY_DIR}"
+)
+
+endif () # PANDOC_FOUND
