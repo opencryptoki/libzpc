@@ -1,4 +1,7 @@
-arch:     s390x
+arch:
+        - s390x
+        - amd64
+        - arm64
 os:       linux
 dist:     noble
 language: c
