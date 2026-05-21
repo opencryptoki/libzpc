@@ -5,7 +5,6 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#include <stdbool.h>
 #include <unistd.h>
 
 #include "zpc/ecc_key.h"
@@ -1219,6 +1218,110 @@ ret:
 	}
 	*ec_key = NULL;
 	DEBUG("return");
+}
+
+static size_t _ec_key_wkvp_offset(struct zpc_ec_key *ec_key)
+{
+	size_t offset = 0;
+
+	switch (ec_key->curve) {
+	case ZPC_EC_CURVE_P256:
+		offset = 32;
+		break;
+	case ZPC_EC_CURVE_P384:
+		offset = 48;
+		break;
+	case ZPC_EC_CURVE_P521:
+		offset = 80;
+		break;
+	case ZPC_EC_CURVE_ED25519:
+		offset = 32;
+		break;
+	case ZPC_EC_CURVE_ED448:
+		offset = 64;
+		break;
+	default:
+		break;
+	}
+
+	return offset;
+}
+
+static int _ec_key_wkvp_cmp(struct zpc_ec_key *ec_key1,
+			    struct zpc_ec_key *ec_key2)
+{
+	size_t offset;
+
+	if (!(offset = _ec_key_wkvp_offset(ec_key1)))
+		return 0;
+
+	return memcmp_consttime(ec_key1->prot.protkey + offset,
+				ec_key2->prot.protkey + offset, 32);
+}
+
+int zpc_ec_key_compare(struct zpc_ec_key *ec_key1, struct zpc_ec_key *ec_key2)
+{
+	int rv, rc = ZPC_ERROR_EC_KEY_MISMATCH;
+
+	if (!ec_key1) {
+		rc = ZPC_ERROR_ARG1NULL;
+		goto ret;
+	}
+
+	if (!ec_key2) {
+		rc = ZPC_ERROR_ARG2NULL;
+		goto ret;
+	}
+
+	/* trivial match */
+	if (ec_key1 == ec_key2) {
+		rc = 0;
+		goto ret;
+	}
+
+	rv  = pthread_mutex_lock(&ec_key1->lock);
+	rv |= pthread_mutex_lock(&ec_key2->lock);
+	assert(rv == 0);
+
+	/* trivial mismatch */
+	if (ec_key1->curve != ec_key2->curve)
+		goto ret_unlock;
+
+	/* public key compare */
+	if (ec_key1->pubkey_set && ec_key2->pubkey_set &&
+	    ec_key1->pub.publen == ec_key2->pub.publen &&
+	    memcmp(ec_key1->pub.pubkey, ec_key2->pub.pubkey,
+		   ec_key1->pub.publen) == 0) {
+		rc = 0;
+		goto ret_unlock;
+	}
+
+	if (!ec_key1->key_set || !ec_key2->key_set)
+		goto ret_unlock;
+
+	/* (re-)derive keys */
+	do {
+		if ((rv = ec_key_sec2prot(ec_key1, EC_KEY_SEC_CUR)) ||
+		    (rv = ec_key_sec2prot(ec_key2, EC_KEY_SEC_CUR))) {
+			rc = rv;
+			goto ret_unlock;
+		}
+	} while (_ec_key_wkvp_cmp(ec_key1, ec_key2));
+
+	/* protected key compare */
+	if (memcmp_consttime(ec_key1->prot.protkey, ec_key2->prot.protkey,
+			     _ec_key_wkvp_offset(ec_key1)) == 0) {
+		rc = 0;
+		goto ret_unlock;
+	}
+
+ret_unlock:
+	rv  = pthread_mutex_unlock(&ec_key2->lock);
+	rv |= pthread_mutex_unlock(&ec_key1->lock);
+	assert(rv == 0);
+ret:
+	DEBUG("return %d (%s)", rc, zpc_error_string(rc));
+	return rc;
 }
 
 /*
