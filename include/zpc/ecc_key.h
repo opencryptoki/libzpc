@@ -210,6 +210,16 @@ int zpc_ec_key_reencipher(struct zpc_ec_key *key, unsigned int reenc);
 __attribute__((visibility("default")))
 void zpc_ec_key_free(struct zpc_ec_key **key);
 
+/**
+ * Compare two EC key objects. The key objects may be updated on deep
+ * compare (no public key data availabe).
+ * \param[in/out] key1 EC key
+ * \param[in/out] key2 EC key
+ * \return 0 on success. Otherwise a non-zero error code is returned.
+ */
+__attribute__((visibility("default")))
+int zpc_ec_key_compare(struct zpc_ec_key *key1, struct zpc_ec_key *key2);
+
 # ifdef __cplusplus
 /* *INDENT-OFF* */
 }

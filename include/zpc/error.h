@@ -524,6 +524,12 @@ extern "C" {
 # define ZPC_ERROR_XTS_KEYGEN_VIA_SYSFS                86
 
 /**
+ * \def ZPC_ERROR_EC_KEY_MISMATCH
+ * \brief EC key compare mismatch.
+ */
+# define ZPC_ERROR_EC_KEY_MISMATCH                     87
+
+/**
  * \fn const char *zpc_error_string(int err)
  * \brief Map an error code to the corresponding error string.
  * \param[in] err An error code.

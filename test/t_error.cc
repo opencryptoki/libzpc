@@ -21,6 +21,6 @@ TEST(error, string)
 	errstr = zpc_error_string(-1);
 	EXPECT_TRUE(strcmp(errstr, "undefined error code") == 0);
 
-	errstr = zpc_error_string(87);
+	errstr = zpc_error_string(88);
 	EXPECT_TRUE(strcmp(errstr, "LAST") == 0);
 }
