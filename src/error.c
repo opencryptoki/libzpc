@@ -104,6 +104,7 @@ zpc_error_string(int err)
 		"HMAC key generation via sysfs attributes failed.",
 		"Creating a block-sized HMAC key failed.",
 		"Creating a full-xts key via sysfs attributes failed",
+		"EC key compare mismatch",
 		"LAST"
 	};
 	const char *rc;
