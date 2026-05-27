@@ -30,6 +30,20 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -m64 -g -O0")
 
+option(BUILD_ASAN OFF)
+
+if (BUILD_ASAN)
+string(APPEND
+    CMAKE_C_FLAGS_DEBUG
+    " -fsanitize=undefined -fsanitize=address"
+)
+
+string(APPEND
+    CMAKE_CXX_FLAGS_DEBUG
+    " -fsanitize=undefined -fsanitize=address"
+)
+endif () # BUILD_ASAN
+
 project(${ZPC_NAME}
     VERSION     ${ZPC_VERSION_MAJOR}.${ZPC_VERSION_MINOR}.${ZPC_VERSION_PATCH}
     DESCRIPTION ${ZPC_DESCRIPTION}
