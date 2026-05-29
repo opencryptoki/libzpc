@@ -393,11 +393,47 @@ install(
 option(BUILD_TEST OFF)
 option(BUILD_INTERNAL_TEST OFF)
 
-if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
+if (BUILD_TEST)
+
+enable_testing()
+
+set (PKEYCMP_TEST_SOURCES
+    test/pkeycmp.c
+)
+
+add_executable(
+    pkeycmp
+    ${PKEYCMP_TEST_SOURCES}
+)
+
+target_include_directories(
+    pkeycmp
+    PRIVATE
+    src
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+target_link_libraries(
+    pkeycmp
+    PRIVATE
+    OpenSSL::Crypto
+)
+
+if (BUILD_ASAN)
+target_link_options(
+    pkeycmp
+    BEFORE PUBLIC -fsanitize=undefined
+    PUBLIC -fsanitize=address
+)
+endif () # BUILD_ASAN
+
+endif () # BUILD_TEST
+
 if (BUILD_INTERNAL_TEST)
 
 enable_testing()
 
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
 set(GTEST_GIT
     https://github.com/google/googletest.git
 )
@@ -675,8 +711,8 @@ target_include_directories(runtest PRIVATE include src ${GTEST_INCLUDE_DIR})
 include(GoogleTest)
 gtest_discover_tests(runtest)
 
-endif () # BUILD_INTERNAL_TEST
 endif () # CMAKE_SYSTEM_PROCESSOR == s390x
+endif () # BUILD_INTERNAL_TEST
 
 ###########################################################
 # doc
