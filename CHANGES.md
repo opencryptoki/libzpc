@@ -1,6 +1,12 @@
 Changelog {#changes}
 ===
 
+**Version 2.0.0**
+
+- [FEATURE] OpenSSL Provider API
+- [FEATURE] Key management tool
+- [REMOVAL] libzpc shared library API
+
 **Version 1.5.0**
 
 - Support for live guest relocation
