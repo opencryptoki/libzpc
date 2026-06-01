@@ -37,6 +37,7 @@ project(${ZPC_NAME}
 )
 
 set(ZPC_HEADERS
+    include/zpc/init.h
     include/zpc/error.h
     include/zpc/aes_key.h
     include/zpc/aes_xts_key.h
