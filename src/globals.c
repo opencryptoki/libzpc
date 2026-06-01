@@ -10,6 +10,7 @@
 #include "globals.h"
 #include "misc.h"
 #include "debug.h"
+#include "zpc/init.h"
 
 #include <assert.h>
 #include <dlfcn.h>
@@ -106,8 +107,7 @@ static const int init = 0;
 static const int init = 1;
 #endif
 
-__attribute__((constructor))
-static void zpc_init(void)
+void zpc_init(void)
 {
 	unsigned long hwcap, facility_list_nmemb;
 	u64 status_word[2], *facility_list = NULL, tmp;
@@ -439,8 +439,7 @@ ret:
 	return;
 }
 
-__attribute__((destructor))
-static void zpc_fini(void)
+void zpc_fini(void)
 {
 	int rc;
 
