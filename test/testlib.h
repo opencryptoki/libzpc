@@ -834,6 +834,13 @@ unsigned char *testlib_hexstr2buf(const char *, size_t *);
 unsigned char *testlib_hexstr2fixedbuf(const char *hexstr, size_t tolen);
 char *testlib_buf2hexstr(const unsigned char *, size_t);
 
+class ZpcEnvironment : public ::testing::Environment {
+public:
+	virtual ~ZpcEnvironment() {}
+	virtual void SetUp();
+	virtual void TearDown();
+};
+
 # ifdef __cplusplus
 /* *INDENT-OFF* */
 }
