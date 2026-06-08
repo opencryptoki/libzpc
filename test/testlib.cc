@@ -11,6 +11,7 @@
 #include "zpc/aes_xts_key.h"
 #include "zpc/ecc_key.h"
 #include "zpc/hmac.h"
+#include "zpc/init.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -1370,3 +1371,15 @@ int testlib_set_aes_xts_key_from_pvsecret(struct zpc_aes_xts_key *aes_key, int k
 
 	return rc;
 }
+
+void ZpcEnvironment::SetUp()
+{
+	zpc_init();
+}
+
+void ZpcEnvironment::TearDown()
+{
+	zpc_fini();
+}
+
+testing::Environment* const zpc_env = testing::AddGlobalTestEnvironment(new ZpcEnvironment);
