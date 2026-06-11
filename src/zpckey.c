@@ -192,7 +192,7 @@ static int check_uv_id(const char *uv_id)
 	}
 
 	if (len != 32) {
-		fprintf(stderr, "uv-secret-id: incorrect length (%lu != 32)\n", len);
+		fprintf(stderr, "uv-secret-id: incorrect length (%zu != 32)\n", len);
 		return 1;
 	}
 
