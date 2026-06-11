@@ -25,10 +25,8 @@
 #endif
 
 #include "ossl.h"
-#include "misc.h"
 #include "asn1.h"
 #include "uri.h"
-#include "zkey/pkey.h"
 
 #ifndef XOR_LOG
 #define XOR_LOG(a, b)	(!(a) != !(b))
