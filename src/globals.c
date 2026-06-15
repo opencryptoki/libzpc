@@ -280,10 +280,10 @@ void zpc_init(void)
 		}
 	}
 
-	/* Check MSA3. */
-	if (facility_list_nmemb >= OFF64(MSA3) + 1
-	    && (facility_list[OFF64(MSA3)] & MASK64(MSA3))) {
-		DEBUG("detected message-security-assist extension 3");
+	/* Check MSA4. */
+	if (facility_list_nmemb >= OFF64(MSA4) + 1
+	    && (facility_list[OFF64(MSA4)] & MASK64(MSA4))) {
+		DEBUG("detected message-security-assist extension 4");
 
 		memset(status_word, 0, sizeof(status_word));
 		cpacf_pcc(CPACF_PCC_QUERY, &status_word);
