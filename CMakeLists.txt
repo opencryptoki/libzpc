@@ -751,8 +751,9 @@ find_program(PANDOC pandoc)
 if (PANDOC)
 
 add_custom_target(
-    man ALL
-    COMMAND ${CMAKE_SOURCE_DIR}/conv_man.sh "${CMAKE_SOURCE_DIR}/man" "${CMAKE_BINARY_DIR}"
+    update-man ALL
+    COMMAND ${CMAKE_SOURCE_DIR}/misc/update-man ${CMAKE_SOURCE_DIR}/man/ ${CMAKE_SOURCE_DIR}/man/
+    VERBATIM
 )
 
 endif () # PANDOC_FOUND

@@ -39,9 +39,6 @@ Additional prerequisites for building the internal test program:
 - libjson-c devel package >= 0.13
 - internet connection
 
-Additional prerequisites for building the man-pages:
-- pandoc
-
 Additional prerequisites for building the internal html and latex doc:
 - doxygen >= 1.8.17
 - latex, bibtex
@@ -72,6 +69,22 @@ See `cmake(1)`.
 
 Custom compile options can also be passed to `cmake` via the `CFLAGS` and
 `CXXFLAGS` environment variables in the usual way.
+
+
+Man-Pages
+---------
+
+The man-pages are generated from the related markdown sources. To
+update one of the man-pages, make the changes to the markdown-file,
+and use the `update-man` build target to update the pre-built man-page
+files (troff format). After updating the pre-built man-pages, commit
+them in a separate patch to the repository.
+
+    # make changes to man/<man-page-name>.<section>.md
+    cmake --build --target update-man     # or
+    make -C build update-man
+    git add man/*.[157]
+    git commit -s -m "man: Update pre-built man-pages"
 
 
 Cross-Building for s390x architecture
