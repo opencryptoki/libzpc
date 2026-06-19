@@ -327,12 +327,12 @@ install(
 )
 
 install(
-    FILES ${CMAKE_BINARY_DIR}/hbkzpcprovider.conf.5
+    FILES ${CMAKE_SOURCE_DIR}/man/hbkzpcprovider.conf.5
     DESTINATION ${CMAKE_INSTALL_MANDIR}/man5
 )
 
 install(
-    FILES ${CMAKE_BINARY_DIR}/hbkzpcprovider.7
+    FILES ${CMAKE_SOURCE_DIR}/man/hbkzpcprovider.7
     DESTINATION ${CMAKE_INSTALL_MANDIR}/man7
 )
 
@@ -383,7 +383,7 @@ install(
 )
 
 install(
-    FILES ${CMAKE_BINARY_DIR}/zpckey.1
+    FILES ${CMAKE_SOURCE_DIR}/man/zpckey.1
     DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
 )
 
