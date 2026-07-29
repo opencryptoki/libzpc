@@ -1,13 +1,11 @@
 Name:		libzpc
 Version:	2.0.1
-Release:	1%{?dist}
+Release:	%autorelease
 Summary:	Open Source library for the IBM Z Protected-key crypto feature
 
 License:	MIT
 Url:		https://github.com/opencryptoki/libzpc
 Source0:	%{url}/archive/v%{version}/%{name}-%{version}.tar.gz
-
-Requires:	openssl >= 3.0.7
 
 BuildRequires:	cmake
 BuildRequires:	gcc
@@ -30,7 +28,6 @@ main memory at any time.
 %ifarch s390x
 %package	provider
 Summary:	OpenSSL provider module for %{name}
-Requires:	%{name}%{?_isa} = %{version}-%{release}
 
 %description	provider
 The %{name}-provider package contains a provider module for OpenSSL v3.0 (and
@@ -48,7 +45,6 @@ origins.
 
 %package	tools
 Summary:	Key management tool for %{name} keys
-Requires:	%{name}%{?_isa} = %{version}-%{release}
 
 %description	tools
 The %{name}-tools package contains a key management tool for key origins.
@@ -57,7 +53,7 @@ persistent protected key origins, from which protected keys can be (re-)derived.
 
 
 %prep
-%autosetup %{name}-%{version}
+%autosetup -p1
 %global modulesdir %(pkg-config --variable=modulesdir libcrypto)
 %global p11modulesdir %(pkg-config --variable=p11_module_path p11-kit-1)
 
@@ -76,12 +72,9 @@ install -m644 %_vpath_builddir/hbkzpcprovider.conf \
 %ctest
 
 
-%files
-%doc README.md CHANGES.md
-%license LICENSE
-
 %ifarch s390x
 %files provider
+%doc README.md CHANGES.md
 %license LICENSE
 %{modulesdir}/zpcprovider.so
 %{_mandir}/man5/hbkzpcprovider.conf.5*
@@ -97,6 +90,7 @@ install -m644 %_vpath_builddir/hbkzpcprovider.conf \
 %endif
 
 %files tools
+%doc README.md CHANGES.md
 %license LICENSE
 %{_bindir}/zpckey
 %{_mandir}/man1/zpckey.1*
