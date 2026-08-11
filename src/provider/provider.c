@@ -260,7 +260,7 @@ static int prov_get_params(void *vpctx, OSSL_PARAM params[])
 		return OSSL_RV_ERR;
 
 	p = OSSL_PARAM_locate(params, OSSL_PROV_PARAM_NAME);
-	if (p && (OSSL_PARAM_set_utf8_ptr(p, PROV_NAME) != OSSL_RV_OK))
+	if (p && (OSSL_PARAM_set_utf8_ptr(p, PROV_DESC) != OSSL_RV_OK))
 		return OSSL_RV_ERR;
 
 	p = OSSL_PARAM_locate(params, OSSL_PROV_PARAM_VERSION);
