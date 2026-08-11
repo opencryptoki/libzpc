@@ -10,6 +10,7 @@
 #define PROV_NAME	"hbkzpc"
 #define PROV_PROP	"provider="PROV_NAME
 #define PROV_PROP_FWD	"provider!="PROV_NAME
+#define PROV_DESC	"Hardware-backed Key Provider (zpc)"
 
 #define PROV_NAME_EC		"EC"
 #define PROV_NAMES_EC		"EC:id-ecPublicKey:1.2.840.10045.2.1"
