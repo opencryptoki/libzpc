@@ -186,9 +186,9 @@ static int parse_path(char *pattr, struct parsed_uri *puri)
 {
 	char **next;
 
-	/* path attributes are mandatory */
+	/* path attributes are optional */
 	if (!pattr || !strlen(pattr))
-		return 1;
+		return 0;
 
 	next = &pattr;
 	do {
@@ -298,11 +298,14 @@ char *uri_compose_new(const char *origin_type, const char *origin_alg,
 		{ .key = URI_Q_MKVP, .value = mkvp },
 		{ .key = URI_Q_APQNS, .value = apqns },
 	};
-	const char *sep = URI_PROTOCOL;
 	struct astr *astr = NULL;
+	const char *sep = "";
 	char *rc = NULL;
 
 	astr = astr_new();
+	if (astr_append(astr, URI_PROTOCOL))
+		goto out;
+
 	for (size_t i = 0; i < ARRAY_SIZE(pattrs); i++) {
 		struct attr *a = &pattrs[i];
 		if (!a->value)
