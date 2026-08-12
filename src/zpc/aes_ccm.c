@@ -602,12 +602,11 @@ static int
 __aes_ccm_cbcmac(struct zpc_aes_ccm *aes_ccm, const u8 * in, size_t inlen)
 {
 	struct aes_ccm_flags aflags;
-	u8 a[16], tmp[16];
+	u8 tmp[16];
 	int rc, cc;
 	size_t rem, i;
 
 	memset(&aflags, 0, sizeof(aflags));
-	memset(a, 0, sizeof(a));
 
 	rem = inlen & 0xf;
 	inlen &= ~(size_t)0xf;
