@@ -1,0 +1,160 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Copyright contributors to the libzpc project
+#
+# List keys exposed by zpcpkcs11.so via p11tool (GnuTLS) or pkcs11-tool
+# (OpenSC).  The script tries p11tool first; if it is not found it falls back
+# to pkcs11-tool.  If neither is available all tests are skipped.
+#
+# Env vars:
+#   ZPCPKCS11_SO      path to zpcpkcs11.so  (default: build/zpcpkcs11.so)
+#   ZPCPKCS11_CONF    path to key list file  (default: ./zpcpkcs11.conf)
+#   OPENSSL_CONF      openssl.conf for the hbkzpc provider (default: build/openssl.conf)
+#   OPENSSL           openssl binary (default: openssl)
+#   P11TOOL           override p11tool binary
+#   PKCS11_TOOL       override pkcs11-tool binary
+#   V                 set to 1 for verbose TAP diagnostics
+
+export OPENSSL_CONF=${OPENSSL_CONF:-"build/openssl.conf"}
+OPENSSL=${OPENSSL:-"openssl"}
+ZPCPKCS11_SO=${ZPCPKCS11_SO:-"${PWD}/build/zpcpkcs11.so"}
+ZPCPKCS11_CONF=${ZPCPKCS11_CONF:-"./zpcpkcs11.conf"}
+P11TOOL=${P11TOOL:-"p11tool"}
+PKCS11_TOOL=${PKCS11_TOOL:-"pkcs11-tool"}
+V=${V:-"0"}
+
+ZPCS=( "p-256"  "p-384"  "p-521"  "ed25519" "ed448" )
+ALGS=( "prime256v1" "secp384r1" "secp521r1" "ED25519" "ED448" )
+
+tap13() {
+	local rc="$1"
+	local idx="$2"
+	local text="$3"
+	local log="$4"
+
+	case ${rc} in
+	0)
+		echo "ok ${idx} - ${text}"
+		if [ ${V} -eq 1 ]; then
+			echo " ---"
+			echo "${log}"
+			echo " ---"
+		fi
+		;;
+	77)
+		echo "ok ${idx} # SKIP"
+		;;
+	*)
+		echo "not ok ${idx} - ${text}"
+		echo " ---"
+		echo "${log}"
+		echo " ---"
+		;;
+	esac
+
+	return 0
+}
+
+# Detect which tool is available; set TOOL_CMD and TOOL_NAME.
+detect_tool() {
+	if command -v "${P11TOOL}" > /dev/null 2>&1; then
+		TOOL_NAME="p11tool"
+		return 0
+	fi
+	if command -v "${PKCS11_TOOL}" > /dev/null 2>&1; then
+		TOOL_NAME="pkcs11-tool"
+		return 0
+	fi
+	TOOL_NAME=""
+	return 1
+}
+
+# list_all_p11tool: list all objects reported by p11tool and check that each
+# expected label appears in the output.
+list_all_p11tool() {
+	local label="$1"
+
+	local out
+	out=$(ZPCPKCS11_CONFIG="${ZPCPKCS11_CONF}" \
+		"${P11TOOL}" \
+		  --provider "${ZPCPKCS11_SO}" \
+		  --list-all 2>&1) || return 99
+
+	echo "${out}"
+
+	# Verify the label is present in the listing.
+	echo "${out}" | grep -q "Label:.*${label}" || {
+		echo "label '${label}' not found in p11tool output"
+		return 1
+	}
+
+	return 0
+}
+
+# list_all_pkcs11tool: list all objects reported by pkcs11-tool and check that
+# each expected label appears in the output.
+list_all_pkcs11tool() {
+	local label="$1"
+
+	local out
+	out=$(ZPCPKCS11_CONFIG="${ZPCPKCS11_CONF}" \
+		"${PKCS11_TOOL}" \
+		  --module "${ZPCPKCS11_SO}" \
+		  --list-objects 2>&1) || return 99
+
+	echo "${out}"
+
+	echo "${out}" | grep -q "label:.*${label}" || {
+		echo "label '${label}' not found in pkcs11-tool output"
+		return 1
+	}
+
+	return 0
+}
+
+list_keys() {
+	[ -r "${ZPCPKCS11_SO}" ]   || return 77
+	[ -r "${ZPCPKCS11_CONF}" ] || return 77
+
+	case "${TOOL_NAME}" in
+	p11tool)
+		list_all_p11tool "$1"
+		;;
+	pkcs11-tool)
+		list_all_pkcs11tool "$1"
+		;;
+	*)
+		return 77
+		;;
+	esac
+}
+
+uv_list() {
+	detect_tool || {
+		echo "1..1"
+		echo "ok 1 # SKIP (neither p11tool nor pkcs11-tool found)"
+		return 0
+	}
+
+	fail=0
+	tc=0
+
+	for ((i=0; i<${#ZPCS[@]}; i++)); do
+		local ZPC="${ZPCS[$i]}"
+		local ALG="${ALGS[$i]}"
+
+		tc=$(( tc + 1 ))
+		log=$(list_keys "${ZPC}")
+		rc="$?"
+		[ ${rc} -ne 0 ] && [ ${rc} -ne 77 ] && fail=1
+		tap13 "${rc}" "${tc}" \
+			"List key '${ZPC}' (${ALG}) via ${TOOL_NAME}" "${log}"
+	done
+
+	return ${fail}
+}
+
+if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
+	uv_list
+	exit $?
+fi

@@ -1,0 +1,490 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Copyright contributors to the libzpc project
+#
+# Sign and verify test for zpcpkcs11.so using pkcs11-tool (OpenSC) or
+# p11tool (GnuTLS).  pkcs11-tool is preferred; p11tool is used as a fallback.
+#
+# The script reuses the same set of hbkzpc PEM key files as the hbk-provider
+# sign/verify tests (t_ossl_uv_sign_verify).  For each algorithm the test:
+#
+#   pkcs11-tool: signs a random message, verifies via the PKCS#11 public key,
+#                then cross-verifies with OpenSSL using the cleartext public key.
+#   p11tool:     runs --test-sign which performs an internal PKCS#11 sign+verify
+#                round-trip; no signature file is produced so no cross-verify.
+#
+# Tool / mechanism mapping
+#   ECDSA (prime256v1 / secp384r1 / secp521r1):
+#     pkcs11-tool: --mechanism ECDSA-SHA256
+#     p11tool:     --test-sign --hash=SHA256
+#   EdDSA (ED25519 / ED448):
+#     pkcs11-tool: --mechanism EDDSA
+#     p11tool:     --test-sign --hash=SHA512   (Ed25519)
+#                  --test-sign --hash=SHAKE-256 (Ed448)
+#
+# Signature format note
+#   PKCS#11 ECDSA produces raw (r||s) signatures.  OpenSSL expects DER-encoded
+#   ECDSA signatures, so the verification step converts the raw signature with
+#   the helper function raw_to_der_sig before calling `openssl dgst -verify`.
+#
+# Env vars:
+#   ZPCPKCS11_SO      path to zpcpkcs11.so  (default: build/zpcpkcs11.so)
+#   ZPCPKCS11_CONF    path to key list file  (default: ./zpcpkcs11.conf)
+#   OPENSSL_CONF      openssl.conf for the hbkzpc provider (default: build/openssl.conf)
+#   ZPC_KEY_DIR       directory holding *-hbkzpc.pem and *-pub.pem files (default: .)
+#   ZPC_SEC_DIR       directory holding cleartext *.key files             (default: .)
+#   OPENSSL           openssl binary (default: openssl)
+#   P11TOOL           override p11tool binary
+#   PKCS11_TOOL       override pkcs11-tool binary
+#   V                 set to 1 for verbose TAP diagnostics
+
+export OPENSSL_CONF=${OPENSSL_CONF:-"build/openssl.conf"}
+OPENSSL=${OPENSSL:-"openssl"}
+ZPCPKCS11_SO=${ZPCPKCS11_SO:-"${PWD}/build/zpcpkcs11.so"}
+ZPCPKCS11_CONF=${ZPCPKCS11_CONF:-"./zpcpkcs11.conf"}
+ZPC_KEY_DIR=${ZPC_KEY_DIR:-"."}
+ZPC_SEC_DIR=${ZPC_SEC_DIR:-"."}
+P11TOOL=${P11TOOL:-"p11tool"}
+PKCS11_TOOL=${PKCS11_TOOL:-"pkcs11-tool"}
+V=${V:-"0"}
+
+# Algorithm tables – same layout as t_ossl_uv_sign_verify.
+ALGS=( "prime256v1" "secp384r1" "secp521r1" "ED25519"  "ED448"  )
+ZPCS=( "p-256"      "p-384"     "p-521"     "ed25519"  "ed448"  )
+CLRS=( "p256"       "p384"      "p521"      "ed25519"  "ed448"  )
+
+TTMPDIR=$(mktemp -d)
+MSG="${TTMPDIR}/msg"
+MSG_LARGE="${TTMPDIR}/msg_large"
+SIG="${TTMPDIR}/msg.p11.sig"
+SIG_DER="${TTMPDIR}/msg.p11.sig.der"
+SIG_LARGE="${TTMPDIR}/msg_large.p11.sig"
+SIG_LARGE_DER="${TTMPDIR}/msg_large.p11.sig.der"
+
+# Small message (< 1024 bytes): pkcs11-tool uses single-shot C_Sign / C_Verify.
+MSG_SIZE=800
+# Large message (> 1024 bytes): pkcs11-tool falls back to C_SignUpdate /
+# C_SignFinal and C_VerifyUpdate / C_VerifyFinal (multi-part).  CKM_EDDSA does
+# not support multi-part, so the large-message test covers EC curves only.
+MSG_SIZE_LARGE=2000
+
+tap13() {
+	local rc="$1"
+	local idx="$2"
+	local text="$3"
+	local log="$4"
+
+	case ${rc} in
+	0)
+		echo "ok ${idx} - ${text}"
+		if [ ${V} -eq 1 ]; then
+			echo " ---"
+			echo "${log}"
+			echo " ---"
+		fi
+		;;
+	77)
+		echo "ok ${idx} # SKIP ${text}"
+		;;
+	*)
+		echo "not ok ${idx} - ${text}"
+		echo " ---"
+		echo "${log}"
+		echo " ---"
+		;;
+	esac
+
+	return 0
+}
+
+# detect_tool: prefer pkcs11-tool; fall back to p11tool.
+# Sets TOOL_NAME and returns 0 if either is found, 1 if neither is.
+detect_tool() {
+	if command -v "${PKCS11_TOOL}" > /dev/null 2>&1; then
+		TOOL_NAME="pkcs11-tool"
+		return 0
+	fi
+	if command -v "${P11TOOL}" > /dev/null 2>&1; then
+		TOOL_NAME="p11tool"
+		return 0
+	fi
+	TOOL_NAME=""
+	return 1
+}
+
+###############################################################################
+# p11tool helpers
+###############################################################################
+
+# p11tool_url_for_label: return the PKCS#11 URL for the private key with the
+# given label, as reported by p11tool --list-all.
+p11tool_url_for_label() {
+	local label="$1"
+
+	ZPCPKCS11_CONFIG="${ZPCPKCS11_CONF}" \
+		"${P11TOOL}" \
+		  --provider "${ZPCPKCS11_SO}" \
+		  --list-all 2>/dev/null \
+	| awk -v lbl="${label}" '
+		/^Object/ { url=""; found_label=0; found_priv=0 }
+		/URL:/    { url=$2 }
+		/Label:/  && $2 == lbl { found_label=1 }
+		/Type:.*[Pp]rivate/    { found_priv=1 }
+		found_label && found_priv && url != "" { print url; exit }
+	'
+}
+
+# p11tool_test_sign: run p11tool --test-sign for the key identified by URL.
+# $1: PKCS#11 URL of the private key
+# $2: optional --hash=<ALG> argument (pass empty string for EdDSA)
+#
+# --test-sign performs a PKCS#11 sign+verify round-trip internally; it does
+# not write a signature file and cannot be used for cross-verification.
+p11tool_test_sign() {
+	local url="$1"
+	local hash_flag="$2"   # e.g. "--hash=SHA256" or "" for EdDSA
+
+	ZPCPKCS11_CONFIG="${ZPCPKCS11_CONF}" \
+		"${P11TOOL}" \
+		  --provider "${ZPCPKCS11_SO}" \
+		  --test-sign \
+		  ${hash_flag} \
+		  "${url}" 2>&1
+}
+
+###############################################################################
+# pkcs11-tool helpers
+###############################################################################
+
+# pkcs11tool_id_for_label: return the CKA_ID hex string for a given label.
+#
+# CKA_ID is set to the raw file line-number of the label's entry in the config
+# (see config.c: lineno is incremented for every line, including comments and
+# blanks).  pkcs11-tool --id expects the value as a hex string of the raw
+# CK_ULONG bytes in the host's native byte order (8 bytes on LP64).
+# s390x is big-endian, so CK_ULONG 6 → 0000000000000006.
+#
+# Example (big-endian): label on line 6 → CK_ULONG 6 → BE bytes
+#                       00 00 00 00 00 00 00 06 → hex string "0000000000000006"
+pkcs11tool_id_for_label() {
+	local label="$1"
+	local lineno
+
+	lineno=$(grep -n "^${label}=" "${ZPCPKCS11_CONF}" | cut -d: -f1)
+	[ -n "${lineno}" ] || return 1
+
+	# Format as 16 hex digits (8 bytes) in native byte order.
+	python3 -c "
+import sys, struct
+n = int(sys.argv[1])
+# sys.byteorder is 'big' on s390x, 'little' on x86.
+order = '>' if sys.byteorder == 'big' else '<'
+print(struct.pack(order + 'Q', n).hex())
+" "${lineno}"
+}
+
+# pkcs11tool_sign: sign a message file using pkcs11-tool.
+# $1: CKA_ID hex string
+# $2: mechanism (e.g. ECDSA-SHA256 or EDDSA)
+# $3: input message file  (default: MSG)
+# $4: output signature file (default: SIG)
+# Uses --id to select the key because --label does not reliably select the
+# correct object when multiple objects share a label prefix.
+pkcs11tool_sign() {
+	local id="$1"
+	local mechanism="$2"
+	local input_file="${3:-${MSG}}"
+	local output_file="${4:-${SIG}}"
+
+	ZPCPKCS11_CONFIG="${ZPCPKCS11_CONF}" \
+		"${PKCS11_TOOL}" \
+		  --module "${ZPCPKCS11_SO}" \
+		  --sign \
+		  --mechanism "${mechanism}" \
+		  --id "${id}" \
+		  --input-file "${input_file}" \
+		  --output-file "${output_file}" 2>&1
+}
+
+# pkcs11tool_verify: verify a signature against a message file using pkcs11-tool.
+# $1: CKA_ID hex string
+# $2: mechanism
+# $3: input message file    (default: MSG)
+# $4: signature file        (default: SIG)
+# Uses --id for the same reason as pkcs11tool_sign.
+pkcs11tool_verify() {
+	local id="$1"
+	local mechanism="$2"
+	local input_file="${3:-${MSG}}"
+	local sig_file="${4:-${SIG}}"
+
+	ZPCPKCS11_CONFIG="${ZPCPKCS11_CONF}" \
+		"${PKCS11_TOOL}" \
+		  --module "${ZPCPKCS11_SO}" \
+		  --verify \
+		  --mechanism "${mechanism}" \
+		  --id "${id}" \
+		  --input-file "${input_file}" \
+		  --signature-file "${sig_file}" 2>&1
+}
+
+###############################################################################
+# Signature conversion helpers
+###############################################################################
+
+# raw_to_der_sig: convert a raw PKCS#11 ECDSA signature (r||s, each
+# prime_bytes wide) into a DER-encoded ECDSA_SIG for OpenSSL.
+# Args: <prime_bytes> <raw_sig_file> <der_sig_file>
+#
+# DER length encoding note: for P-521 the SEQUENCE body is up to 138 bytes,
+# which exceeds the 127-byte threshold for single-byte DER lengths.  The
+# long-form encoding (0x81 <len> for lengths 128-255) must be used; a plain
+# bytes([0x30, len(seq)]) would produce a corrupt blob and cause OpenSSL to
+# report "unsupported algorithm" when it cannot parse the structure.
+raw_to_der_sig() {
+	local prime_bytes="$1"
+	local raw_file="$2"
+	local der_file="$3"
+
+	# Derive r/s length from raw file length.
+	local raw_len=$(wc -c < ${raw_file})
+	local half=$(( raw_len / 2 ))
+
+	# Validate derived r/s length.
+	test "${half}" -eq "${prime_bytes}" || return 1
+
+	# Split raw sig into r and s
+	local r_hex=$(xxd -p -c ${half} -l ${half} -s       0 ${raw_file})
+	local s_hex=$(xxd -p -c ${half} -l ${half} -s ${half} ${raw_file})
+
+	# Generate DER
+	${OPENSSL} \
+	  asn1parse \
+	  -genconf <(printf 'asn1 = SEQUENCE:sig\n[sig]\nr = INTEGER:0x%s\ns = INTEGER:0x%s\n' "${r_hex}" "${s_hex}") \
+	  -noout \
+	  -out "${der_file}"
+
+	return $?
+}
+
+###############################################################################
+# Per-algorithm sign/verify logic
+###############################################################################
+
+# ecdsa_sign_verify: sign with PKCS#11 private key, verify with PKCS#11 public
+# key, then cross-verify with OpenSSL using the cleartext public key.
+# $1: zpc  - PKCS#11 label, e.g. "p-256"
+# $2: clr  - cleartext key prefix, e.g. "p256"
+# $3: prime_bytes - byte-length of prime (32 / 48 / 66)
+# $4: msg_file    - message file to sign  (default: MSG)
+# $5: sig_file    - raw signature file    (default: SIG)
+# $6: sig_der_file - DER signature file   (default: SIG_DER)
+ecdsa_sign_verify() {
+	local zpc="$1"
+	local clr="$2"
+	local prime_bytes="$3"
+	local msg_file="${4:-${MSG}}"
+	local sig_file="${5:-${SIG}}"
+	local sig_der_file="${6:-${SIG_DER}}"
+
+	[ -r "${ZPCPKCS11_SO}" ]   || return 77
+	[ -r "${ZPCPKCS11_CONF}" ] || return 77
+
+	local CLR_PUB_PEM="${ZPC_KEY_DIR}/${clr}-pub.pem"
+	[ -r "${CLR_PUB_PEM}" ] || return 77
+
+	local out=""
+
+	case "${TOOL_NAME}" in
+	pkcs11-tool)
+		local id
+		id=$(pkcs11tool_id_for_label "${zpc}") || return 77
+
+		rm -f "${sig_file}" "${sig_der_file}"
+
+		local sign_out
+		sign_out=$(pkcs11tool_sign "${id}" "ECDSA-SHA256" "${msg_file}" "${sig_file}")
+		[ $? -eq 0 ] || { echo "${sign_out}"; return 99; }
+		out+="${sign_out}"$'\n'"sign ok"
+
+		local verify_out
+		verify_out=$(pkcs11tool_verify "${id}" "ECDSA-SHA256" "${msg_file}" "${sig_file}")
+		[ $? -eq 0 ] || { echo "${out}"; echo "${verify_out}"; return 99; }
+		out+=$'\n'"verify ok (pkcs11-tool)"
+
+		# Cross-verify: convert raw (r||s) to DER and verify with OpenSSL.
+		if raw_to_der_sig "${prime_bytes}" "${sig_file}" "${sig_der_file}" 2>&1; then
+			local xv_out
+			xv_out=$(${OPENSSL} dgst		\
+				  -verify "${CLR_PUB_PEM}"	\
+				  -sha256			\
+				  -signature "${sig_der_file}"	\
+				  "${msg_file}" 2>&1)
+			[ $? -eq 0 ] || { echo "${out}"; echo "${xv_out}"; return 99; }
+			out+=$'\n'"cross-verify ok (openssl)"
+		fi
+		;;
+	p11tool)
+		local url
+		url=$(p11tool_url_for_label "${zpc}") || return 77
+		[ -n "${url}" ] || return 77
+
+		local ts_out
+		ts_out=$(p11tool_test_sign "${url}" "--hash=SHA256")
+		[ $? -eq 0 ] || { echo "${ts_out}"; return 99; }
+		out+="${ts_out}"$'\n'"sign/verify ok (p11tool --test-sign)"
+		;;
+	esac
+
+	echo "${out}"
+	return 0
+}
+
+# eddsa_sign_verify: sign with PKCS#11 private key, verify with PKCS#11 public
+# key, then cross-verify with OpenSSL using the cleartext public key.
+# EdDSA signatures are already raw (not DER-encoded) so no conversion needed.
+eddsa_sign_verify() {
+	local zpc="$1"   # PKCS#11 label, e.g. "ed25519"
+	local clr="$2"   # cleartext key prefix, e.g. "ed25519"
+
+	[ -r "${ZPCPKCS11_SO}" ]   || return 77
+	[ -r "${ZPCPKCS11_CONF}" ] || return 77
+
+	local CLR_PUB_PEM="${ZPC_KEY_DIR}/${clr}-pub.pem"
+
+	local out=""
+
+	case "${TOOL_NAME}" in
+	pkcs11-tool)
+		# Cross-verify requires the cleartext public key.
+		[ -r "${CLR_PUB_PEM}" ] || return 77
+
+		local id
+		id=$(pkcs11tool_id_for_label "${zpc}") || return 77
+
+		rm -f "${SIG}"
+
+		local sign_out
+		sign_out=$(pkcs11tool_sign "${id}" "EDDSA")
+		[ $? -eq 0 ] || { echo "${sign_out}"; return 99; }
+		out+="${sign_out}"$'\n'"sign ok"
+
+		local verify_out
+		verify_out=$(pkcs11tool_verify "${id}" "EDDSA")
+		[ $? -eq 0 ] || { echo "${out}"; echo "${verify_out}"; return 99; }
+		out+=$'\n'"verify ok (pkcs11-tool)"
+
+		# Cross-verify with OpenSSL (EdDSA signature format is already compatible).
+		local xv_out
+		xv_out=$(${OPENSSL} dgst			\
+			  -verify "${CLR_PUB_PEM}"		\
+			  -signature "${SIG}"			\
+			  "${MSG}" 2>&1)
+		[ $? -eq 0 ] || { echo "${out}"; echo "${xv_out}"; return 99; }
+		out+=$'\n'"cross-verify ok (openssl)"
+		;;
+	p11tool)
+		local url
+		url=$(p11tool_url_for_label "${zpc}") || return 77
+		[ -n "${url}" ] || return 77
+
+		# p11tool --test-sign pre-hashes the data before passing it to
+		# C_Sign.  The hash algorithm must match what the EdDSA variant
+		# uses internally: SHA-512 for Ed25519, SHAKE-256 for Ed448.
+		local hash_flag
+		case "${zpc}" in
+		ed25519) hash_flag="--hash=SHA512"   ;;
+		ed448)   hash_flag="--hash=SHAKE-256" ;;
+		*)       return 77 ;;
+		esac
+
+		local ts_out
+		ts_out=$(p11tool_test_sign "${url}" "${hash_flag}")
+		[ $? -eq 0 ] || { echo "${ts_out}"; return 99; }
+		out+="${ts_out}"$'\n'"sign/verify ok (p11tool --test-sign)"
+		;;
+	esac
+
+	echo "${out}"
+	return 0
+}
+
+###############################################################################
+# Main test loop
+###############################################################################
+
+uv_sign_verify() {
+	detect_tool || {
+		echo "1..1"
+		echo "ok 1 # SKIP (neither pkcs11-tool nor p11tool found)"
+		return 0
+	}
+
+	dd if=/dev/random of="${MSG}"       bs=${MSG_SIZE}       count=1 > /dev/null 2>&1 || return 1
+	dd if=/dev/random of="${MSG_LARGE}" bs=${MSG_SIZE_LARGE} count=1 > /dev/null 2>&1 || return 1
+
+	fail=0
+	tc=0
+
+	for ((i=0; i<${#ALGS[@]}; i++)); do
+		local ALG="${ALGS[$i]}"
+		local ZPC="${ZPCS[$i]}"
+		local CLR="${CLRS[$i]}"
+
+		if echo "${ALG}" | grep -iq "^ED"; then
+			# EdDSA single-part.
+			tc=$(( tc + 1 ))
+			log=$(eddsa_sign_verify "${ZPC}" "${CLR}")
+			rc="$?"
+			[ ${rc} -ne 0 ] && [ ${rc} -ne 77 ] && fail=1
+			tap13 "${rc}" "${tc}" \
+				"PKCS#11 sign/verify (EdDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
+
+			# EdDSA multi-part slot – always skipped: CKM_EDDSA has no
+			# C_SignUpdate/C_SignFinal support regardless of tool.
+			tc=$(( tc + 1 ))
+			tap13 77 "${tc}" \
+				"PKCS#11 sign/verify multi-part (EdDSA, ${ALG}) - SKIP (CKM_EDDSA has no multi-part support)" ""
+		else
+			# ECDSA: determine prime byte-length from algorithm name.
+			local prime_bytes
+			case "${ALG}" in
+			prime256v1) prime_bytes=32 ;;
+			secp384r1)  prime_bytes=48 ;;
+			secp521r1)  prime_bytes=66 ;;
+			*)          prime_bytes=32 ;;
+			esac
+
+			# Single-part test (MSG < 1024 bytes → C_Sign / C_Verify).
+			tc=$(( tc + 1 ))
+			log=$(ecdsa_sign_verify "${ZPC}" "${CLR}" "${prime_bytes}")
+			rc="$?"
+			[ ${rc} -ne 0 ] && [ ${rc} -ne 77 ] && fail=1
+			tap13 "${rc}" "${tc}" \
+				"PKCS#11 sign/verify (ECDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
+
+			# Multi-part test (MSG_LARGE > 1024 bytes → C_SignUpdate/Final).
+			# p11tool has no API to drive multi-part operations; skip it.
+			tc=$(( tc + 1 ))
+			if [ "${TOOL_NAME}" = "pkcs11-tool" ]; then
+				log=$(ecdsa_sign_verify "${ZPC}" "${CLR}" "${prime_bytes}" \
+					"${MSG_LARGE}" "${SIG_LARGE}" "${SIG_LARGE_DER}")
+				rc="$?"
+				[ ${rc} -ne 0 ] && [ ${rc} -ne 77 ] && fail=1
+				tap13 "${rc}" "${tc}" \
+					"PKCS#11 sign/verify multi-part (ECDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
+			else
+				tap13 77 "${tc}" \
+					"PKCS#11 sign/verify multi-part (ECDSA, ${ALG}) - SKIP (p11tool cannot drive multi-part)" ""
+			fi
+		fi
+	done
+
+	rm -rf "${TTMPDIR}"
+	return ${fail}
+}
+
+if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
+	uv_sign_verify
+	exit $?
+fi
