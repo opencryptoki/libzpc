@@ -446,6 +446,16 @@ install(
     LIBRARY DESTINATION ${P11KIT_MODULEDIR}
 )
 
+install(
+    FILES ${CMAKE_SOURCE_DIR}/man/zpcpkcs11.conf.5
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man5
+)
+
+install(
+    FILES ${CMAKE_SOURCE_DIR}/man/zpcpkcs11.7
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man7
+)
+
 endif() # CMAKE_SYSTEM_PROCESSOR == s390x
 
 ###########################################################
