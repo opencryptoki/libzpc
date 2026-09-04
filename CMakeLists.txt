@@ -122,8 +122,8 @@ target_compile_definitions(
     ZPC_VERSION_MINOR=${ZPC_VERSION_MINOR}
     ZPC_VERSION_PATCH=${ZPC_VERSION_PATCH}
 )
-configure_file(libzpc.pc.in libzpc.pc @ONLY)
 include(GNUInstallDirs)
+configure_file(libzpc.pc.in libzpc.pc @ONLY)
 
 install(
     TARGETS zpc
