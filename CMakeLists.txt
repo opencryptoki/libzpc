@@ -240,15 +240,15 @@ add_dependencies(
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL s390x)
 
 set(ZPCPROVIDER_SOURCES
-    src/provider.c
-    src/object.c
-    src/map.c
-    src/store.c
-    src/keymgmt.c
-    src/algid.c
-    src/signature.c
-    src/tls.c
-    src/decoder.c
+    src/provider/provider.c
+    src/provider/object.c
+    src/provider/map.c
+    src/provider/store.c
+    src/provider/keymgmt.c
+    src/provider/algid.c
+    src/provider/signature.c
+    src/provider/tls.c
+    src/provider/decoder.c
 )
 
 add_library(
