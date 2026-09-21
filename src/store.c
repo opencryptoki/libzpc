@@ -7,6 +7,7 @@
 #include "provider.h"
 #include "object.h"
 #include "ossl.h"
+#include "ossl_core.h"
 #include "uri.h"
 #include "map.h"
 #include "store_local.h"
