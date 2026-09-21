@@ -12,6 +12,7 @@
 #include "signature.h"
 #include "object.h"
 #include "ossl.h"
+#include "ossl_core.h"
 #include "map.h"
 #include "algid.h"
 #include "zpc/ecdsa_ctx.h"

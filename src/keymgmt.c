@@ -12,6 +12,7 @@
 #include "provider.h"
 #include "object.h"
 #include "ossl.h"
+#include "ossl_core.h"
 #include "map.h"
 #include "zpc/ecc_key.h"
 #include "zpc/ecdsa_ctx.h"

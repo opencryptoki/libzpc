@@ -9,6 +9,7 @@
 #include "provider.h"
 #include "decoder.h"
 #include "ossl.h"
+#include "ossl_core.h"
 #include "asn1.h"
 #include "uri.h"
 #include "map.h"
