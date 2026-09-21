@@ -97,36 +97,36 @@ set(ZPC_HEADERS
 )
 
 set(ZPC_SOURCES
-    src/globals.c
-    src/error.c
-    src/misc.c
-    src/misc_asm.S
-    src/aes_key.c
-    src/aes_xts_key.c
-    src/aes_ecb.c
-    src/aes_cbc.c
-    src/aes_xts.c
-    src/aes_xts_full.c
-    src/aes_cmac.c
-    src/aes_ccm.c
-    src/aes_gcm.c
-    src/ecc_key.c
-    src/ecdsa_ctx.c
-    src/pvsecrets.c
-    src/hmac_key.c
-    src/hmac.c
+    src/zpc/globals.c
+    src/zpc/error.c
+    src/zpc/misc.c
+    src/zpc/misc_asm.S
+    src/zpc/aes_key.c
+    src/zpc/aes_xts_key.c
+    src/zpc/aes_ecb.c
+    src/zpc/aes_cbc.c
+    src/zpc/aes_xts.c
+    src/zpc/aes_xts_full.c
+    src/zpc/aes_cmac.c
+    src/zpc/aes_ccm.c
+    src/zpc/aes_gcm.c
+    src/zpc/ecc_key.c
+    src/zpc/ecdsa_ctx.c
+    src/zpc/pvsecrets.c
+    src/zpc/hmac_key.c
+    src/zpc/hmac.c
 
-    src/zkey/utils.c
-    src/zkey/pkey.c
-    src/zkey/cca.c
-    src/zkey/ep11.c
+    src/zpc/zkey/utils.c
+    src/zpc/zkey/pkey.c
+    src/zpc/zkey/cca.c
+    src/zpc/zkey/ep11.c
 
-    src/zkey/lib/util_base.c
-    src/zkey/lib/util_file.c
-    src/zkey/lib/util_libc.c
-    src/zkey/lib/util_panic.c
-    src/zkey/lib/util_path.c
-    src/zkey/lib/util_prg.c
+    src/zpc/zkey/lib/util_base.c
+    src/zpc/zkey/lib/util_file.c
+    src/zpc/zkey/lib/util_libc.c
+    src/zpc/zkey/lib/util_panic.c
+    src/zpc/zkey/lib/util_path.c
+    src/zpc/zkey/lib/util_prg.c
 )
 
 set(ZPC_LIBS
@@ -144,7 +144,12 @@ set_target_properties(
     POSITION_INDEPENDENT_CODE ON
 )
 
-target_include_directories(zpc PRIVATE include src src/zkey)
+target_include_directories(
+    zpc PRIVATE
+    include
+    src/zpc
+    src/zpc/zkey
+)
 target_link_libraries(zpc ${ZPC_LIBS})
 target_compile_definitions(
     zpc PRIVATE
@@ -777,7 +782,7 @@ set(ZPC_TEST_SOURCES
 add_executable(runtest ${ZPC_TEST_SOURCES})
 add_dependencies(runtest gtest)
 target_link_libraries(runtest ${ZPC_TEST_LIBS})
-target_include_directories(runtest PRIVATE include src ${GTEST_INCLUDE_DIR})
+target_include_directories(runtest PRIVATE include src/zpc ${GTEST_INCLUDE_DIR})
 
 include(GoogleTest)
 gtest_discover_tests(runtest)
