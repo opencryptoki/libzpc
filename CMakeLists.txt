@@ -166,7 +166,7 @@ include(GNUInstallDirs)
 # URI
 
 set (URI_SOURCES
-    src/uri.c
+    src/uri/uri.c
 )
 
 add_library(
@@ -183,6 +183,7 @@ set_target_properties(
 target_include_directories(
     uri
     PRIVATE
+    src/include
     ${OPENSSL_INCLUDE_DIR}
 )
 
