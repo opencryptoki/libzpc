@@ -349,7 +349,7 @@ endif() # CMAKE_SYSTEM_PROCESSOR == s390x
 # zpckey
 
 set(ZPCKEY_SOURCES
-    src/zpckey.c
+    src/tools/zpckey.c
 )
 
 add_executable(zpckey ${ZPCKEY_SOURCES})
@@ -359,7 +359,6 @@ target_include_directories(
     PRIVATE
     src/include
     ${OPENSSL_INCLUDE_DIR}
-    ${CMAKE_BINARY_DIR}
 )
 
 target_compile_definitions(
