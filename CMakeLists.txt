@@ -191,12 +191,12 @@ target_include_directories(
 
 add_custom_command(
   OUTPUT asn1_gen.c
-  COMMAND ${CMAKE_C_COMPILER} -I${OPENSSL_INCLUDE_DIR} -x c -E ${CMAKE_SOURCE_DIR}/src/asn1_gen.c.in
+  COMMAND ${CMAKE_C_COMPILER} -I${OPENSSL_INCLUDE_DIR} -x c -E ${CMAKE_SOURCE_DIR}/src/asn1/asn1_gen.c.in
           | grep -v "^#"
           | sed -n -e "1,/^BEGIN:$$/!p"
           | clang-format --assume-filename=.c
           > asn1_gen.c
-  MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/src/asn1_gen.c.in
+  MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/src/asn1/asn1_gen.c.in
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
@@ -206,7 +206,7 @@ add_custom_target(
 )
 
 set (ASN1_SOURCES
-    src/asn1.c
+    src/asn1/asn1.c
 )
 
 add_library(
@@ -223,6 +223,7 @@ set_target_properties(
 target_include_directories(
     asn1
     PRIVATE
+    src/include
     ${OPENSSL_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}
 )
@@ -263,7 +264,7 @@ set_target_properties(
 target_include_directories(
     zpcprovider
     PRIVATE
-    src
+    src/include
     include
     ${OPENSSL_INCLUDE_DIR}
 )
@@ -355,7 +356,7 @@ add_executable(zpckey ${ZPCKEY_SOURCES})
 target_include_directories(
     zpckey
     PRIVATE
-    src
+    src/include
     ${OPENSSL_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}
 )
