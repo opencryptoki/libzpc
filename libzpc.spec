@@ -16,6 +16,7 @@ BuildRequires:	make
 BuildRequires:	clang-tools-extra
 BuildRequires:	json-c-devel
 BuildRequires:	openssl-devel >= 3.0.7
+BuildRequires:	p11-kit-devel
 
 
 %description
@@ -34,6 +35,14 @@ Requires:	%{name}%{?_isa} = %{version}-%{release}
 %description	provider
 The %{name}-provider package contains a provider module for OpenSSL v3.0 (and
 later), interfacing to the protected key feature of z/Architecture.
+
+%package	pkcs11
+Summary:	PKCS#11 module for %{name}
+Requires:	%{name}-provider
+
+%description	pkcs11
+The %{name}-pkcs11 package contains a PKCS#11 module for using protected key
+origins.
 %endif
 
 
@@ -50,6 +59,7 @@ persistent protected key origins, from which protected keys can be (re-)derived.
 %prep
 %autosetup %{name}-%{version}
 %global modulesdir %(pkg-config --variable=modulesdir libcrypto)
+%global p11modulesdir %(pkg-config --variable=p11_module_path p11-kit-1)
 
 %build
 %cmake
@@ -77,6 +87,13 @@ install -m644 %_vpath_builddir/hbkzpcprovider.conf \
 %{_mandir}/man5/hbkzpcprovider.conf.5*
 %{_mandir}/man7/hbkzpcprovider.7*
 %config(noreplace) %{_sysconfdir}/pki/tls/openssl.d/hbkzpcprovider.conf
+
+%files pkcs11
+%doc README.md CHANGES.md
+%license LICENSE
+%{p11modulesdir}/zpcpkcs11.so
+%{_mandir}/man5/zpcpkcs11.conf.5*
+%{_mandir}/man7/zpcpkcs11.7*
 %endif
 
 %files tools
