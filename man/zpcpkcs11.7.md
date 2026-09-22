@@ -157,8 +157,6 @@ each valid entry. If initialization fails, `CKR_FUNCTION_FAILED` is returned.
 
 `C_Initialize` requires `CKF_OS_LOCKING_OK` to be set in the flags of the
 `CK_C_INITIALIZE_ARGS` structure when arguments are provided.
-`CKF_LIBRARY_CANT_CREATE_OS_THREADS` is not supported and causes
-`CKR_ARGUMENTS_BAD` to be returned.
 
 # USAGE
 
