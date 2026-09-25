@@ -2024,17 +2024,17 @@ static CK_INTERFACE interfaces[] = {
 	{
 		(CK_UTF8CHAR *)"PKCS 11",
 		&func_list_pkcs11_3_2,
-		CKF_INTERFACE_FORK_SAFE
+		0
 	},
 	{
 		(CK_UTF8CHAR *)"PKCS 11",
 		&func_list_pkcs11_3_0,
-		CKF_INTERFACE_FORK_SAFE
+		0
 	},
 	{
 		(CK_UTF8CHAR *)"PKCS 11",
 		&func_list_pkcs11_2_40,
-		CKF_INTERFACE_FORK_SAFE
+		0
 	},
 };
 
