@@ -39,7 +39,10 @@ The library presents exactly one slot (slot ID `0`) containing one token
 **read-only**: object creation, modification, and deletion are not supported.
 
 All keys exposed by the token are loaded at initialization time from the
-configuration file. See zpcpkcs11.conf(5) for the configuration file format.
+configuration file. The Boolean attributes `CKA_ALWAYS_SENSITIVE`,
+`CKA_NEVER_EXTRACTABLE`, and `CKA_LOCAL` are set to `CK_TRUE` for
+hardware-backed keys and `CK_FALSE` for clear keys. See zpcpkcs11.conf(5)
+for the full configuration file format and a detailed attribute table.
 
 ## Session model
 

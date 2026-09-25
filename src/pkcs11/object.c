@@ -74,8 +74,12 @@ static int object_setup_public_key_default_attrs(struct pkcs11_object *obj)
 	return 1;
 }
 
-static int object_setup_private_key_default_attrs(struct pkcs11_object *obj)
+static int object_setup_private_key_default_attrs(struct pkcs11_object *obj,
+						  bool is_hbk)
 {
+	CK_BBOOL ck_always_sensitive = is_hbk ? CK_TRUE : CK_FALSE;
+	CK_BBOOL ck_never_extractable = is_hbk ? CK_TRUE : CK_FALSE;
+
 	if (!obj)
 		return 0;
 
@@ -84,11 +88,11 @@ static int object_setup_private_key_default_attrs(struct pkcs11_object *obj)
 		return 0;
 	if (!object_add_bool_attr(obj, CKA_SENSITIVE, &ck_true))
 		return 0;
-	if (!object_add_bool_attr(obj, CKA_ALWAYS_SENSITIVE, &ck_true))
+	if (!object_add_bool_attr(obj, CKA_ALWAYS_SENSITIVE, &ck_always_sensitive))
 		return 0;
 	if (!object_add_bool_attr(obj, CKA_EXTRACTABLE, &ck_false))
 		return 0;
-	if (!object_add_bool_attr(obj, CKA_NEVER_EXTRACTABLE, &ck_true))
+	if (!object_add_bool_attr(obj, CKA_NEVER_EXTRACTABLE, &ck_never_extractable))
 		return 0;
 	if (!object_add_bool_attr(obj, CKA_DECRYPT, &ck_false))
 		return 0;
@@ -112,8 +116,10 @@ static int object_setup_private_key_default_attrs(struct pkcs11_object *obj)
 	return 1;
 }
 
-static int object_setup_default_attrs(struct pkcs11_object *obj)
+static int object_setup_default_attrs(struct pkcs11_object *obj, bool is_hbk)
 {
+	CK_BBOOL ck_local = is_hbk ? CK_TRUE : CK_FALSE;
+
 	if (!obj)
 		return 0;
 
@@ -151,7 +157,7 @@ static int object_setup_default_attrs(struct pkcs11_object *obj)
 		return 0;
 	if (!object_add_attr(obj, CKA_END_DATE, NULL, 0))
 		return 0;
-	if (!object_add_bool_attr(obj, CKA_LOCAL, &ck_true))
+	if (!object_add_bool_attr(obj, CKA_LOCAL, &ck_local))
 		return 0;
 	if (!object_add_bool_attr(obj, CKA_DERIVE, &ck_false))
 		return 0;
@@ -160,14 +166,14 @@ static int object_setup_default_attrs(struct pkcs11_object *obj)
 	    !object_setup_public_key_default_attrs(obj))
 		return 0;
 	if (obj->class == CKO_PRIVATE_KEY &&
-	    !object_setup_private_key_default_attrs(obj))
+	    !object_setup_private_key_default_attrs(obj, is_hbk))
 		return 0;
 
 	return 1;
 }
 
 int object_init(struct pkcs11_object **obj, const char *label, CK_ULONG id,
-		CK_OBJECT_CLASS class, CK_KEY_TYPE keytype)
+		CK_OBJECT_CLASS class, CK_KEY_TYPE keytype, bool is_hbk)
 {
 	struct pkcs11_object *o;
 
@@ -187,7 +193,7 @@ int object_init(struct pkcs11_object **obj, const char *label, CK_ULONG id,
 	o->keytype = keytype;
 	o->id = id;
 
-	if (object_setup_default_attrs(o) != 1)
+	if (object_setup_default_attrs(o, is_hbk) != 1)
 		goto err;
 
 	*obj = o;
@@ -327,12 +333,13 @@ int object_add_ec_ed_private_key(const char *label, CK_ULONG id,
 				 size_t ec_params_len,
 				 const unsigned char *spki, size_t spki_len,
 				 size_t prime_len,
-				 EVP_PKEY *pkey)
+				 EVP_PKEY *pkey,
+				 bool is_hbk)
 {
 	struct pkcs11_object *obj = NULL;
 	size_t index;
 
-	if (!object_init(&obj, label, id, CKO_PRIVATE_KEY, keytype))
+	if (!object_init(&obj, label, id, CKO_PRIVATE_KEY, keytype, is_hbk))
 		goto err;
 
 	obj->data.ec_ed.ec_params = memdup(ec_params, ec_params_len);
@@ -378,12 +385,13 @@ int object_add_ec_ed_public_key(const char *label, CK_ULONG id,
 				size_t ec_point_len,
 				const unsigned char *spki, size_t spki_len,
 				size_t prime_len,
-				EVP_PKEY *pkey)
+				EVP_PKEY *pkey,
+				bool is_hbk)
 {
 	struct pkcs11_object *obj = NULL;
 	size_t index;
 
-	if (!object_init(&obj, label, id, CKO_PUBLIC_KEY, keytype))
+	if (!object_init(&obj, label, id, CKO_PUBLIC_KEY, keytype, is_hbk))
 		goto err;
 
 	obj->data.ec_ed.ec_params = memdup(ec_params, ec_params_len);
