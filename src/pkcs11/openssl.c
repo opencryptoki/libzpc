@@ -95,7 +95,7 @@ void openssl_term(void)
 }
 
 static int openssl_process_ec_key(const char *label, EVP_PKEY *pkey,
-				  size_t lineno, bool keypair)
+				  size_t lineno, bool keypair, bool is_hbk)
 {
 	char group[200] = { 0 };
 	const unsigned char *ec_params = NULL;
@@ -160,14 +160,16 @@ static int openssl_process_ec_key(const char *label, EVP_PKEY *pkey,
 	if (keypair &&
 	    !object_add_ec_ed_private_key(label, lineno, CKK_EC,
 					  ec_params, ec_params_len,
-					  spki, spki_len, prime_len, pkey))
+					  spki, spki_len, prime_len, pkey,
+					  is_hbk))
 		goto out;
 
 	if (ec_point &&
 	    !object_add_ec_ed_public_key(label, lineno, CKK_EC,
 					 ec_params, ec_params_len,
 					 ec_point, ec_point_len,
-					 spki, spki_len, prime_len, pkey))
+					 spki, spki_len, prime_len, pkey,
+					 is_hbk))
 		goto out;
 
 	rc = 1;
@@ -180,7 +182,7 @@ out:
 }
 
 static int openssl_process_ed_key(const char *label, EVP_PKEY *pkey,
-				  size_t lineno, bool keypair)
+				  size_t lineno, bool keypair, bool is_hbk)
 {
 	const unsigned char *ec_params = NULL;
 	size_t ec_params_len = 0;
@@ -211,14 +213,16 @@ static int openssl_process_ed_key(const char *label, EVP_PKEY *pkey,
 	if (keypair &&
 	    !object_add_ec_ed_private_key(label, lineno, CKK_EC_EDWARDS,
 					  ec_params, ec_params_len,
-					  spki, spki_len, 0, pkey))
+					  spki, spki_len, 0, pkey,
+					  is_hbk))
 		goto out;
 
 	if (ec_point_len > 0 &&
 	    !object_add_ec_ed_public_key(label, lineno, CKK_EC_EDWARDS,
 					 ec_params, ec_params_len,
 					 ec_point, ec_point_len,
-					 spki, spki_len, 0, pkey))
+					 spki, spki_len, 0, pkey,
+					 is_hbk))
 		goto out;
 
 	rc = 1;
@@ -233,12 +237,16 @@ out:
 static int openssl_process_pkey(const char *label, EVP_PKEY *pkey,
 				size_t lineno, bool keypair)
 {
+	const OSSL_PROVIDER *prov = EVP_PKEY_get0_provider(pkey);
+	const char *prov_name = prov ? OSSL_PROVIDER_get0_name(prov) : NULL;
+	bool is_hbk = (prov_name != NULL && strcmp(prov_name, "hbkzpc") == 0);
+
 	if (EVP_PKEY_is_a(pkey, "EC"))
-		return openssl_process_ec_key(label, pkey, lineno, keypair);
+		return openssl_process_ec_key(label, pkey, lineno, keypair, is_hbk);
 	if (EVP_PKEY_is_a(pkey, "ED25519"))
-		return openssl_process_ed_key(label, pkey, lineno, keypair);
+		return openssl_process_ed_key(label, pkey, lineno, keypair, is_hbk);
 	if (EVP_PKEY_is_a(pkey, "ED448"))
-		return openssl_process_ed_key(label, pkey, lineno, keypair);
+		return openssl_process_ed_key(label, pkey, lineno, keypair, is_hbk);
 
 	fprintf(stderr, "zpcpkcs11: Unsupported key type [label=%s]\n", label);
 	return 0;

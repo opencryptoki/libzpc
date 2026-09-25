@@ -3,6 +3,7 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include <stdbool.h>
 #include <openssl/evp.h>
 #include "pkcs11.h"
 #include "utils.h"
@@ -37,7 +38,7 @@ struct pkcs11_object {
 };
 
 int object_init(struct pkcs11_object **obj, const char *label, CK_ULONG id,
-		CK_OBJECT_CLASS class, CK_KEY_TYPE keytype);
+		CK_OBJECT_CLASS class, CK_KEY_TYPE keytype, bool is_hbk);
 int object_get_size(struct pkcs11_object *obj, CK_ULONG *obj_size);
 CK_RV object_get_attributes(struct pkcs11_object *obj, CK_ATTRIBUTE_PTR pTemplate,
 			   CK_ULONG ulCount);
@@ -52,7 +53,8 @@ int object_add_ec_ed_private_key(const char *label, CK_ULONG id,
 				 size_t ec_params_len,
 				 const unsigned char *spki, size_t spki_len,
 				 size_t prime_len,
-				 EVP_PKEY *pkey);
+				 EVP_PKEY *pkey,
+				 bool is_hbk);
 int object_add_ec_ed_public_key(const char *label, CK_ULONG id,
 				CK_KEY_TYPE keytype,
 				const unsigned char *ec_params,
@@ -61,7 +63,8 @@ int object_add_ec_ed_public_key(const char *label, CK_ULONG id,
 				size_t ec_point_len,
 				const unsigned char *spki, size_t spki_len,
 				size_t prime_len,
-				EVP_PKEY *pkey);
+				EVP_PKEY *pkey,
+				bool is_hbk);
 
 int object_list_find(CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
 		     struct dyn_array *result);

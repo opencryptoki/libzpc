@@ -57,7 +57,12 @@ supported.
 .PP
 All keys exposed by the token are loaded at initialization time from the
 configuration file.
-See zpcpkcs11.conf(5) for the configuration file format.
+The Boolean attributes \f[V]CKA_ALWAYS_SENSITIVE\f[R],
+\f[V]CKA_NEVER_EXTRACTABLE\f[R], and \f[V]CKA_LOCAL\f[R] are set to
+\f[V]CK_TRUE\f[R] for hardware-backed keys and \f[V]CK_FALSE\f[R] for
+clear keys.
+See zpcpkcs11.conf(5) for the full configuration file format and a
+detailed attribute table.
 .SS Session model
 .PP
 The library supports an unlimited number of concurrent read-only

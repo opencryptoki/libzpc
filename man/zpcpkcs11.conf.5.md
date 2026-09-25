@@ -91,6 +91,27 @@ Both objects share the same `CKA_LABEL` (the *label* from the config entry)
 and the same `CKA_ID` (derived from the line number of the entry in the
 configuration file).
 
+## Key-origin-dependent attributes
+
+The values of three Boolean attributes on each key object depend on whether the
+key was loaded from a hardware-backed key (HBK) origin (e.g. an `hbkzpc:` URI)
+or from a clear-key origin (e.g. a plain PEM file):
+
+| Attribute | HBK key | Clear key |
+|---|---|---|
+| `CKA_ALWAYS_SENSITIVE` | `CK_TRUE` | `CK_FALSE` |
+| `CKA_NEVER_EXTRACTABLE` | `CK_TRUE` | `CK_FALSE` |
+| `CKA_LOCAL` | `CK_TRUE` | `CK_FALSE` |
+
+An HBK key is treated as locally generated (i.e. the secret material never
+existed outside the hardware boundary), so all three attributes are `CK_TRUE`.
+A clear key is not considered locally generated and its secret material is
+accessible outside the hardware boundary, so all three attributes are
+`CK_FALSE`.
+
+The attribute `CKA_SENSITIVE` is always `CK_TRUE` and `CKA_EXTRACTABLE` is
+always `CK_FALSE` for private key objects, regardless of key origin.
+
 The token is read-only: `C_CreateObject`, `C_CopyObject`, `C_DestroyObject`,
 and `C_SetAttributeValue` all return `CKR_TOKEN_WRITE_PROTECTED`.
 
