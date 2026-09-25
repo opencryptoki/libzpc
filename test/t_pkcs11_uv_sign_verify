@@ -34,12 +34,14 @@
 #   ZPC_KEY_DIR       directory holding *-hbkzpc.pem and *-pub.pem files (default: .)
 #   ZPC_SEC_DIR       directory holding cleartext *.key files             (default: .)
 #   OPENSSL           openssl binary (default: openssl)
+#   XXD               xxd binary (default: xxd)
 #   P11TOOL           override p11tool binary
 #   PKCS11_TOOL       override pkcs11-tool binary
 #   V                 set to 1 for verbose TAP diagnostics
 
 export OPENSSL_CONF=${OPENSSL_CONF:-"build/openssl.conf"}
 OPENSSL=${OPENSSL:-"openssl"}
+XXD=${XXD:-"xxd"}
 ZPCPKCS11_SO=${ZPCPKCS11_SO:-"${PWD}/build/zpcpkcs11.so"}
 ZPCPKCS11_CONF=${ZPCPKCS11_CONF:-"./zpcpkcs11.conf"}
 ZPC_KEY_DIR=${ZPC_KEY_DIR:-"."}
@@ -254,8 +256,8 @@ raw_to_der_sig() {
 	test "${half}" -eq "${prime_bytes}" || return 1
 
 	# Split raw sig into r and s
-	local r_hex=$(xxd -p -c ${half} -l ${half} -s       0 ${raw_file})
-	local s_hex=$(xxd -p -c ${half} -l ${half} -s ${half} ${raw_file})
+	local r_hex=$("${XXD}" -p -c ${half} -l ${half} -s       0 ${raw_file})
+	local s_hex=$("${XXD}" -p -c ${half} -l ${half} -s ${half} ${raw_file})
 
 	# Generate DER
 	${OPENSSL} \
@@ -417,6 +419,13 @@ uv_sign_verify() {
 	detect_tool || {
 		echo "1..1"
 		echo "ok 1 # SKIP (neither pkcs11-tool nor p11tool found)"
+		return 0
+	}
+
+	# xxd is required for raw-to-DER signature conversion; skip all tests if missing.
+	command -v "${XXD}" > /dev/null 2>&1 || {
+		echo "1..1"
+		echo "ok 1 # SKIP (xxd not found)"
 		return 0
 	}
 
