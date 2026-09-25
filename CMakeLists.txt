@@ -126,7 +126,6 @@ set(ZPC_SOURCES
     src/zpc/zkey/lib/util_libc.c
     src/zpc/zkey/lib/util_panic.c
     src/zpc/zkey/lib/util_path.c
-    src/zpc/zkey/lib/util_prg.c
 )
 
 set(ZPC_LIBS
