@@ -24,7 +24,6 @@
 #include "lib/util_file.h"
 #include "lib/util_libc.h"
 #include "lib/util_panic.h"
-#include "lib/util_prg.h"
 
 /*
  * Read the first line of a file into given buffer
