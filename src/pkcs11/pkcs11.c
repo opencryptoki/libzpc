@@ -892,7 +892,11 @@ CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
 	if (rc != CKR_OK)
 		return rc;
 
-	return signature_sign_update(sess, pPart, ulPartLen);
+	rc = signature_sign_update(sess, pPart, ulPartLen);
+	if (rc != CKR_OK)
+		session_op_cleanup(sess, CKF_SIGN);
+
+	return rc;
 }
 
 CK_RV C_SignFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature,
@@ -1022,7 +1026,11 @@ CK_RV C_VerifyUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
 	if (rc != CKR_OK)
 		return rc;
 
-	return signature_verify_update(sess, pPart, ulPartLen);
+	rc = signature_verify_update(sess, pPart, ulPartLen);
+	if (rc != CKR_OK)
+		session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_VerifyFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature,
@@ -1627,7 +1635,11 @@ CK_RV C_VerifySignatureUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
 	if (rc != CKR_OK)
 		return rc;
 
-	return signature_verify_update(sess, pPart, ulPartLen);
+	rc = signature_verify_update(sess, pPart, ulPartLen);
+	if (rc != CKR_OK)
+		session_op_cleanup(sess, CKF_VERIFY);
+
+	return rc;
 }
 
 CK_RV C_VerifySignatureFinal(CK_SESSION_HANDLE hSession)
