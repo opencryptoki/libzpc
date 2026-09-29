@@ -1,6 +1,10 @@
 Changelog {#changes}
 ===
 
+**Version 2.1.0**
+
+- [FEATURE] PKCS#11 Cryptoki API for hardware-backed key operations
+
 **Version 2.0.1**
 
 - [FIX] Fix compile warnings and errors on i386i/i686
