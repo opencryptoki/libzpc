@@ -52,6 +52,8 @@ P11TOOL=${P11TOOL:-"p11tool"}
 PKCS11_TOOL=${PKCS11_TOOL:-"pkcs11-tool"}
 V=${V:-"0"}
 
+source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
+
 # Algorithm tables – same layout as t_ossl_uv_sign_verify.
 ALGS=( "prime256v1" "secp384r1" "secp521r1" "ED25519"  "ED448"  )
 ZPCS=( "p-256"      "p-384"     "p-521"     "ed25519"  "ed448"  )
@@ -71,35 +73,6 @@ MSG_SIZE=800
 # C_SignFinal and C_VerifyUpdate / C_VerifyFinal (multi-part).  CKM_EDDSA does
 # not support multi-part, so the large-message test covers EC curves only.
 MSG_SIZE_LARGE=2000
-
-tap13() {
-	local rc="$1"
-	local idx="$2"
-	local text="$3"
-	local log="$4"
-
-	case ${rc} in
-	0)
-		echo "ok ${idx} - ${text}"
-		if [ ${V} -eq 1 ]; then
-			echo " ---"
-			echo "${log}"
-			echo " ---"
-		fi
-		;;
-	77)
-		echo "ok ${idx} # SKIP ${text}"
-		;;
-	*)
-		echo "not ok ${idx} - ${text}"
-		echo " ---"
-		echo "${log}"
-		echo " ---"
-		;;
-	esac
-
-	return 0
-}
 
 # detect_tool: prefer pkcs11-tool; fall back to p11tool.
 # Sets TOOL_NAME and returns 0 if either is found, 1 if neither is.

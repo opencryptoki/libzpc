@@ -25,37 +25,10 @@ P11TOOL=${P11TOOL:-"p11tool"}
 PKCS11_TOOL=${PKCS11_TOOL:-"pkcs11-tool"}
 V=${V:-"0"}
 
+source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
+
 ZPCS=( "p-256"  "p-384"  "p-521"  "ed25519" "ed448" )
 ALGS=( "prime256v1" "secp384r1" "secp521r1" "ED25519" "ED448" )
-
-tap13() {
-	local rc="$1"
-	local idx="$2"
-	local text="$3"
-	local log="$4"
-
-	case ${rc} in
-	0)
-		echo "ok ${idx} - ${text}"
-		if [ ${V} -eq 1 ]; then
-			echo " ---"
-			echo "${log}"
-			echo " ---"
-		fi
-		;;
-	77)
-		echo "ok ${idx} # SKIP"
-		;;
-	*)
-		echo "not ok ${idx} - ${text}"
-		echo " ---"
-		echo "${log}"
-		echo " ---"
-		;;
-	esac
-
-	return 0
-}
 
 # Detect which tool is available; set TOOL_CMD and TOOL_NAME.
 detect_tool() {
