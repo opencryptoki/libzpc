@@ -31,6 +31,7 @@
 #   ZPCPKCS11_SO      path to zpcpkcs11.so  (default: build/zpcpkcs11.so)
 #   ZPCPKCS11_CONF    path to key list file  (default: ./zpcpkcs11.conf)
 #   OPENSSL_CONF      openssl.conf for the hbkzpc provider (default: build/openssl.conf)
+#   OPENSSL_MODULES   provider module path (default: module path from OPENSSL_CONF)
 #   ZPC_KEY_DIR       directory holding *-hbkzpc.pem and *-pub.pem files (default: .)
 #   ZPC_SEC_DIR       directory holding cleartext *.key files             (default: .)
 #   OPENSSL           openssl binary (default: openssl)
@@ -40,6 +41,7 @@
 #   V                 set to 1 for verbose TAP diagnostics
 
 export OPENSSL_CONF=${OPENSSL_CONF:-"build/openssl.conf"}
+export OPENSSL_MODULES=${OPENSSL_MODULES:-"$(dirname $(sed -n 's/^module *= *\+\(.*zpcprovider.so\)$/\1/p' ${OPENSSL_CONF}))"}
 OPENSSL=${OPENSSL:-"openssl"}
 XXD=${XXD:-"xxd"}
 ZPCPKCS11_SO=${ZPCPKCS11_SO:-"${PWD}/build/zpcpkcs11.so"}
