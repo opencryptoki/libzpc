@@ -106,8 +106,7 @@ list_keys() {
 
 uv_list() {
 	detect_tool || {
-		echo "1..1"
-		echo "ok 1 # SKIP (neither p11tool nor pkcs11-tool found)"
+		tap13 "77" "1" "list: missing tool (pkcs11-tool or p11tool)" "-"
 		return 0
 	}
 

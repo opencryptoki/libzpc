@@ -392,15 +392,13 @@ eddsa_sign_verify() {
 
 uv_sign_verify() {
 	detect_tool || {
-		echo "1..1"
-		echo "ok 1 # SKIP (neither pkcs11-tool nor p11tool found)"
+		tap13 "77" "1" "sign/verify: missing tool (pkcs11-tool or p11tool)" "-"
 		return 0
 	}
 
 	# xxd is required for raw-to-DER signature conversion; skip all tests if missing.
 	command -v "${XXD}" > /dev/null 2>&1 || {
-		echo "1..1"
-		echo "ok 1 # SKIP (xxd not found)"
+		tap13 "77" "1" "sign/verify: missing tool (xxd)" "-"
 		return 0
 	}
 
