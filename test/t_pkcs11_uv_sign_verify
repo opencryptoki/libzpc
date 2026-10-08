@@ -420,13 +420,13 @@ uv_sign_verify() {
 			rc="$?"
 			[ ${rc} -ne 0 ] && [ ${rc} -ne 77 ] && fail=1
 			tap13 "${rc}" "${tc}" \
-				"PKCS#11 sign/verify (EdDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
+				"PKCS11 sign/verify (EdDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
 
 			# EdDSA multi-part slot – always skipped: CKM_EDDSA has no
 			# C_SignUpdate/C_SignFinal support regardless of tool.
 			tc=$(( tc + 1 ))
 			tap13 77 "${tc}" \
-				"PKCS#11 sign/verify multi-part (EdDSA, ${ALG}) - SKIP (CKM_EDDSA has no multi-part support)" ""
+				"PKCS11 sign/verify multi-part (EdDSA, ${ALG}) - SKIP (CKM_EDDSA has no multi-part support)" ""
 		else
 			# ECDSA: determine prime byte-length from algorithm name.
 			local prime_bytes
@@ -443,7 +443,7 @@ uv_sign_verify() {
 			rc="$?"
 			[ ${rc} -ne 0 ] && [ ${rc} -ne 77 ] && fail=1
 			tap13 "${rc}" "${tc}" \
-				"PKCS#11 sign/verify (ECDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
+				"PKCS11 sign/verify (ECDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
 
 			# Multi-part test (MSG_LARGE > 1024 bytes → C_SignUpdate/Final).
 			# p11tool has no API to drive multi-part operations; skip it.
@@ -454,10 +454,10 @@ uv_sign_verify() {
 				rc="$?"
 				[ ${rc} -ne 0 ] && [ ${rc} -ne 77 ] && fail=1
 				tap13 "${rc}" "${tc}" \
-					"PKCS#11 sign/verify multi-part (ECDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
+					"PKCS11 sign/verify multi-part (ECDSA, ${ALG}) via ${TOOL_NAME}" "${log}"
 			else
 				tap13 77 "${tc}" \
-					"PKCS#11 sign/verify multi-part (ECDSA, ${ALG}) - SKIP (p11tool cannot drive multi-part)" ""
+					"PKCS11 sign/verify multi-part (ECDSA, ${ALG}) - SKIP (p11tool cannot drive multi-part)" ""
 			fi
 		fi
 	done
